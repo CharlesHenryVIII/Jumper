@@ -6,6 +6,7 @@
 #include "stb/stb_image.h"
 
 #include <cstdint>
+#include <vector>
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -17,18 +18,15 @@ using uint16 = uint16_t;
 using uint32 = uint32_t;
 using uint64 = uint64_t;
 
-struct Window
+struct WindowInfo
 {
     int32 left;
     int32 top;
     int32 height = 1280;
     int32 width = 720;
-};
-
-void startup()
-{
-
-}
+    SDL_Window* SDLWindow;
+    SDL_Renderer* renderer;
+} windowInfo = { 200, 200, 1280, 720 };
 
 struct Sprite {
     SDL_Texture* texture;
@@ -67,7 +65,7 @@ Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blen
     int32 pitch;
     SDL_LockTexture(testTexture, NULL, &pixels, &pitch);
 
-    for (uint32 y = 0; y < textureHeight; y++)
+    for (int32 y = 0; y < textureHeight; y++)
     {
         memcpy((uint8*)pixels + (size_t(y) * pitch), image + (size_t(y) * stride), stride);
     }
@@ -77,14 +75,25 @@ Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blen
     return { testTexture, textureWidth, textureHeight, 100, 100 };
 }
 
+void Movement(Player player)
+{
+
+}
+
+void startup()
+{
+
+}
+
 int main(int argc, char* argv[])
 {
 
+    std::vector<SDL_KeyboardEvent> keyBoardEvents;
 
     bool running = true;
     SDL_Event SDLEvent;
 
-    Window windowInfo = { 200, 200, 1280, 720 };
+    //WindowInfo windowInfo = { 200, 200, 1280, 720 };
     SDL_Window* SDLWindow = SDL_CreateWindow("Jumper_beta", windowInfo.left, windowInfo.top, windowInfo.height, windowInfo.width, 0);
     SDL_Renderer* renderer = SDL_CreateRenderer(SDLWindow, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_TARGETTEXTURE);
     
@@ -92,16 +101,34 @@ int main(int argc, char* argv[])
 
     while (running)
     {
+        //Event Queing and handling:
         while (SDL_PollEvent(&SDLEvent))
         {
             switch (SDLEvent.type)
             {
-            case SDL_QUIT:
-                running = false;
-                break;
+                case SDL_QUIT:
+                    running = false;
+                    break;
+                case SDL_KEYDOWN:
+                    keyBoardEvents.push_back(SDLEvent.key); //keyboardEvent
+                    break;
+                case SDL_KEYUP:
+                    //keyBoardEvents.erase(keyBoardEvents.); //SDLEvent.key
+                    break;
             }
-            //case SDL_KEYDOWN:
-            //    switch (SDL_KeyboardEvent.keysym)//SDL_Keycode
+        }
+
+        //Keyboard Control:
+        for (uint16 i = 0; keyBoardEvents.size() > 0; i++)
+        {
+            if (keyBoardEvents[i].keysym.sym == SDLK_w || keyBoardEvents[i].keysym.sym == SDLK_SPACE || keyBoardEvents[i].keysym.sym == SDLK_UP)
+                break; 
+            else if (keyBoardEvents[i].keysym.sym == SDLK_s || keyBoardEvents[i].keysym.sym == SDLK_DOWN)
+                break;
+            else if (keyBoardEvents[i].keysym.sym == SDLK_a || keyBoardEvents[i].keysym.sym == SDLK_LEFT)
+                break;
+            else if (keyBoardEvents[i].keysym.sym == SDLK_d || keyBoardEvents[i].keysym.sym == SDLK_RIGHT)
+                break;
         }
 
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);

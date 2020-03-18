@@ -32,8 +32,6 @@ struct Sprite {
     SDL_Texture* texture;
     int32 width;
     int32 height;
-    int32 x = 100;
-    int32 y = 100;
 };
 
 struct Vector {
@@ -43,10 +41,9 @@ struct Vector {
 
 struct Player {
     Sprite sprite;
-    Vector position;
+    Vector position = {100, 100};
     Vector velocity;
     Vector acceleration;
-
 };
 
 Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blendMode)
@@ -72,7 +69,12 @@ Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blen
 
     stbi_image_free(image);
     SDL_UnlockTexture(testTexture);
-    return { testTexture, textureWidth, textureHeight, 100, 100 };
+
+    Sprite result;
+    result.texture = testTexture;
+    result.height = textureHeight;
+    result.width = textureWidth;
+    return result;
 }
 
 void Movement(Player player)
@@ -87,20 +89,33 @@ void startup()
 
 int main(int argc, char* argv[])
 {
-
     std::vector<SDL_KeyboardEvent> keyBoardEvents;
 
     bool running = true;
     SDL_Event SDLEvent;
 
-    //WindowInfo windowInfo = { 200, 200, 1280, 720 };
     SDL_Window* SDLWindow = SDL_CreateWindow("Jumper_beta", windowInfo.left, windowInfo.top, windowInfo.height, windowInfo.width, 0);
     SDL_Renderer* renderer = SDL_CreateRenderer(SDLWindow, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_TARGETTEXTURE);
-    
+
+    double freq = double(SDL_GetPerformanceFrequency()); //HZ
+
+    double totalTime = SDL_GetPerformanceCounter() / freq; //sec
+    double previousTime = totalTime;
+
     Sprite playerSprite = CreateSprite(renderer, "Player.png", SDL_BLENDMODE_BLEND);
+    
+    float pixelsPerUnit = playerSprite.height / 2.0f; //meter
+
+    Player player;
+    player.sprite = playerSprite;
+    player.position = { 100, 100 }; //bottom left
 
     while (running)
     {
+        totalTime = SDL_GetPerformanceCounter() / freq;
+        float deltaTime = float(totalTime - previousTime);
+        previousTime = totalTime;
+
         //Event Queing and handling:
         while (SDL_PollEvent(&SDLEvent))
         {
@@ -119,10 +134,10 @@ int main(int argc, char* argv[])
         }
 
         //Keyboard Control:
-        for (uint16 i = 0; keyBoardEvents.size() > 0; i++)
+        for (uint16 i = 0; i < keyBoardEvents.size(); i++)
         {
             if (keyBoardEvents[i].keysym.sym == SDLK_w || keyBoardEvents[i].keysym.sym == SDLK_SPACE || keyBoardEvents[i].keysym.sym == SDLK_UP)
-                break; 
+                break;
             else if (keyBoardEvents[i].keysym.sym == SDLK_s || keyBoardEvents[i].keysym.sym == SDLK_DOWN)
                 break;
             else if (keyBoardEvents[i].keysym.sym == SDLK_a || keyBoardEvents[i].keysym.sym == SDLK_LEFT)
@@ -130,11 +145,16 @@ int main(int argc, char* argv[])
             else if (keyBoardEvents[i].keysym.sym == SDLK_d || keyBoardEvents[i].keysym.sym == SDLK_RIGHT)
                 break;
         }
-
+        float gravity = 10*pixelsPerUnit;
+        
+        player.velocity.y += gravity * deltaTime; //v = v0 + at
+        player.position.y += player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
+        
+        SDL_RenderClear(renderer);
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
-        SDL_Rect tempRect = { playerSprite.x, playerSprite.y, playerSprite.width, playerSprite.height };
+        SDL_Rect tempRect = { int(player.position.x - player.sprite.width / 2), int(player.position.y - player.sprite.height), playerSprite.width, playerSprite.height };
         SDL_RenderCopyEx(renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
 
         SDL_RenderPresent(renderer);

@@ -7,6 +7,11 @@
 
 #include <cstdint>
 #include <vector>
+#include <unordered_map>
+
+//impliment square collider
+//look into casey muratori's path walk implimentation for the collider.
+//cave story's 3 to 4 point collider method.
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -22,8 +27,8 @@ struct WindowInfo
 {
     int32 left;
     int32 top;
-    int32 height = 1280;
-    int32 width = 720;
+    int32 width;
+    int32 height;
     SDL_Window* SDLWindow;
     SDL_Renderer* renderer;
 } windowInfo = { 200, 200, 1280, 720 };
@@ -42,8 +47,17 @@ struct Vector {
 struct Player {
     Sprite sprite;
     Vector position = {100, 100};
-    Vector velocity;
+    Vector velocity = {};
     Vector acceleration;
+    int jumpCount = 2;
+};
+
+enum class TileType {
+    grass,
+    stone,
+    dirt,
+    dirtGrass,
+    wood
 };
 
 Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blendMode)
@@ -87,23 +101,36 @@ void startup()
 
 }
 
+void SpriteMapRender(Sprite sprite, TileType tile, Vector position)
+{
+    int32 blockSize = 16;
+    int32 blocksPerRow = 16;
+    int32 x = uint32(tile) % blocksPerRow * blockSize;
+    int32 y = uint32(tile) / blocksPerRow * blockSize;
+
+    SDL_Rect blockRect = { x, y, blockSize, blockSize };
+    SDL_Rect DestRect = {int(position.x), int(position.y), blockSize, blockSize};
+    SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
+}
+
 int main(int argc, char* argv[])
 {
-    std::vector<SDL_KeyboardEvent> keyBoardEvents;
+    std::unordered_map<SDL_Keycode, double> keyBoardEvents;
 
     bool running = true;
     SDL_Event SDLEvent;
 
-    SDL_Window* SDLWindow = SDL_CreateWindow("Jumper_beta", windowInfo.left, windowInfo.top, windowInfo.height, windowInfo.width, 0);
-    SDL_Renderer* renderer = SDL_CreateRenderer(SDLWindow, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_TARGETTEXTURE);
+    windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
+    windowInfo.renderer = SDL_CreateRenderer(windowInfo.SDLWindow, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_TARGETTEXTURE);
 
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
 
     double totalTime = SDL_GetPerformanceCounter() / freq; //sec
     double previousTime = totalTime;
 
-    Sprite playerSprite = CreateSprite(renderer, "Player.png", SDL_BLENDMODE_BLEND);
-    
+    Sprite playerSprite = CreateSprite(windowInfo.renderer, "Player.png", SDL_BLENDMODE_BLEND);
+    Sprite minecraftSprite = CreateSprite(windowInfo.renderer, "MinecraftTileMap.png", SDL_BLENDMODE_BLEND);
+
     float pixelsPerUnit = playerSprite.height / 2.0f; //meter
 
     Player player;
@@ -125,39 +152,75 @@ int main(int argc, char* argv[])
                     running = false;
                     break;
                 case SDL_KEYDOWN:
-                    keyBoardEvents.push_back(SDLEvent.key); //keyboardEvent
+                    if (keyBoardEvents[SDLEvent.key.keysym.sym] == 0)
+                        keyBoardEvents[SDLEvent.key.keysym.sym] = totalTime;
                     break;
                 case SDL_KEYUP:
-                    //keyBoardEvents.erase(keyBoardEvents.); //SDLEvent.key
+                    keyBoardEvents[SDLEvent.key.keysym.sym] = 0;
                     break;
             }
         }
-
+        player.velocity.x = 0;
         //Keyboard Control:
         for (uint16 i = 0; i < keyBoardEvents.size(); i++)
         {
-            if (keyBoardEvents[i].keysym.sym == SDLK_w || keyBoardEvents[i].keysym.sym == SDLK_SPACE || keyBoardEvents[i].keysym.sym == SDLK_UP)
-                break;
-            else if (keyBoardEvents[i].keysym.sym == SDLK_s || keyBoardEvents[i].keysym.sym == SDLK_DOWN)
-                break;
-            else if (keyBoardEvents[i].keysym.sym == SDLK_a || keyBoardEvents[i].keysym.sym == SDLK_LEFT)
-                break;
-            else if (keyBoardEvents[i].keysym.sym == SDLK_d || keyBoardEvents[i].keysym.sym == SDLK_RIGHT)
-                break;
+            if (keyBoardEvents[SDLK_w] == totalTime || keyBoardEvents[SDLK_SPACE] == totalTime || keyBoardEvents[SDLK_UP] == totalTime)
+            {
+                if (player.jumpCount > 0)
+                {
+                    player.velocity.y -= 20 * pixelsPerUnit;
+                    player.jumpCount -= 1;
+                    break;
+                }
+            }
+            //else if (keyBoardEvents[SDLK_s] == totalTime || keyBoardEvents[SDLK_DOWN] == totalTime)
+            //    player.velocity.x=0;
+            else if (keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT])
+                player.velocity.x -= 8 * pixelsPerUnit;
+            else if (keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT])
+                player.velocity.x += 8 * pixelsPerUnit;
         }
-        float gravity = 10*pixelsPerUnit;
-        
-        player.velocity.y += gravity * deltaTime; //v = v0 + at
-        player.position.y += player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
-        
-        SDL_RenderClear(renderer);
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+
+        //update y coordinate based on gravity and bounding box:
+        float gravity = 50*pixelsPerUnit;
+        float futureVelocity = player.velocity.y + gravity * deltaTime;
+        float futurePositionY = player.velocity.y + player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime;
+
+        if (player.position.y < 500 || (futurePositionY < 500 && futureVelocity < 0))
+        {
+            player.velocity.y += gravity * deltaTime; //v = v0 + at
+            player.position.y += player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
+        }
+        else
+        {
+            player.velocity.y = 0;
+            player.position.y = 500;
+            player.jumpCount = 2;
+        }
+
+        //update x coordinate:
+        player.position.x += player.velocity.x * deltaTime;
+
+        if (player.position.x < 0)
+            player.position.x = 0;
+        else if (player.position.x > windowInfo.width)
+            player.position.x = float(windowInfo.width);
+
+        //renderer:
+        SDL_RenderClear(windowInfo.renderer);
+        SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
+
+        SpriteMapRender(minecraftSprite, TileType::grass, { 32, 500 });
+        SpriteMapRender(minecraftSprite, TileType::stone, { 48, 500 });
+        SpriteMapRender(minecraftSprite, TileType::dirt, { 64, 500 });
+        SpriteMapRender(minecraftSprite, TileType::dirtGrass, { 80, 500 });
+        SpriteMapRender(minecraftSprite, TileType::wood, { 96, 500 });
 
         SDL_Rect tempRect = { int(player.position.x - player.sprite.width / 2), int(player.position.y - player.sprite.height), playerSprite.width, playerSprite.height };
-        SDL_RenderCopyEx(renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
 
-        SDL_RenderPresent(renderer);
+        SDL_RenderPresent(windowInfo.renderer);
     }
     
     return 0;

@@ -5,13 +5,16 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
+#include <iostream>
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
 
+
 //impliment square collider
 //look into casey muratori's path walk implimentation for the collider.
 //cave story's 3 to 4 point collider method.
+
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -23,7 +26,9 @@ using uint16 = uint16_t;
 using uint32 = uint32_t;
 using uint64 = uint64_t;
 
+
 int32 blockSize = 32;
+
 
 struct WindowInfo
 {
@@ -35,16 +40,25 @@ struct WindowInfo
     SDL_Renderer* renderer;
 } windowInfo = { 200, 200, 1280, 720 };
 
+
 struct Sprite {
     SDL_Texture* texture;
     int32 width;
     int32 height;
 };
 
+
 struct Vector {
     float x = 0;
     float y = 0;
 };
+
+
+struct VectorInt {
+    int x = 0;
+    int y = 0;
+};
+
 
 struct Player {
     Sprite sprite;
@@ -55,14 +69,21 @@ struct Player {
     int jumpCount = 2;
 };
 
+
 enum class TileType {
+    invalid,
     grass
 };
+
+
+std::unordered_map<uint64, TileType> blocks2;
+
 
 struct Block {
     Vector location;
     TileType tileType;
 };
+
 
 Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blendMode)
 {
@@ -95,26 +116,33 @@ Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blen
     return result;
 }
 
-void Movement(Player player)
-{
 
+uint64 hashingFunction(int32 x, int32 y)
+{
+    return (uint64(y) << 32 | uint64(x));
 }
 
-void startup()
-{
 
+bool CheckForBlock(float fX, float fY)
+{
+    uint32 x = uint32(fX + 0.5f) / blockSize;
+    uint32 y = uint32(fY + 0.5f) / blockSize;
+    
+    return blocks2[hashingFunction(x, y)] != TileType::invalid;
 }
+
 
 void SpriteMapRender(Sprite sprite, TileType tile, Vector position)
 {
     int32 blocksPerRow = 16;
-    int32 x = uint32(tile) % blocksPerRow * blockSize;
-    int32 y = uint32(tile) / blocksPerRow * blockSize;
+    int32 x = (uint32(tile) - 1) % blocksPerRow * blockSize;
+    int32 y = (uint32(tile) - 1) / blocksPerRow * blockSize;
 
     SDL_Rect blockRect = { x, y, blockSize, blockSize };
     SDL_Rect DestRect = {int(position.x), int(position.y), blockSize, blockSize};
     SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
 }
+
 
 int main(int argc, char* argv[])
 {
@@ -129,6 +157,7 @@ int main(int argc, char* argv[])
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
     double totalTime = SDL_GetPerformanceCounter() / freq; //sec
     double previousTime = totalTime;
+
 
     //Sprite Creation
     Sprite playerSprite = CreateSprite(windowInfo.renderer, "Player.png", SDL_BLENDMODE_BLEND);
@@ -150,11 +179,24 @@ int main(int argc, char* argv[])
         { {15, 3}, TileType::grass },
         { {18, 4}, TileType::grass }
     };
+    
+    for (int32 y = 0; y * blockSize < windowInfo.height; y++)
+        for (int32 x = 0; x * blockSize < windowInfo.width; x++)
+        {
+            TileType blockType = TileType::invalid;
+            for (int32 i = 0; i < blocks.size(); i++)
+            {
+                if (x == blocks[i].location.x && y == blocks[i].location.y)
+                    blockType = TileType::grass;
+            }
+            blocks2[hashingFunction(x, y)] = blockType;
+        }
 
     for (uint32 i = 0; i < uint32(windowInfo.width / blockSize); i++)
     {
         blocks.push_back({ {float(i * blockSize), float(windowInfo.height - blockSize) }, TileType::grass });
     }
+
 
     //Start Of Running Program
     while (running)
@@ -236,6 +278,8 @@ int main(int argc, char* argv[])
 
         //NOTES:
         //blocks coordinates are bottom left
+        
+        //COLLISION
 
         //Check player against all blocks
         for (int32 i = 0; i < blocks.size(); i++)
@@ -258,6 +302,17 @@ int main(int argc, char* argv[])
                     break;
         }
 
+        for (int32 i = 0; i < blocks.size(); i++)
+        {
+            //check velocity and then check boundaries
+            if (player.velocity.x > 0)
+                break;
+        }
+
+
+
+
+
 
         //Create Renderer:
         SDL_RenderClear(windowInfo.renderer);
@@ -272,8 +327,18 @@ int main(int argc, char* argv[])
         }
 
         //debug/testing blocks
-        for (int32 i = 0; i < blocks.size(); i++)
-            SpriteMapRender(minecraftSprite, blocks[i].tileType, { float(blockSize * blocks[i].location.x), float(windowInfo.height - blockSize * blocks[i].location.y) });
+        
+        for (int32 y = 0; y * blockSize < windowInfo.height; y++)
+            for (int32 x = 0; x * blockSize < windowInfo.width; x++)
+            {
+                if (blocks2[hashingFunction(x, y)] != TileType::invalid)
+                    SpriteMapRender(minecraftSprite, blocks2[hashingFunction(x, y)], { float(blockSize * x), float(windowInfo.height - blockSize * y) });
+            }
+        
+
+        //for (int32 i = 0; i < blocks2.size(); i++)
+        //    if (blocks2[i] == TileType::grass)
+        //    SpriteMapRender(minecraftSprite, blocks[i].tileType, { float(blockSize * blocks[i].location.x), float(windowInfo.height - blockSize * blocks[i].location.y) });
 
         //std::vector<Vector> blockPlacement = {
         //    {10, 2},

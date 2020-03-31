@@ -66,6 +66,11 @@ struct Player {
     Vector velocity = {};
     Vector acceleration;
     Vector collisionSize;
+    //starting with bottom left and going clockwise
+    std::vector<Vector> rightCollisionBox = { {position.x + 16, position.y - 16 }, {position.x + 16, position.y - 48 }, {position.x + 32, position.y - 48 }, {position.x + 32, position.y - 16 } };//{ {position.x + (sprite.width / 2), position.x}, {}, {}, {}};
+    std::vector<Vector> leftCollisionBox = { {position.x, position.y - 16}, {position.x, position.y - 48}, rightCollisionBox[1], rightCollisionBox[0] };
+    std::vector<Vector> topCollisionBox = { {position.x + 8, position.y - 32}, {position.x + 8, position.y - 64}, {position.x + 24, position.y - 64}, {position.x + 24, position.y - 32} };
+    std::vector<Vector> bottomCollisionBox = { {position.x + 8, position.y}, topCollisionBox[0], topCollisionBox[3], {position.x + 24, position.y} };
     int jumpCount = 2;
 };
 
@@ -123,12 +128,21 @@ uint64 hashingFunction(int32 x, int32 y)
 }
 
 
-bool CheckForBlock(float fX, float fY)
+bool CheckForBlock(Vector input)
 {
-    uint32 x = uint32(fX + 0.5f) / blockSize;
-    uint32 y = uint32(fY + 0.5f) / blockSize;
-    
+    uint32 x = uint32(input.x + 0.5f) / blockSize;
+    uint32 y = uint32(input.y + 0.5f) / blockSize;
+
     return blocks2[hashingFunction(x, y)] != TileType::invalid;
+}
+
+
+Vector GetBlock(Vector input)
+{
+    float x = floor(input.x + 0.5f) / blockSize;
+    float y = floor(input.y + 0.5f) / blockSize;
+
+    return { x, y };
 }
 
 
@@ -282,37 +296,88 @@ int main(int argc, char* argv[])
         //COLLISION
 
         //Check player against all blocks
-        for (int32 i = 0; i < blocks.size(); i++)
         {
-            //checking right side
-            if (player.position.x + (player.sprite.width / 2) > blocks[i].location.x&& player.position.x + (player.sprite.width / 2) < blocks[i].location.x + blockSize)
-                //check top
-                if (player.position.y - player.sprite.height < blocks[i].location.y && player.position.y - player.sprite.height > blocks[i].location.y - blockSize)
-                    break;
+            for (int32 i = 0; i < blocks.size(); i++)
+            {
+                //checking right side
+                if (player.position.x + (player.sprite.width / 2) > blocks[i].location.x&& player.position.x + (player.sprite.width / 2) < blocks[i].location.x + blockSize)
+                    //check top
+                    if (player.position.y - player.sprite.height < blocks[i].location.y && player.position.y - player.sprite.height > blocks[i].location.y - blockSize)
+                        break;
                 //check bottom
-                else if (player.position.y < blocks[i].location.y && player.position.y > blocks[i].location.y - blockSize)
-                    break;
-            //checking left side
-            if (player.position.x - (player.sprite.width / 2) > blocks[i].location.x && player.position.x - (player.sprite.width / 2) < blocks[i].location.x + blockSize)
-                //check top
-                if (player.position.y - player.sprite.height < blocks[i].location.y && player.position.y - player.sprite.height > blocks[i].location.y - blockSize)
-                    break;
+                    else if (player.position.y < blocks[i].location.y && player.position.y > blocks[i].location.y - blockSize)
+                        break;
+                //checking left side
+                if (player.position.x - (player.sprite.width / 2) > blocks[i].location.x&& player.position.x - (player.sprite.width / 2) < blocks[i].location.x + blockSize)
+                    //check top
+                    if (player.position.y - player.sprite.height < blocks[i].location.y && player.position.y - player.sprite.height > blocks[i].location.y - blockSize)
+                        break;
                 //check bottom
-                else if (player.position.y < blocks[i].location.y && player.position.y > blocks[i].location.y - blockSize)
-                    break;
-        }
+                    else if (player.position.y < blocks[i].location.y && player.position.y > blocks[i].location.y - blockSize)
+                        break;
+            }
 
-        for (int32 i = 0; i < blocks.size(); i++)
-        {
-            //check velocity and then check boundaries
-            if (player.velocity.x > 0)
+            for (int32 i = 0; i < blocks.size(); i++)
+            {
+                //check velocity and then check boundaries
+                if (player.velocity.x > 0)
+                    break;
+            }
+
+
+
+            if (CheckForBlock(player.position)) //hit block below
                 break;
+            else if (CheckForBlock({ player.position.x, player.position.y + player.collisionSize.y })) //hit block above
+                break;
+
+            if (CheckForBlock({ player.position.x - (player.collisionSize.x / 2), player.position.y + (player.collisionSize.y / 4) })) //hit bottom left box
+                break;
+
+
+
+
+
+            
+
+            if (player.velocity.x > 0) //moving to the right, check right side first
+            {
+                Vector rightSideBlock = {99999,99999};
+                if (CheckForBlock(player.rightCollisionBox[2]))
+                    rightSideBlock = GetBlock(player.rightCollisionBox[2]);      //TODO: Fix Redundent code from check
+                else if (CheckForBlock(player.rightCollisionBox[3]))
+                    rightSideBlock = GetBlock(player.rightCollisionBox[3]);
+
+                if (rightSideBlock.x != 99999)
+                {
+                    uint32 xDifference = rightSideBlock.x - player.rightCollisionBox[3].x;
+                    for (int32 i = 0; i < 4; i++)
+                    {
+                        player.rightCollisionBox[i].x - xDifference;
+                    }
+                }
+
+                if (player.velocity.y > 0) //moving down, check bottom side first
+                    break;
+                else if (player.velocity.y < 0) //moving up, check top side first
+                    break;
+            }
+            else if (player.velocity.x < 0) //moving to the left, check left side first
+            {
+                break;
+            }
+
+
+
+
+
+
+
+
+
+
         }
-
-
-
-
-
+        
 
         //Create Renderer:
         SDL_RenderClear(windowInfo.renderer);

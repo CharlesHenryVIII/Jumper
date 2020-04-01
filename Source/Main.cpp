@@ -14,7 +14,7 @@
 //impliment square collider
 //look into casey muratori's path walk implimentation for the collider.
 //cave story's 3 to 4 point collider method.
-
+//draw colliders using SD
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -62,15 +62,10 @@ struct VectorInt {
 
 struct Player {
     Sprite sprite;
-    Vector position = {100, 100};
+    Vector position;
     Vector velocity = {};
     Vector acceleration;
     Vector collisionSize;
-    //starting with bottom left and going clockwise
-    std::vector<Vector> rightCollisionBox = { {position.x + 16, position.y - 16 }, {position.x + 16, position.y - 48 }, {position.x + 32, position.y - 48 }, {position.x + 32, position.y - 16 } };//{ {position.x + (sprite.width / 2), position.x}, {}, {}, {}};
-    std::vector<Vector> leftCollisionBox = { {position.x, position.y - 16}, {position.x, position.y - 48}, rightCollisionBox[1], rightCollisionBox[0] };
-    std::vector<Vector> topCollisionBox = { {position.x + 8, position.y - 32}, {position.x + 8, position.y - 64}, {position.x + 24, position.y - 64}, {position.x + 24, position.y - 32} };
-    std::vector<Vector> bottomCollisionBox = { {position.x + 8, position.y}, topCollisionBox[0], topCollisionBox[3], {position.x + 24, position.y} };
     int jumpCount = 2;
 };
 
@@ -81,12 +76,42 @@ enum class TileType {
 };
 
 
-std::unordered_map<uint64, TileType> blocks2;
-
-
 struct Block {
     Vector location;
     TileType tileType;
+
+    Vector PixelPosition()
+    {
+        return { location.x * blockSize, location.y * blockSize };
+    }
+
+};
+
+
+std::unordered_map<uint64, Block> blocks2;
+
+
+struct Rectangle {
+    Vector bottomLeft;
+    Vector topRight;
+    
+    float Width()
+    {
+        return topRight.x - bottomLeft.x;
+    }
+
+    float Height()
+    {
+        return topRight.y - bottomLeft.y;
+    }
+};
+
+
+enum class CollisionDirection {
+    right,
+    left,
+    top,
+    bottom
 };
 
 
@@ -122,7 +147,7 @@ Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blen
 }
 
 
-uint64 hashingFunction(int32 x, int32 y)
+uint64 HashingFunction(int32 x, int32 y)
 {
     return (uint64(y) << 32 | uint64(x));
 }
@@ -133,14 +158,14 @@ bool CheckForBlock(Vector input)
     uint32 x = uint32(input.x + 0.5f) / blockSize;
     uint32 y = uint32(input.y + 0.5f) / blockSize;
 
-    return blocks2[hashingFunction(x, y)] != TileType::invalid;
+    return blocks2[HashingFunction(x, y)].tileType != TileType::invalid;
 }
 
 
 Vector GetBlock(Vector input)
 {
-    float x = floor(input.x + 0.5f) / blockSize;
-    float y = floor(input.y + 0.5f) / blockSize;
+    float x = float(uint32(input.x + 0.5f)) / blockSize;
+    float y = float(uint32(input.y + 0.5f)) / blockSize;
 
     return { x, y };
 }
@@ -153,8 +178,71 @@ void SpriteMapRender(Sprite sprite, TileType tile, Vector position)
     int32 y = (uint32(tile) - 1) / blocksPerRow * blockSize;
 
     SDL_Rect blockRect = { x, y, blockSize, blockSize };
-    SDL_Rect DestRect = {int(position.x), int(position.y), blockSize, blockSize};
+    SDL_Rect DestRect = {int(position.x), int(windowInfo.height - position.y - blockSize), blockSize, blockSize};
     SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
+}
+
+
+void CollisionSystemCall(Player* player, CollisionDirection collisionDir)
+{
+    Vector referenceBlock = { };
+    //float referenceBlockCoordinate = 0;
+
+    Vector playerCollisionPoint1 = {};
+    Vector playerCollisionPoint2 = {};
+    Vector playerCollisionPoint3 = {};
+    Vector playerCollisionPoint4 = {};
+
+    float playerCoordinate = {};
+
+    Rectangle xCollisionBox;
+    xCollisionBox.bottomLeft = { player->position.x, player->position.y + (0.1f * player->sprite.height) };
+    xCollisionBox.topRight = {player->position.x + player->sprite.width, player->position.y + 0.9f * player->sprite.height };
+
+    Rectangle yCollisionBox;
+    yCollisionBox.bottomLeft = { player->position.x + (0.1f * player->sprite.width), player->position.y };
+    yCollisionBox.topRight = { player->position.x + 0.9f * player->sprite.width, player->position.y + player->sprite.height };
+
+    if (collisionDir == CollisionDirection::right)
+    {
+        //playerCollisionPoint1 = player->rightCollisionBox[2];//right side of square
+        //playerCollisionPoint2 = player->rightCollisionBox[3];
+    }
+    else if (collisionDir == CollisionDirection::left)
+    {
+        //playerCollisionPoint1 = player->leftCollisionBox[0];//left side of square
+        //playerCollisionPoint2 = player->leftCollisionBox[1];
+    }
+    else if (collisionDir == CollisionDirection::top)
+    {
+        //playerCollisionPoint1 = player->topCollisionBox[1];//top of square
+        //playerCollisionPoint2 = player->topCollisionBox[2];
+    }
+    else if (collisionDir == CollisionDirection::bottom)
+    {
+        //playerCollisionPoint1 = player->bottomCollisionBox[0];//bottom of square
+        //playerCollisionPoint2 = player->bottomCollisionBox[3];
+    }
+
+    //go over void Char*** = &argv
+    for (auto& block : blocks2)
+    {
+        if (block.second.location.x * blockSize > xCollisionBox.bottomLeft.x && block.second.location.x * blockSize < xCollisionBox.topRight.x)
+        {
+            //float bottom = xCollisionBox.bottomLeft.y - blockSize * 0.5f; 
+            //float top = xCollisionBox.topRight.y + blockSize * 0.5f;
+            //float blockCenter = block.second.location.y * blockSize + blockSize * 0.5f;
+            //if (blockCenter > bottom && blockCenter < top)
+            //{
+            //    player->position.x = block.second.location.x - player->sprite.width;
+            //}
+
+            if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y && block.second.location.y * blockSize < xCollisionBox.topRight.y)
+            {
+                player->position.x = block.second.location.x * blockSize - player->sprite.width;
+            }
+        }
+    }
 }
 
 
@@ -181,7 +269,7 @@ int main(int argc, char* argv[])
     //Player Creation
     Player player;
     player.sprite = playerSprite;
-    player.position = { 100, 100 }; //bottom left
+    player.position = { 3.0f*blockSize, 10.0f * blockSize }; //bottom left
     player.collisionSize = { 32, 64 }; 
 
     
@@ -193,23 +281,11 @@ int main(int argc, char* argv[])
         { {15, 3}, TileType::grass },
         { {18, 4}, TileType::grass }
     };
-    
-    for (int32 y = 0; y * blockSize < windowInfo.height; y++)
-        for (int32 x = 0; x * blockSize < windowInfo.width; x++)
-        {
-            TileType blockType = TileType::invalid;
-            for (int32 i = 0; i < blocks.size(); i++)
-            {
-                if (x == blocks[i].location.x && y == blocks[i].location.y)
-                    blockType = TileType::grass;
-            }
-            blocks2[hashingFunction(x, y)] = blockType;
-        }
+    for (auto& block : blocks)
+        blocks2[HashingFunction(int32(block.location.x), int32(block.location.y))] = block;
 
-    for (uint32 i = 0; i < uint32(windowInfo.width / blockSize); i++)
-    {
-        blocks.push_back({ {float(i * blockSize), float(windowInfo.height - blockSize) }, TileType::grass });
-    }
+    for (int32 x = 0; x * blockSize < windowInfo.width; x++)
+        blocks2[HashingFunction(x, 0)] = { { float(x), 0 }, TileType::grass };
 
 
     //Start Of Running Program
@@ -249,7 +325,7 @@ int main(int argc, char* argv[])
             {
                 if (player.jumpCount > 0)
                 {
-                    player.velocity.y -= 20 * blockSize;
+                    player.velocity.y += 20 * blockSize;
                     player.jumpCount -= 1;
                     break;
                 }
@@ -273,21 +349,20 @@ int main(int argc, char* argv[])
 
 
         //update y coordinate based on gravity and bounding box:
-        float gravity = float(50 * blockSize);
-        float futureVelocity = player.velocity.y + gravity * deltaTime;
-        float futurePositionY = player.velocity.y + player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime;
+        float gravity = float(-50 * blockSize);
 
-        if (player.position.y < (windowInfo.height - blockSize) || (futurePositionY < (windowInfo.height - blockSize) && futureVelocity < 0))
-        {
-            player.velocity.y += gravity * deltaTime; //v = v0 + at
-            player.position.y += player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
-        }
-        else
+        player.velocity.y += gravity * deltaTime; //v = v0 + at
+        player.position.y += player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
+
+        if (player.position.y > windowInfo.height)
+            player.position.y = float(windowInfo.height);
+        else if (player.position.y < blockSize)
         {
             player.velocity.y = 0;
-            player.position.y = float(windowInfo.height - blockSize);
+            player.position.y = float(blockSize);
             player.jumpCount = 2;
         }
+
 
 
         //NOTES:
@@ -296,87 +371,7 @@ int main(int argc, char* argv[])
         //COLLISION
 
         //Check player against all blocks
-        {
-            for (int32 i = 0; i < blocks.size(); i++)
-            {
-                //checking right side
-                if (player.position.x + (player.sprite.width / 2) > blocks[i].location.x&& player.position.x + (player.sprite.width / 2) < blocks[i].location.x + blockSize)
-                    //check top
-                    if (player.position.y - player.sprite.height < blocks[i].location.y && player.position.y - player.sprite.height > blocks[i].location.y - blockSize)
-                        break;
-                //check bottom
-                    else if (player.position.y < blocks[i].location.y && player.position.y > blocks[i].location.y - blockSize)
-                        break;
-                //checking left side
-                if (player.position.x - (player.sprite.width / 2) > blocks[i].location.x&& player.position.x - (player.sprite.width / 2) < blocks[i].location.x + blockSize)
-                    //check top
-                    if (player.position.y - player.sprite.height < blocks[i].location.y && player.position.y - player.sprite.height > blocks[i].location.y - blockSize)
-                        break;
-                //check bottom
-                    else if (player.position.y < blocks[i].location.y && player.position.y > blocks[i].location.y - blockSize)
-                        break;
-            }
-
-            for (int32 i = 0; i < blocks.size(); i++)
-            {
-                //check velocity and then check boundaries
-                if (player.velocity.x > 0)
-                    break;
-            }
-
-
-
-            if (CheckForBlock(player.position)) //hit block below
-                break;
-            else if (CheckForBlock({ player.position.x, player.position.y + player.collisionSize.y })) //hit block above
-                break;
-
-            if (CheckForBlock({ player.position.x - (player.collisionSize.x / 2), player.position.y + (player.collisionSize.y / 4) })) //hit bottom left box
-                break;
-
-
-
-
-
-            
-
-            if (player.velocity.x > 0) //moving to the right, check right side first
-            {
-                Vector rightSideBlock = {99999,99999};
-                if (CheckForBlock(player.rightCollisionBox[2]))
-                    rightSideBlock = GetBlock(player.rightCollisionBox[2]);      //TODO: Fix Redundent code from check
-                else if (CheckForBlock(player.rightCollisionBox[3]))
-                    rightSideBlock = GetBlock(player.rightCollisionBox[3]);
-
-                if (rightSideBlock.x != 99999)
-                {
-                    uint32 xDifference = rightSideBlock.x - player.rightCollisionBox[3].x;
-                    for (int32 i = 0; i < 4; i++)
-                    {
-                        player.rightCollisionBox[i].x - xDifference;
-                    }
-                }
-
-                if (player.velocity.y > 0) //moving down, check bottom side first
-                    break;
-                else if (player.velocity.y < 0) //moving up, check top side first
-                    break;
-            }
-            else if (player.velocity.x < 0) //moving to the left, check left side first
-            {
-                break;
-            }
-
-
-
-
-
-
-
-
-
-
-        }
+        CollisionSystemCall(&player);
         
 
         //Create Renderer:
@@ -385,40 +380,18 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
 
 
-        //Render tiles and character
-        for (uint32 i = 0; i < uint32(windowInfo.width / blockSize); i++)
-        {
-            SpriteMapRender(minecraftSprite, TileType::grass, { float(i * blockSize), float(windowInfo.height - blockSize) });
-        }
 
         //debug/testing blocks
-        
-        for (int32 y = 0; y * blockSize < windowInfo.height; y++)
-            for (int32 x = 0; x * blockSize < windowInfo.width; x++)
-            {
-                if (blocks2[hashingFunction(x, y)] != TileType::invalid)
-                    SpriteMapRender(minecraftSprite, blocks2[hashingFunction(x, y)], { float(blockSize * x), float(windowInfo.height - blockSize * y) });
-            }
-        
-
-        //for (int32 i = 0; i < blocks2.size(); i++)
-        //    if (blocks2[i] == TileType::grass)
-        //    SpriteMapRender(minecraftSprite, blocks[i].tileType, { float(blockSize * blocks[i].location.x), float(windowInfo.height - blockSize * blocks[i].location.y) });
-
-        //std::vector<Vector> blockPlacement = {
-        //    {10, 2},
-        //    {12, 2},
-        //    {12, 3},
-        //    {15, 3},
-        //    {18, 4} 
-        //};
+        for (auto& block : blocks2)
+            SpriteMapRender(minecraftSprite, block.second.tileType, block.second.PixelPosition());
+       
 
         //for (int32 i = 0; i < blockPlacement.size(); i++)
         //{
         //    SpriteMapRender(minecraftSprite, TileType::grass, { float(blockSize * blockPlacement[i].x), float(windowInfo.height - blockSize * blockPlacement[i].y) });
         //}
         
-        SDL_Rect tempRect = { int(player.position.x - player.sprite.width / 2), int(player.position.y - player.sprite.height), playerSprite.width, playerSprite.height };
+        SDL_Rect tempRect = { int(player.position.x - player.sprite.width / 2), windowInfo.height - int(player.position.y) - player.sprite.height, playerSprite.width, playerSprite.height };
         SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
         
 

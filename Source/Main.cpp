@@ -15,6 +15,7 @@
 //look into casey muratori's path walk implimentation for the collider.
 //cave story's 3 to 4 point collider method.
 //draw colliders using SD
+//go over void Char*** = &argv
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -28,7 +29,7 @@ using uint64 = uint64_t;
 
 
 int32 blockSize = 32;
-
+bool debugBool = false;
 
 struct WindowInfo
 {
@@ -183,10 +184,9 @@ void SpriteMapRender(Sprite sprite, TileType tile, Vector position)
 }
 
 
-void CollisionSystemCall(Player* player, CollisionDirection collisionDir)
+void CollisionSystemCall(Player* player)//, CollisionDirection collisionDir)
 {
     Vector referenceBlock = { };
-    //float referenceBlockCoordinate = 0;
 
     Vector playerCollisionPoint1 = {};
     Vector playerCollisionPoint2 = {};
@@ -196,37 +196,37 @@ void CollisionSystemCall(Player* player, CollisionDirection collisionDir)
     float playerCoordinate = {};
 
     Rectangle xCollisionBox;
-    xCollisionBox.bottomLeft = { player->position.x, player->position.y + (0.1f * player->sprite.height) };
-    xCollisionBox.topRight = {player->position.x + player->sprite.width, player->position.y + 0.9f * player->sprite.height };
+    xCollisionBox.bottomLeft = { player->position.x + 0.2f * player->sprite.width, player->position.y + (0.2f * player->sprite.height) };
+    xCollisionBox.topRight = {player->position.x + 0.8f * player->sprite.width, player->position.y + 0.8f * player->sprite.height };
+    float xCollisionBoxWidth = xCollisionBox.Width();
 
     Rectangle yCollisionBox;
-    yCollisionBox.bottomLeft = { player->position.x + (0.1f * player->sprite.width), player->position.y };
-    yCollisionBox.topRight = { player->position.x + 0.9f * player->sprite.width, player->position.y + player->sprite.height };
+    yCollisionBox.bottomLeft = { player->position.x + (0.3f * player->sprite.width), player->position.y };
+    yCollisionBox.topRight = { player->position.x + 0.7f * player->sprite.width, player->position.y + player->sprite.height };
+    
+    if (debugBool) //debug draw
+    {
+        SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(windowInfo.renderer, 0, 255, 0, 128);
+        SDL_Rect xRect = { int(xCollisionBox.bottomLeft.x),
+                            int(windowInfo.height - xCollisionBox.topRight.y),
+                            int(xCollisionBox.topRight.x - xCollisionBox.bottomLeft.x),
+                            int(xCollisionBox.topRight.y - xCollisionBox.bottomLeft.y) };
+        SDL_RenderDrawRect(windowInfo.renderer, &xRect);
+        SDL_RenderFillRect(windowInfo.renderer, &xRect);
 
-    if (collisionDir == CollisionDirection::right)
-    {
-        //playerCollisionPoint1 = player->rightCollisionBox[2];//right side of square
-        //playerCollisionPoint2 = player->rightCollisionBox[3];
-    }
-    else if (collisionDir == CollisionDirection::left)
-    {
-        //playerCollisionPoint1 = player->leftCollisionBox[0];//left side of square
-        //playerCollisionPoint2 = player->leftCollisionBox[1];
-    }
-    else if (collisionDir == CollisionDirection::top)
-    {
-        //playerCollisionPoint1 = player->topCollisionBox[1];//top of square
-        //playerCollisionPoint2 = player->topCollisionBox[2];
-    }
-    else if (collisionDir == CollisionDirection::bottom)
-    {
-        //playerCollisionPoint1 = player->bottomCollisionBox[0];//bottom of square
-        //playerCollisionPoint2 = player->bottomCollisionBox[3];
+        SDL_SetRenderDrawColor(windowInfo.renderer, 255, 0, 0, 128);
+        SDL_Rect yRect = { int(yCollisionBox.bottomLeft.x),
+                            int(windowInfo.height - yCollisionBox.topRight.y),
+                            int(yCollisionBox.topRight.x - yCollisionBox.bottomLeft.x),
+                            int(yCollisionBox.topRight.y - yCollisionBox.bottomLeft.y) };
+        SDL_RenderDrawRect(windowInfo.renderer, &yRect);
+        SDL_RenderFillRect(windowInfo.renderer, &yRect);
     }
 
-    //go over void Char*** = &argv
     for (auto& block : blocks2)
     {
+        //checking the right side of player against the left side of a block
         if (block.second.location.x * blockSize > xCollisionBox.bottomLeft.x && block.second.location.x * blockSize < xCollisionBox.topRight.x)
         {
             //float bottom = xCollisionBox.bottomLeft.y - blockSize * 0.5f; 
@@ -239,7 +239,39 @@ void CollisionSystemCall(Player* player, CollisionDirection collisionDir)
 
             if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y && block.second.location.y * blockSize < xCollisionBox.topRight.y)
             {
-                player->position.x = block.second.location.x * blockSize - player->sprite.width;
+                player->position.x = block.second.location.x * blockSize - 0.8f * player->sprite.width;
+                player->velocity.x = 0;
+            }
+        }
+        //checking the left side of player against the right side of the block
+        if ((block.second.location.x + 1) * blockSize > xCollisionBox.bottomLeft.x && (block.second.location.x + 1) * blockSize < xCollisionBox.topRight.x)
+        {
+            if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y && block.second.location.y * blockSize < xCollisionBox.topRight.y)
+            {
+                player->position.x = (block.second.location.x + 1) * blockSize - 0.2f * player->sprite.width;
+                player->velocity.x = 0;
+            }
+        }
+
+        //checking the top of player against the bottom of the block
+        //checking if the block is within the x bounds of the collisionBox
+        if ((block.second.location.x + 1) * blockSize > yCollisionBox.bottomLeft.x && block.second.location.x * blockSize < yCollisionBox.topRight.x)
+        {
+            if (block.second.location.y * blockSize > yCollisionBox.bottomLeft.y && block.second.location.y * blockSize < yCollisionBox.topRight.y)
+            {
+                player->position.y = block.second.location.y * blockSize - player->sprite.height;
+                player->velocity.y = 0;
+            }
+        }
+        //checking the bottom of player against the top of the block
+        //checking if the block is within the x bounds of the collisionBox
+        if ((block.second.location.x + 1) * blockSize > yCollisionBox.bottomLeft.x && block.second.location.x * blockSize < yCollisionBox.topRight.x)
+        {
+            if ((block.second.location.y + 1) * blockSize > yCollisionBox.bottomLeft.y && (block.second.location.y + 1) * blockSize < yCollisionBox.topRight.y)
+            {
+                player->position.y = (block.second.location.y + 1) * blockSize;
+                player->velocity.y = 0;
+                player->jumpCount = 2;
             }
         }
     }
@@ -252,6 +284,7 @@ int main(int argc, char* argv[])
     std::unordered_map<SDL_Keycode, double> keyBoardEvents;
     bool running = true;
     SDL_Event SDLEvent;
+    debugBool = false;
 
     windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
     windowInfo.renderer = SDL_CreateRenderer(windowInfo.SDLWindow, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_TARGETTEXTURE);
@@ -297,6 +330,8 @@ int main(int argc, char* argv[])
         float deltaTime = float(totalTime - previousTime);
         previousTime = totalTime;
 
+        SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
+        SDL_RenderClear(windowInfo.renderer);
 
         //Event Queing and handling:
         while (SDL_PollEvent(&SDLEvent))
@@ -319,24 +354,24 @@ int main(int argc, char* argv[])
 
         //Keyboard Control:
         player.velocity.x = 0;
-        for (uint16 i = 0; i < keyBoardEvents.size(); i++)
+        if (keyBoardEvents[SDLK_w] == totalTime || keyBoardEvents[SDLK_SPACE] == totalTime || keyBoardEvents[SDLK_UP] == totalTime)
         {
-            if (keyBoardEvents[SDLK_w] == totalTime || keyBoardEvents[SDLK_SPACE] == totalTime || keyBoardEvents[SDLK_UP] == totalTime)
+            if (player.jumpCount > 0)
             {
-                if (player.jumpCount > 0)
-                {
-                    player.velocity.y += 20 * blockSize;
-                    player.jumpCount -= 1;
-                    break;
-                }
+                player.velocity.y += 20 * blockSize;
+                player.jumpCount -= 1;
+                //break;
             }
-            //else if (keyBoardEvents[SDLK_s] == totalTime || keyBoardEvents[SDLK_DOWN] == totalTime)
-            //    player.velocity.x=0;
-            else if (keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT])
-                player.velocity.x -= 2 * blockSize;
-            else if (keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT])
-                player.velocity.x += 2 * blockSize;
         }
+        //else if (keyBoardEvents[SDLK_s] == totalTime || keyBoardEvents[SDLK_DOWN] == totalTime)
+        //    player.velocity.x=0;
+        if (keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT])
+            player.velocity.x -= 10 * blockSize;
+        if (keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT])
+            player.velocity.x += 10 * blockSize;
+
+        if (keyBoardEvents[SDLK_o] == totalTime)
+            debugBool = !debugBool;
 
 
         //update x coordinate:
@@ -344,40 +379,27 @@ int main(int argc, char* argv[])
 
         if (player.position.x < 0)
             player.position.x = 0;
-        else if (player.position.x > windowInfo.width)
-            player.position.x = float(windowInfo.width);
+        else if (player.position.x + player.sprite.width > windowInfo.width)
+            player.position.x = float(windowInfo.width - player.sprite.width);
 
 
         //update y coordinate based on gravity and bounding box:
-        float gravity = float(-50 * blockSize);
+        float gravity = float(-60 * blockSize);
 
         player.velocity.y += gravity * deltaTime; //v = v0 + at
         player.position.y += player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
 
-        if (player.position.y > windowInfo.height)
-            player.position.y = float(windowInfo.height);
-        else if (player.position.y < blockSize)
+        if (player.position.y + player.sprite.height > windowInfo.height)
         {
+            player.position.y = float(windowInfo.height - player.sprite.height);
             player.velocity.y = 0;
-            player.position.y = float(blockSize);
-            player.jumpCount = 2;
         }
-
-
-
-        //NOTES:
-        //blocks coordinates are bottom left
         
-        //COLLISION
-
-        //Check player against all blocks
         CollisionSystemCall(&player);
-        
+
 
         //Create Renderer:
-        SDL_RenderClear(windowInfo.renderer);
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
 
 
 
@@ -385,13 +407,8 @@ int main(int argc, char* argv[])
         for (auto& block : blocks2)
             SpriteMapRender(minecraftSprite, block.second.tileType, block.second.PixelPosition());
        
-
-        //for (int32 i = 0; i < blockPlacement.size(); i++)
-        //{
-        //    SpriteMapRender(minecraftSprite, TileType::grass, { float(blockSize * blockPlacement[i].x), float(windowInfo.height - blockSize * blockPlacement[i].y) });
-        //}
         
-        SDL_Rect tempRect = { int(player.position.x - player.sprite.width / 2), windowInfo.height - int(player.position.y) - player.sprite.height, playerSprite.width, playerSprite.height };
+        SDL_Rect tempRect = { int(player.position.x /*- player.sprite.width / 2*/), windowInfo.height - int(player.position.y) - player.sprite.height, playerSprite.width, playerSprite.height };
         SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
         
 

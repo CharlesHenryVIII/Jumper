@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
+#include <cmath>
 
 
 //impliment square collider
@@ -16,6 +17,8 @@
 //cave story's 3 to 4 point collider method.
 //draw colliders using SD
 //go over void Char*** = &argv
+
+//TODO: fix Drawing Collision Rect 
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -29,7 +32,8 @@ using uint64 = uint64_t;
 
 
 int32 blockSize = 32;
-bool debugBool = false;
+//bool debugBool = false;
+//std::vector<bool> debugList = {};
 
 struct WindowInfo
 {
@@ -47,6 +51,17 @@ struct Sprite {
     int32 width;
     int32 height;
 };
+
+
+enum class DebugOptions
+{
+    none,
+    playerCollision,
+    blockCollision,
+    collisionInterception
+};
+
+std::unordered_map<DebugOptions, bool> debugList;
 
 
 struct Vector {
@@ -107,6 +122,9 @@ struct Rectangle {
     }
 };
 
+
+SDL_Rect collisionXRect = {};
+SDL_Rect collisionYRect = {};
 
 enum class CollisionDirection {
     right,
@@ -184,10 +202,22 @@ void SpriteMapRender(Sprite sprite, TileType tile, Vector position)
 }
 
 
+float ChooseSmallest(float A, float B)
+{
+    if (A < B)
+        return A;
+    else
+        return B;
+}
+
+
 void CollisionSystemCall(Player* player)//, CollisionDirection collisionDir)
 {
-    Vector referenceBlock = { };
+    collisionXRect = {};
+    collisionYRect = {};
 
+    Vector referenceBlock = { };
+    
     Vector playerCollisionPoint1 = {};
     Vector playerCollisionPoint2 = {};
     Vector playerCollisionPoint3 = {};
@@ -204,7 +234,8 @@ void CollisionSystemCall(Player* player)//, CollisionDirection collisionDir)
     yCollisionBox.bottomLeft = { player->position.x + (0.3f * player->sprite.width), player->position.y };
     yCollisionBox.topRight = { player->position.x + 0.7f * player->sprite.width, player->position.y + player->sprite.height };
     
-    if (debugBool) //debug draw
+    
+    if (debugList[DebugOptions::playerCollision]) //debug draw
     {
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawColor(windowInfo.renderer, 0, 255, 0, 128);
@@ -215,7 +246,7 @@ void CollisionSystemCall(Player* player)//, CollisionDirection collisionDir)
         SDL_RenderDrawRect(windowInfo.renderer, &xRect);
         SDL_RenderFillRect(windowInfo.renderer, &xRect);
 
-        SDL_SetRenderDrawColor(windowInfo.renderer, 255, 0, 0, 128);
+        SDL_SetRenderDrawColor(windowInfo.renderer, 0, 255, 0, 128);
         SDL_Rect yRect = { int(yCollisionBox.bottomLeft.x),
                             int(windowInfo.height - yCollisionBox.topRight.y),
                             int(yCollisionBox.topRight.x - yCollisionBox.bottomLeft.x),
@@ -223,6 +254,7 @@ void CollisionSystemCall(Player* player)//, CollisionDirection collisionDir)
         SDL_RenderDrawRect(windowInfo.renderer, &yRect);
         SDL_RenderFillRect(windowInfo.renderer, &yRect);
     }
+
 
     for (auto& block : blocks2)
     {
@@ -241,6 +273,12 @@ void CollisionSystemCall(Player* player)//, CollisionDirection collisionDir)
             {
                 player->position.x = block.second.location.x * blockSize - 0.8f * player->sprite.width;
                 player->velocity.x = 0;
+
+                collisionXRect.x = int(ChooseSmallest(block.second.location.x * blockSize, player->position.x));
+                collisionXRect.y = int(ChooseSmallest(block.second.location.y * blockSize, player->position.y));
+                collisionXRect.w = int(fabs(block.second.location.x * blockSize - player->position.x));
+                collisionXRect.h = int(fabs(block.second.location.y * blockSize - player->position.y));
+                
             }
         }
         //checking the left side of player against the right side of the block
@@ -284,7 +322,6 @@ int main(int argc, char* argv[])
     std::unordered_map<SDL_Keycode, double> keyBoardEvents;
     bool running = true;
     SDL_Event SDLEvent;
-    debugBool = false;
 
     windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
     windowInfo.renderer = SDL_CreateRenderer(windowInfo.SDLWindow, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_TARGETTEXTURE);
@@ -370,8 +407,12 @@ int main(int argc, char* argv[])
         if (keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT])
             player.velocity.x += 10 * blockSize;
 
-        if (keyBoardEvents[SDLK_o] == totalTime)
-            debugBool = !debugBool;
+        if (keyBoardEvents[SDLK_1] == totalTime)
+            debugList[DebugOptions::playerCollision] = !debugList[DebugOptions::playerCollision];
+        if (keyBoardEvents[SDLK_2] == totalTime)
+            debugList[DebugOptions::blockCollision] = !debugList[DebugOptions::blockCollision];
+        if (keyBoardEvents[SDLK_3] == totalTime)
+            debugList[DebugOptions::collisionInterception] = !debugList[DebugOptions::collisionInterception];
 
 
         //update x coordinate:
@@ -405,9 +446,28 @@ int main(int argc, char* argv[])
 
         //debug/testing blocks
         for (auto& block : blocks2)
+        {
             SpriteMapRender(minecraftSprite, block.second.tileType, block.second.PixelPosition());
+
+            if (debugList[DebugOptions::blockCollision])
+            {
+                SDL_SetRenderDrawColor(windowInfo.renderer, 255, 0, 0, 63);
+                SDL_Rect blockRect = {  int(block.second.location.x * blockSize),
+                                        windowInfo.height - int((block.second.location.y + 1) * blockSize),
+                                        blockSize,
+                                        blockSize };
+                SDL_RenderDrawRect(windowInfo.renderer, &blockRect);
+                SDL_RenderFillRect(windowInfo.renderer, &blockRect);
+            }
+        }
        
-        
+        if (debugList[DebugOptions::collisionInterception])
+        {
+            SDL_SetRenderDrawColor(windowInfo.renderer, 255, 0, 0, 255);
+            SDL_RenderDrawRect(windowInfo.renderer, &collisionXRect);
+            SDL_RenderFillRect(windowInfo.renderer, &collisionXRect);
+        }
+
         SDL_Rect tempRect = { int(player.position.x /*- player.sprite.width / 2*/), windowInfo.height - int(player.position.y) - player.sprite.height, playerSprite.width, playerSprite.height };
         SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
         

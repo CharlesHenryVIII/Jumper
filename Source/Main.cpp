@@ -18,9 +18,6 @@
 //draw colliders using SD
 //go over void Char*** = &argv
 
-//TODO: fix Drawing Collision Rect 
-//TODO:  Functionize the debug drawing
-//TODO: Clamp delta time to fix long frame times/moving window
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -36,6 +33,17 @@ using uint64 = uint64_t;
 int32 blockSize = 32;
 //bool debugBool = false;
 //std::vector<bool> debugList = {};
+const SDL_Color Red     = { 255, 0, 0, 255 };
+const SDL_Color Green   = { 0, 255, 0, 255 };
+const SDL_Color Blue    = { 0, 0, 255, 255 };
+
+
+const SDL_Color transRed    = { 255, 0, 0, 127 };
+const SDL_Color transGreen  = { 0, 255, 0, 127 };
+const SDL_Color transBlue   = { 0, 0, 255, 127 };
+
+const SDL_Color lightRed = { 255, 0, 0, 63 };
+
 
 struct WindowInfo
 {
@@ -233,7 +241,16 @@ float ChooseSmallest(float A, float B)
 }
 
 
-void CollisionSystemCall(Player* player)//, CollisionDirection collisionDir)
+void DebugRectRender(SDL_Rect rect, SDL_Color color)
+{
+    SDL_SetRenderDrawColor(windowInfo.renderer, color.r, color.g, color.b, color.a);
+    rect.y = windowInfo.height - rect.y;
+    SDL_RenderDrawRect(windowInfo.renderer, &rect);
+    SDL_RenderFillRect(windowInfo.renderer, &rect);
+}
+
+
+void CollisionSystemCall(Player* player)
 {
     collisionXRect = {};
     collisionYRect = {};
@@ -260,21 +277,19 @@ void CollisionSystemCall(Player* player)//, CollisionDirection collisionDir)
     if (debugList[DebugOptions::playerCollision]) //debug draw
     {
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(windowInfo.renderer, 0, 255, 0, 128);
+        
         SDL_Rect xRect = { int(xCollisionBox.bottomLeft.x),
-                            int(windowInfo.height - xCollisionBox.topRight.y),
+                            int(xCollisionBox.topRight.y),
                             int(xCollisionBox.topRight.x - xCollisionBox.bottomLeft.x),
                             int(xCollisionBox.topRight.y - xCollisionBox.bottomLeft.y) };
-        SDL_RenderDrawRect(windowInfo.renderer, &xRect);
-        SDL_RenderFillRect(windowInfo.renderer, &xRect);
+        DebugRectRender(xRect, transGreen);
 
-        SDL_SetRenderDrawColor(windowInfo.renderer, 0, 255, 0, 128);
         SDL_Rect yRect = { int(yCollisionBox.bottomLeft.x),
-                            int(windowInfo.height - yCollisionBox.topRight.y),
+                            int(yCollisionBox.topRight.y),
                             int(yCollisionBox.topRight.x - yCollisionBox.bottomLeft.x),
                             int(yCollisionBox.topRight.y - yCollisionBox.bottomLeft.y) };
-        SDL_RenderDrawRect(windowInfo.renderer, &yRect);
-        SDL_RenderFillRect(windowInfo.renderer, &yRect);
+        DebugRectRender(yRect, transGreen);
+
     }
 
 
@@ -389,6 +404,11 @@ int main(int argc, char* argv[])
         float deltaTime = float(totalTime - previousTime);
         previousTime = totalTime;
 
+        if (deltaTime > 1 / 30.0f)
+        {
+            deltaTime = 1 / 30.0f;
+        }
+
         SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
         SDL_RenderClear(windowInfo.renderer);
 
@@ -473,23 +493,17 @@ int main(int argc, char* argv[])
 
             if (debugList[DebugOptions::blockCollision])
             {
-                SDL_SetRenderDrawColor(windowInfo.renderer, 255, 0, 0, 63);
-                SDL_Rect blockRect = { int(block.second.location.x * blockSize),
-                                        windowInfo.height - int((block.second.location.y + 1) * blockSize),
+                SDL_Rect blockRect = {  int(block.second.location.x * blockSize),
+                                        int((block.second.location.y + 1) * blockSize),
                                         blockSize,
                                         blockSize };
-                SDL_RenderDrawRect(windowInfo.renderer, &blockRect);
-                SDL_RenderFillRect(windowInfo.renderer, &blockRect);
+                DebugRectRender(blockRect, lightRed);
             }
         }
-
+        
+        //Not In Use
         if (debugList[DebugOptions::collisionInterception])
-        {
-            SDL_SetRenderDrawColor(windowInfo.renderer, 255, 0, 0, 255);
-            collisionXRect.y = windowInfo.height - collisionXRect.y;
-            SDL_RenderDrawRect(windowInfo.renderer, &collisionXRect);
-            SDL_RenderFillRect(windowInfo.renderer, &collisionXRect);
-        }
+            DebugRectRender(collisionXRect, Red);
         
         SDL_Rect tempRect = CameraOffset(player.position, { player.sprite.width, player.sprite.height });
         //{ int(player.position.x), windowInfo.height - int(player.position.y) - player.sprite.height, playerSprite.width, playerSprite.height };

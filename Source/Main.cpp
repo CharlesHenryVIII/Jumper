@@ -19,6 +19,8 @@
 //go over void Char*** = &argv
 
 //TODO: fix Drawing Collision Rect 
+//TODO:  Functionize the debug drawing
+//TODO: Clamp delta time to fix long frame times/moving window
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -84,6 +86,11 @@ struct Player {
     Vector collisionSize;
     int jumpCount = 2;
 };
+
+
+struct Camera {
+    Vector position;
+} camera = {};
 
 
 enum class TileType {
@@ -190,6 +197,21 @@ Vector GetBlock(Vector input)
 }
 
 
+SDL_Rect CameraOffset(Vector location, VectorInt size)
+{
+    float xOffset = camera.position.x - windowInfo.width / 2;
+    float yOffset = camera.position.y - windowInfo.height / 2;
+
+    SDL_Rect result;
+    result.x = int(location.x - xOffset);
+    result.y = windowInfo.height - int(location.y - yOffset) - size.y;
+    result.w = size.x;
+    result.h = size.y;
+
+    return result;
+}
+
+
 void SpriteMapRender(Sprite sprite, TileType tile, Vector position)
 {
     int32 blocksPerRow = 16;
@@ -197,7 +219,7 @@ void SpriteMapRender(Sprite sprite, TileType tile, Vector position)
     int32 y = (uint32(tile) - 1) / blocksPerRow * blockSize;
 
     SDL_Rect blockRect = { x, y, blockSize, blockSize };
-    SDL_Rect DestRect = {int(position.x), int(windowInfo.height - position.y - blockSize), blockSize, blockSize};
+    SDL_Rect DestRect = CameraOffset( position, { blockSize, blockSize });  
     SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
 }
 
@@ -274,10 +296,10 @@ void CollisionSystemCall(Player* player)//, CollisionDirection collisionDir)
                 player->position.x = block.second.location.x * blockSize - 0.8f * player->sprite.width;
                 player->velocity.x = 0;
 
-                collisionXRect.x = int(ChooseSmallest(block.second.location.x * blockSize, player->position.x));
-                collisionXRect.y = int(ChooseSmallest(block.second.location.y * blockSize, player->position.y));
-                collisionXRect.w = int(fabs(block.second.location.x * blockSize - player->position.x));
-                collisionXRect.h = int(fabs(block.second.location.y * blockSize - player->position.y));
+                //collisionXRect.x = int(ChooseSmallest(block.second.location.x * blockSize, player->position.x));
+                //collisionXRect.y = int(ChooseSmallest(block.second.location.y * blockSize, player->position.y));
+                //collisionXRect.w = int(fabs(block.second.location.x * blockSize - player->position.x));
+                //collisionXRect.h = int(fabs(block.second.location.y * blockSize - player->position.y));
                 
             }
         }
@@ -375,16 +397,16 @@ int main(int argc, char* argv[])
         {
             switch (SDLEvent.type)
             {
-                case SDL_QUIT:
-                    running = false;
-                    break;
-                case SDL_KEYDOWN:
-                    if (keyBoardEvents[SDLEvent.key.keysym.sym] == 0)
-                        keyBoardEvents[SDLEvent.key.keysym.sym] = totalTime;
-                    break;
-                case SDL_KEYUP:
-                    keyBoardEvents[SDLEvent.key.keysym.sym] = 0;
-                    break;
+            case SDL_QUIT:
+                running = false;
+                break;
+            case SDL_KEYDOWN:
+                if (keyBoardEvents[SDLEvent.key.keysym.sym] == 0)
+                    keyBoardEvents[SDLEvent.key.keysym.sym] = totalTime;
+                break;
+            case SDL_KEYUP:
+                keyBoardEvents[SDLEvent.key.keysym.sym] = 0;
+                break;
             }
         }
 
@@ -435,14 +457,14 @@ int main(int argc, char* argv[])
             player.position.y = float(windowInfo.height - player.sprite.height);
             player.velocity.y = 0;
         }
-        
+
         CollisionSystemCall(&player);
 
 
         //Create Renderer:
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
 
-
+        camera.position = player.position;
 
         //debug/testing blocks
         for (auto& block : blocks2)
@@ -452,7 +474,7 @@ int main(int argc, char* argv[])
             if (debugList[DebugOptions::blockCollision])
             {
                 SDL_SetRenderDrawColor(windowInfo.renderer, 255, 0, 0, 63);
-                SDL_Rect blockRect = {  int(block.second.location.x * blockSize),
+                SDL_Rect blockRect = { int(block.second.location.x * blockSize),
                                         windowInfo.height - int((block.second.location.y + 1) * blockSize),
                                         blockSize,
                                         blockSize };
@@ -460,15 +482,17 @@ int main(int argc, char* argv[])
                 SDL_RenderFillRect(windowInfo.renderer, &blockRect);
             }
         }
-       
+
         if (debugList[DebugOptions::collisionInterception])
         {
             SDL_SetRenderDrawColor(windowInfo.renderer, 255, 0, 0, 255);
+            collisionXRect.y = windowInfo.height - collisionXRect.y;
             SDL_RenderDrawRect(windowInfo.renderer, &collisionXRect);
             SDL_RenderFillRect(windowInfo.renderer, &collisionXRect);
         }
-
-        SDL_Rect tempRect = { int(player.position.x /*- player.sprite.width / 2*/), windowInfo.height - int(player.position.y) - player.sprite.height, playerSprite.width, playerSprite.height };
+        
+        SDL_Rect tempRect = CameraOffset(player.position, { player.sprite.width, player.sprite.height });
+        //{ int(player.position.x), windowInfo.height - int(player.position.y) - player.sprite.height, playerSprite.width, playerSprite.height };
         SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
         
 

@@ -12,11 +12,9 @@
 #include <cmath>
 
 
-//impliment square collider
-//look into casey muratori's path walk implimentation for the collider.
-//cave story's 3 to 4 point collider method.
 //draw colliders using SD
 //go over void Char*** = &argv
+//what does .end() do?
 
 
 using int8 = int8_t;
@@ -31,8 +29,8 @@ using uint64 = uint64_t;
 
 
 int32 blockSize = 32;
-//bool debugBool = false;
-//std::vector<bool> debugList = {};
+
+
 const SDL_Color Red     = { 255, 0, 0, 255 };
 const SDL_Color Green   = { 0, 255, 0, 255 };
 const SDL_Color Blue    = { 0, 0, 255, 255 };
@@ -43,6 +41,8 @@ const SDL_Color transGreen  = { 0, 255, 0, 127 };
 const SDL_Color transBlue   = { 0, 0, 255, 127 };
 
 const SDL_Color lightRed = { 255, 0, 0, 63 };
+const SDL_Color lightGreen = { 0, 255, 0, 63 };
+const SDL_Color lightBlue = { 0, 0, 255, 63 };
 
 
 struct WindowInfo
@@ -103,7 +103,10 @@ struct Camera {
 
 enum class TileType {
     invalid,
-    grass
+    dirt,
+    grass,
+    grassCorner,
+    grassEdge
 };
 
 
@@ -135,6 +138,24 @@ struct Rectangle {
     {
         return topRight.y - bottomLeft.y;
     }
+};
+
+
+struct MouseButtonEvent {
+    Uint32 type;        /**< ::SDL_MOUSEBUTTONDOWN or ::SDL_MOUSEBUTTONUP */
+    uint32 padding1;
+    double timestamp;   /**< In milliseconds, populated using SDL_GetTicks() */
+    //Uint32 windowID;    /**< The window with mouse focus, if any */
+    //Uint32 which;       /**< The mouse instance id, or SDL_TOUCH_MOUSEID */
+    Uint8 button;       /**< The mouse button index */
+    Uint8 state;        /**< ::SDL_PRESSED or ::SDL_RELEASED */
+    //Uint8 clicks;       /**< 1 for single-click, 2 for double-click, etc. */
+    Uint16 padding2;
+    Uint32 padding3;
+    Vector location;
+    
+    //float x;           /**< X coordinate, relative to window */
+    //float y;           /**< Y coordinate, relative to window */
 };
 
 
@@ -187,21 +208,59 @@ uint64 HashingFunction(int32 x, int32 y)
 }
 
 
-bool CheckForBlock(Vector input)
+bool CheckForBlockf(Vector input)//Pixel Coordinate Space
 {
     uint32 x = uint32(input.x + 0.5f) / blockSize;
     uint32 y = uint32(input.y + 0.5f) / blockSize;
 
-    return blocks2[HashingFunction(x, y)].tileType != TileType::invalid;
+    if (blocks2.find(HashingFunction(x, y)) != blocks2.end())
+        return blocks2[HashingFunction(x, y)].tileType != TileType::invalid;
+    else
+        return false;
 }
 
 
-Vector GetBlock(Vector input)
+bool CheckForBlocki(Vector input)//Block Coordinate Space
 {
-    float x = float(uint32(input.x + 0.5f)) / blockSize;
-    float y = float(uint32(input.y + 0.5f)) / blockSize;
+    uint32 x = uint32(input.x + 0.5f);
+    uint32 y = uint32(input.y + 0.5f);
 
-    return { x, y };
+    if (blocks2.find(HashingFunction(x, y)) != blocks2.end())
+        return blocks2[HashingFunction(x, y)].tileType != TileType::invalid;
+    else
+        return false; //blocks2.find(HashingFunction(x, y)) != blocks2.end();//.tileType != TileType::invalid;
+}
+
+
+//bool SlowBlockCheck(Vector input)
+//{
+//    uint32 x = uint32(input.x + 0.5f);
+//    uint32 y = uint32(input.y + 0.5f);
+//    for (auto& block : blocks2)
+//    {
+//        if (block.second.location == input)
+//    }
+//    
+//}
+
+
+//Vector GetBlock(Vector input) //Pixel Coordinate Space
+//{
+//    float x = float(uint32(input.x + 0.5f)) / blockSize;
+//    float y = float(uint32(input.y + 0.5f)) / blockSize;
+//
+//    return { x, y };
+//}
+
+
+Block GetBlock(Vector input) //Block Coordinate Space
+{
+    uint32 x = uint32(input.x + 0.5f);
+    uint32 y = uint32(input.y + 0.5f);
+    if (CheckForBlocki(input))
+        return blocks2[HashingFunction(x, y)];
+    else
+        return {};
 }
 
 
@@ -220,9 +279,17 @@ SDL_Rect CameraOffset(Vector location, VectorInt size)
 }
 
 
-void SpriteMapRender(Sprite sprite, TileType tile, Vector position)
+//difference between the player and the center of the screen
+Vector CameraToPixelCoord(Vector input)
 {
-    int32 blocksPerRow = 16;
+    float xOffset = camera.position.x - windowInfo.width / 2;
+    float yOffset = camera.position.y - windowInfo.height / 2;
+    return { input.x + xOffset, windowInfo.height - input.y + yOffset};
+}
+
+
+void SpriteMapRender(Sprite sprite, TileType tile, Vector position, int32 blocksPerRow)
+{
     int32 x = (uint32(tile) - 1) % blocksPerRow * blockSize;
     int32 y = (uint32(tile) - 1) / blocksPerRow * blockSize;
 
@@ -244,9 +311,9 @@ float ChooseSmallest(float A, float B)
 void DebugRectRender(SDL_Rect rect, SDL_Color color)
 {
     SDL_SetRenderDrawColor(windowInfo.renderer, color.r, color.g, color.b, color.a);
-    rect.y = windowInfo.height - rect.y;
-    SDL_RenderDrawRect(windowInfo.renderer, &rect);
-    SDL_RenderFillRect(windowInfo.renderer, &rect);
+    SDL_Rect rect2 = CameraOffset({ float(rect.x), float(rect.y) }, { rect.w, rect.h });
+    SDL_RenderDrawRect(windowInfo.renderer, &rect2);
+    SDL_RenderFillRect(windowInfo.renderer, &rect2);
 }
 
 
@@ -279,13 +346,13 @@ void CollisionSystemCall(Player* player)
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
         
         SDL_Rect xRect = { int(xCollisionBox.bottomLeft.x),
-                            int(xCollisionBox.topRight.y),
+                            int(xCollisionBox.bottomLeft.y),
                             int(xCollisionBox.topRight.x - xCollisionBox.bottomLeft.x),
                             int(xCollisionBox.topRight.y - xCollisionBox.bottomLeft.y) };
         DebugRectRender(xRect, transGreen);
 
         SDL_Rect yRect = { int(yCollisionBox.bottomLeft.x),
-                            int(yCollisionBox.topRight.y),
+                            int(yCollisionBox.bottomLeft.y),
                             int(yCollisionBox.topRight.x - yCollisionBox.bottomLeft.x),
                             int(yCollisionBox.topRight.y - yCollisionBox.bottomLeft.y) };
         DebugRectRender(yRect, transGreen);
@@ -295,58 +362,62 @@ void CollisionSystemCall(Player* player)
 
     for (auto& block : blocks2)
     {
-        //checking the right side of player against the left side of a block
-        if (block.second.location.x * blockSize > xCollisionBox.bottomLeft.x && block.second.location.x * blockSize < xCollisionBox.topRight.x)
+        if (block.second.tileType != TileType::invalid)
         {
-            //float bottom = xCollisionBox.bottomLeft.y - blockSize * 0.5f; 
-            //float top = xCollisionBox.topRight.y + blockSize * 0.5f;
-            //float blockCenter = block.second.location.y * blockSize + blockSize * 0.5f;
-            //if (blockCenter > bottom && blockCenter < top)
-            //{
-            //    player->position.x = block.second.location.x - player->sprite.width;
-            //}
+            //checking the right side of player against the left side of a block
+            if (block.second.location.x * blockSize > xCollisionBox.bottomLeft.x&& block.second.location.x* blockSize < xCollisionBox.topRight.x)
+            {
+                //float bottom = xCollisionBox.bottomLeft.y - blockSize * 0.5f; 
+                //float top = xCollisionBox.topRight.y + blockSize * 0.5f;
+                //float blockCenter = block.second.location.y * blockSize + blockSize * 0.5f;
+                //if (blockCenter > bottom && blockCenter < top)
+                //{
+                //    player->position.x = block.second.location.x - player->sprite.width;
+                //}
 
-            if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y && block.second.location.y * blockSize < xCollisionBox.topRight.y)
-            {
-                player->position.x = block.second.location.x * blockSize - 0.8f * player->sprite.width;
-                player->velocity.x = 0;
+                if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y&& block.second.location.y* blockSize < xCollisionBox.topRight.y)
+                {
+                    player->position.x = block.second.location.x * blockSize - 0.8f * player->sprite.width;
+                    player->velocity.x = 0;
 
-                //collisionXRect.x = int(ChooseSmallest(block.second.location.x * blockSize, player->position.x));
-                //collisionXRect.y = int(ChooseSmallest(block.second.location.y * blockSize, player->position.y));
-                //collisionXRect.w = int(fabs(block.second.location.x * blockSize - player->position.x));
-                //collisionXRect.h = int(fabs(block.second.location.y * blockSize - player->position.y));
-                
-            }
-        }
-        //checking the left side of player against the right side of the block
-        if ((block.second.location.x + 1) * blockSize > xCollisionBox.bottomLeft.x && (block.second.location.x + 1) * blockSize < xCollisionBox.topRight.x)
-        {
-            if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y && block.second.location.y * blockSize < xCollisionBox.topRight.y)
-            {
-                player->position.x = (block.second.location.x + 1) * blockSize - 0.2f * player->sprite.width;
-                player->velocity.x = 0;
-            }
-        }
+                    //collisionXRect.x = int(ChooseSmallest(block.second.location.x * blockSize, player->position.x));
+                    //collisionXRect.y = int(ChooseSmallest(block.second.location.y * blockSize, player->position.y));
+                    //collisionXRect.w = int(fabs(block.second.location.x * blockSize - player->position.x));
+                    //collisionXRect.h = int(fabs(block.second.location.y * blockSize - player->position.y));
 
-        //checking the top of player against the bottom of the block
-        //checking if the block is within the x bounds of the collisionBox
-        if ((block.second.location.x + 1) * blockSize > yCollisionBox.bottomLeft.x && block.second.location.x * blockSize < yCollisionBox.topRight.x)
-        {
-            if (block.second.location.y * blockSize > yCollisionBox.bottomLeft.y && block.second.location.y * blockSize < yCollisionBox.topRight.y)
-            {
-                player->position.y = block.second.location.y * blockSize - player->sprite.height;
-                player->velocity.y = 0;
+                }
             }
-        }
-        //checking the bottom of player against the top of the block
-        //checking if the block is within the x bounds of the collisionBox
-        if ((block.second.location.x + 1) * blockSize > yCollisionBox.bottomLeft.x && block.second.location.x * blockSize < yCollisionBox.topRight.x)
-        {
-            if ((block.second.location.y + 1) * blockSize > yCollisionBox.bottomLeft.y && (block.second.location.y + 1) * blockSize < yCollisionBox.topRight.y)
+            //checking the left side of player against the right side of the block
+            if ((block.second.location.x + 1) * blockSize > xCollisionBox.bottomLeft.x && (block.second.location.x + 1)* blockSize < xCollisionBox.topRight.x)
             {
-                player->position.y = (block.second.location.y + 1) * blockSize;
-                player->velocity.y = 0;
-                player->jumpCount = 2;
+                if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y&& block.second.location.y* blockSize < xCollisionBox.topRight.y)
+                {
+                    player->position.x = (block.second.location.x + 1) * blockSize - 0.2f * player->sprite.width;
+                    player->velocity.x = 0;
+                }
+            }
+
+            //checking the top of player against the bottom of the block
+            //checking if the block is within the x bounds of the collisionBox
+            if ((block.second.location.x + 1) * blockSize > yCollisionBox.bottomLeft.x&& block.second.location.x* blockSize < yCollisionBox.topRight.x)
+            {
+                if (block.second.location.y * blockSize > yCollisionBox.bottomLeft.y&& block.second.location.y* blockSize < yCollisionBox.topRight.y)
+                {
+                    player->position.y = block.second.location.y * blockSize - player->sprite.height;
+                    if (player->velocity.y > 0)
+                        player->velocity.y = 0;
+                }
+            }
+            //checking the bottom of player against the top of the block
+            //checking if the block is within the x bounds of the collisionBox
+            if ((block.second.location.x + 1) * blockSize > yCollisionBox.bottomLeft.x&& block.second.location.x* blockSize < yCollisionBox.topRight.x)
+            {
+                if ((block.second.location.y + 1) * blockSize > yCollisionBox.bottomLeft.y && (block.second.location.y + 1)* blockSize < yCollisionBox.topRight.y)
+                {
+                    player->position.y = (block.second.location.y + 1) * blockSize;
+                    player->velocity.y = 0;
+                    player->jumpCount = 2;
+                }
             }
         }
     }
@@ -357,11 +428,13 @@ int main(int argc, char* argv[])
 {
     //Window and Program Setups:
     std::unordered_map<SDL_Keycode, double> keyBoardEvents;
+    //std::unordered_map<SDL_MouseButtonEvent, double> mouseEvents;
+    MouseButtonEvent mouseButtonEvent = {};
     bool running = true;
     SDL_Event SDLEvent;
 
     windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
-    windowInfo.renderer = SDL_CreateRenderer(windowInfo.SDLWindow, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_TARGETTEXTURE);
+    windowInfo.renderer = SDL_CreateRenderer(windowInfo.SDLWindow, -1, SDL_RENDERER_ACCELERATED/*| SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE*/);
 
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
     double totalTime = SDL_GetPerformanceCounter() / freq; //sec
@@ -371,7 +444,7 @@ int main(int argc, char* argv[])
     //Sprite Creation
     Sprite playerSprite = CreateSprite(windowInfo.renderer, "Player.png", SDL_BLENDMODE_BLEND);
     Sprite minecraftSprite = CreateSprite(windowInfo.renderer, "TileMap.png", SDL_BLENDMODE_BLEND);
-
+    Sprite spriteMap = CreateSprite(windowInfo.renderer, "SpriteMap.png", SDL_BLENDMODE_BLEND);
 
     //Player Creation
     Player player;
@@ -383,11 +456,19 @@ int main(int argc, char* argv[])
     //block creation
     std::vector<Block> blocks = {
         { {10, 2}, TileType::grass },
+        { {10, 1}, TileType::grass },
         { {12, 2}, TileType::grass },
         { {12, 3}, TileType::grass },
         { {15, 3}, TileType::grass },
-        { {18, 4}, TileType::grass }
+        { {17, 4}, TileType::grass },
+        { {18, 4}, TileType::grass },
+        { {12, 10}, TileType::grass },
+        { {22, 16}, TileType::grass }
     };
+
+    for (uint64 i = 0; i < 50; i++)
+        blocks.push_back({ {0, float(i)}, TileType::grass });
+
     for (auto& block : blocks)
         blocks2[HashingFunction(int32(block.location.x), int32(block.location.y))] = block;
 
@@ -412,6 +493,7 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
         SDL_RenderClear(windowInfo.renderer);
 
+
         //Event Queing and handling:
         while (SDL_PollEvent(&SDLEvent))
         {
@@ -420,12 +502,35 @@ int main(int argc, char* argv[])
             case SDL_QUIT:
                 running = false;
                 break;
+
             case SDL_KEYDOWN:
                 if (keyBoardEvents[SDLEvent.key.keysym.sym] == 0)
                     keyBoardEvents[SDLEvent.key.keysym.sym] = totalTime;
                 break;
             case SDL_KEYUP:
                 keyBoardEvents[SDLEvent.key.keysym.sym] = 0;
+                break;
+
+            case SDL_MOUSEBUTTONDOWN:
+                mouseButtonEvent.type = SDLEvent.button.type;
+                if (mouseButtonEvent.timestamp == 0)
+                    mouseButtonEvent.timestamp = totalTime;//SDLEvent.button.timestamp;
+                mouseButtonEvent.button = SDLEvent.button.button;
+                mouseButtonEvent.state = SDLEvent.button.state;
+                mouseButtonEvent.location.x = float(SDLEvent.button.x);
+                mouseButtonEvent.location.y = float(SDLEvent.button.y);
+                //if (mouseEvents[SDLEvent.button.type] == 0)
+                //    mouseEvents[SDLEvent.button.type] = totalTime;
+                break;
+            case SDL_MOUSEBUTTONUP:
+                mouseButtonEvent.type = SDLEvent.button.type;
+                mouseButtonEvent.timestamp = 0;//SDLEvent.button.timestamp;
+                mouseButtonEvent.button = SDLEvent.button.button;
+                mouseButtonEvent.state = SDLEvent.button.state;
+                mouseButtonEvent.location.x = float(SDLEvent.button.x);
+                mouseButtonEvent.location.y = float(SDLEvent.button.y);
+                //= SDLEvent.button;
+            //mouseEvents[SDLEvent.button.type] = 0;
                 break;
             }
         }
@@ -437,7 +542,7 @@ int main(int argc, char* argv[])
         {
             if (player.jumpCount > 0)
             {
-                player.velocity.y += 20 * blockSize;
+                player.velocity.y = float(20 * blockSize);
                 player.jumpCount -= 1;
                 //break;
             }
@@ -457,13 +562,35 @@ int main(int argc, char* argv[])
             debugList[DebugOptions::collisionInterception] = !debugList[DebugOptions::collisionInterception];
 
 
+        //Mouse Control:
+        Vector clickLocation = CameraToPixelCoord(mouseButtonEvent.location);
+        Vector clickLocationTranslated = { float(int32(clickLocation.x + 0.5f) / blockSize), float(int32(clickLocation.y + 0.5f) / blockSize) };
+        if (mouseButtonEvent.timestamp == totalTime)
+        {
+            if (CheckForBlockf(clickLocation))
+            {
+                if(GetBlock(clickLocationTranslated).tileType == TileType::invalid)
+                    blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)].tileType = TileType::grass;
+                else
+                    blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)].tileType = TileType::invalid;
+            }
+            else
+                blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)] = { clickLocationTranslated, TileType::grass };
+        }
+
+        SDL_Rect clickRect = { int(clickLocation.x - 5), int(clickLocation.y - 5), 10, 10 };
+        DebugRectRender(clickRect, Green);
+
+
+
+
         //update x coordinate:
         player.position.x += player.velocity.x * deltaTime;
 
-        if (player.position.x < 0)
-            player.position.x = 0;
-        else if (player.position.x + player.sprite.width > windowInfo.width)
-            player.position.x = float(windowInfo.width - player.sprite.width);
+        //if (player.position.x < 0)
+        //    player.position.x = 0;
+        //else if (player.position.x + player.sprite.width > windowInfo.width)
+        //    player.position.x = float(windowInfo.width - player.sprite.width);
 
 
         //update y coordinate based on gravity and bounding box:
@@ -472,11 +599,11 @@ int main(int argc, char* argv[])
         player.velocity.y += gravity * deltaTime; //v = v0 + at
         player.position.y += player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
 
-        if (player.position.y + player.sprite.height > windowInfo.height)
-        {
-            player.position.y = float(windowInfo.height - player.sprite.height);
-            player.velocity.y = 0;
-        }
+        //if (player.position.y + player.sprite.height > windowInfo.height)
+        //{
+        //    player.position.y = float(windowInfo.height - player.sprite.height);
+        //    player.velocity.y = 0;
+        //}
 
         CollisionSystemCall(&player);
 
@@ -486,24 +613,40 @@ int main(int argc, char* argv[])
 
         camera.position = player.position;
 
-        //debug/testing blocks
+       //debug/testing blocks
         for (auto& block : blocks2)
         {
-            SpriteMapRender(minecraftSprite, block.second.tileType, block.second.PixelPosition());
-
-            if (debugList[DebugOptions::blockCollision])
+            if (block.second.tileType != TileType::invalid)
             {
-                SDL_Rect blockRect = {  int(block.second.location.x * blockSize),
-                                        int((block.second.location.y + 1) * blockSize),
-                                        blockSize,
-                                        blockSize };
-                DebugRectRender(blockRect, lightRed);
+                //SpriteMapRender(minecraftSprite, block.second.tileType, block.second.PixelPosition(), 16);
+                if (!CheckForBlocki({ block.second.location.x, block.second.location.y + 1 }) && CheckForBlocki({ block.second.location.x + 1, block.second.location.y }) && CheckForBlocki({ block.second.location.x - 1, block.second.location.y }))
+                {
+                    if (GetBlock({ block.second.location.x + 1, block.second.location.y }).tileType != TileType::dirt && GetBlock({ block.second.location.x - 1, block.second.location.y }).tileType != TileType::dirt)
+                        block.second.tileType = TileType::grass;
+                }
+                else if (CheckForBlocki({ block.second.location.x, block.second.location.y + 1 }))
+                    block.second.tileType = TileType::dirt;
+                else if (GetBlock({ block.second.location.x + 1, block.second.location.y }).tileType == TileType::dirt)
+                    block.second.tileType = TileType::grassEdge;
+                else if (GetBlock({ block.second.location.x + 1, block.second.location.y }).tileType == TileType::grass && !CheckForBlocki({ block.second.location.x - 1, block.second.location.y }))
+                    block.second.tileType = TileType::grassCorner;
+
+                SpriteMapRender(spriteMap, block.second.tileType, block.second.PixelPosition(), 2);
+
+                if (debugList[DebugOptions::blockCollision] && block.second.tileType != TileType::invalid)
+                {
+                    SDL_Rect blockRect = { int(block.second.location.x * blockSize),
+                                            int((block.second.location.y) * blockSize),
+                                            blockSize,
+                                            blockSize };
+                    DebugRectRender(blockRect, lightRed);
+                }
             }
         }
         
-        //Not In Use
-        if (debugList[DebugOptions::collisionInterception])
-            DebugRectRender(collisionXRect, Red);
+        ////Not In Use // IGNORE
+        //if (debugList[DebugOptions::collisionInterception])
+        //    DebugRectRender(collisionXRect, Red);
         
         SDL_Rect tempRect = CameraOffset(player.position, { player.sprite.width, player.sprite.height });
         //{ int(player.position.x), windowInfo.height - int(player.position.y) - player.sprite.height, playerSprite.width, playerSprite.height };

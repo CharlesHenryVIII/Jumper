@@ -320,7 +320,7 @@ void UpdateBlock(Block* block)
 }
 
 
-void SurroundBlockUpdate(Block* block)
+void SurroundBlockUpdate(Block* block, bool updateTop)
 {
     //update block below
     if (CheckForBlocki({ block->location.x, block->location.y - 1 }))
@@ -331,13 +331,15 @@ void SurroundBlockUpdate(Block* block)
     //update block to the right
     if (CheckForBlocki({ block->location.x + 1, block->location.y }))
         UpdateBlock(ForceGetBlock({ block->location.x + 1, block->location.y }));
+    if (updateTop && CheckForBlocki({ block->location.x, block->location.y - 1 }))
+        UpdateBlock(ForceGetBlock({ block->location.x, block->location.y + 1 }));
 }
 
 
-void ClickUpdate(Block* block)
+void ClickUpdate(Block* block, bool updateTop)
 {
     UpdateBlock(block);
-    SurroundBlockUpdate(block);
+    SurroundBlockUpdate(block, updateTop);
 }
 
 
@@ -610,8 +612,6 @@ int main(int argc, char* argv[])
                 mouseButtonEvent.state = SDLEvent.button.state;
                 mouseButtonEvent.location.x = float(SDLEvent.button.x);
                 mouseButtonEvent.location.y = float(SDLEvent.button.y);
-                //if (mouseEvents[SDLEvent.button.type] == 0)
-                //    mouseEvents[SDLEvent.button.type] = totalTime;
                 break;
             case SDL_MOUSEBUTTONUP:
                 mouseButtonEvent.type = SDLEvent.button.type;
@@ -620,8 +620,6 @@ int main(int argc, char* argv[])
                 mouseButtonEvent.state = SDLEvent.button.state;
                 mouseButtonEvent.location.x = float(SDLEvent.button.x);
                 mouseButtonEvent.location.y = float(SDLEvent.button.y);
-                //= SDLEvent.button;
-                //mouseEvents[SDLEvent.button.type] = 0;
                 break;
             case SDL_MOUSEMOTION:
                 mouseMotionEvent = SDLEvent.motion;
@@ -675,19 +673,19 @@ int main(int argc, char* argv[])
                 {
                     paintType = TileType::grass;
                     blockPointer->tileType = TileType::grass;
-                    ClickUpdate(blockPointer);
+                    ClickUpdate(blockPointer, false);
                 }
                 else
                 {
                     paintType = TileType::invalid;
                     blockPointer->tileType = TileType::invalid;
-                    SurroundBlockUpdate(blockPointer);
+                    SurroundBlockUpdate(blockPointer, false);
                 }
             }
             else
             {
                 blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)] = { clickLocationTranslated, TileType::grass };
-                ClickUpdate(&blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)]);
+                ClickUpdate(&blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)], false);
                 paintType = TileType::grass;
             }
         }
@@ -697,26 +695,60 @@ int main(int argc, char* argv[])
             Vector mouseLocationTranslated = { float(int32(mouseLocation.x + 0.5f) / blockSize), float(int32(mouseLocation.y + 0.5f) / blockSize) };
             curserRect = { int(mouseLocation.x - 5), int(mouseLocation.y - 5), 10, 10 };
 
-            if ((mouseButtonEvent.location.x != previousMouseLocation.x && mouseButtonEvent.location.y != previousMouseLocation.y))
+            if ((mouseButtonEvent.location.x != previousMouseLocation.x || mouseButtonEvent.location.y != previousMouseLocation.y))
             {
                 Block* blockPointer = &blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)];
                 if (CheckForBlockf(mouseLocation))
                 {
                     blockPointer->tileType = paintType;
-                    SurroundBlockUpdate(blockPointer);
+                    //ClickUpdate(blockPointer, true);
+                    //UpdateBlock(blockPointer);
+                    SurroundBlockUpdate(blockPointer, true);
                 }
                 else
                 {
                     blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)] = { mouseLocationTranslated, paintType };
-                    ClickUpdate(&blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)]);
+                    ClickUpdate(&blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)], true);
                 }
                 previousMouseLocation = mouseLocation;
             }
         }
 
 
-
-
+            /*
+        //if (mouseButtonEvent.timestamp == totalTime)
+        if (mouseButtonEvent.timestamp > 0)
+        {
+            Vector clickLocation = CameraToPixelCoord(mouseButtonEvent.location);
+            clickRect = { int(clickLocation.x - 5), int(clickLocation.y - 5), 10, 10 };
+            Vector clickLocationTranslated = { float(int32(clickLocation.x + 0.5f) / blockSize), float(int32(clickLocation.y + 0.5f) / blockSize) };
+            if (CheckForBlockf(clickLocation))
+            {
+                Block* blockPointer = &blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)];
+                if (blockPointer->tileType == TileType::invalid)
+                {
+                    if (mouseButtonEvent.timestamp == totalTime)
+                        paintType = TileType::grass;
+                    blockPointer->tileType = paintType;
+                    ClickUpdate(blockPointer, false);
+                }
+                else
+                {
+                    if (mouseButtonEvent.timestamp == totalTime)
+                        paintType = TileType::invalid;
+                    blockPointer->tileType = paintType;
+                    SurroundBlockUpdate(blockPointer, false);
+                }
+            }
+            else
+            {
+                if (mouseButtonEvent.timestamp == totalTime)
+                    paintType = TileType::grass;
+                blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)] = { clickLocationTranslated, paintType };
+                ClickUpdate(&blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)], false);
+            }
+        }
+                */
 
 
 
@@ -777,7 +809,8 @@ int main(int argc, char* argv[])
 
         SDL_Rect tempRect = CameraOffset(player.position, { player.sprite.width, player.sprite.height });
         SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
-        
+
+
 
         //Present Screen
         SDL_RenderPresent(windowInfo.renderer);

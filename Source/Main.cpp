@@ -99,6 +99,14 @@ struct VectorInt {
     int y = 0;
 };
 
+class TileMap
+{
+    std::unordered_map<uint64, Block> blocks;
+public:
+    Block& GetBlock(Vector loc);
+    Block* TryGetBlock(Vector loc) { return nullptr; }
+};
+static TileMap tilemap;
 
 struct Player {
     Sprite sprite;
@@ -125,8 +133,8 @@ enum class TileType {
 
 
 struct Block {
-    Vector location;
-    TileType tileType;
+    Vector location = {};
+    TileType tileType = TileType::invalid;
 
     Vector PixelPosition()
     {
@@ -136,7 +144,7 @@ struct Block {
 };
 
 
-std::unordered_map<uint64, Block> blocks2;
+static std::unordered_map<uint64, Block> blocks2;
 
 
 struct Rectangle {
@@ -157,15 +165,15 @@ struct Rectangle {
 
 struct MouseButtonEvent {
     Uint32 type;        /**< ::SDL_MOUSEBUTTONDOWN or ::SDL_MOUSEBUTTONUP */
-    uint32 padding1;
+    //uint32 padding1;
     double timestamp;   /**< In milliseconds, populated using SDL_GetTicks() */
     //Uint32 windowID;    /**< The window with mouse focus, if any */
     //Uint32 which;       /**< The mouse instance id, or SDL_TOUCH_MOUSEID */
     Uint8 button;       /**< The mouse button index */
     Uint8 state;        /**< ::SDL_PRESSED or ::SDL_RELEASED */
     //Uint8 clicks;       /**< 1 for single-click, 2 for double-click, etc. */
-    Uint16 padding2;
-    Uint32 padding3;
+    //Uint16 padding2;
+    //Uint32 padding3;
     Vector location;
     
     //float x;           /**< X coordinate, relative to window */
@@ -234,6 +242,15 @@ bool CheckForBlockf(Vector input)//Pixel Coordinate Space
 }
 
 
+bool checkMapForBlock(Vector input)
+{
+    uint32 x = uint32(input.x + 0.5f) / blockSize;
+    uint32 y = uint32(input.y + 0.5f) / blockSize;
+
+    return blocks2.find(HashingFunction(x, y)) != blocks2.end();
+}
+
+
 bool CheckForBlocki(Vector input)//Block Coordinate Space
 {
     uint32 x = uint32(input.x + 0.5f);
@@ -293,6 +310,9 @@ constexpr auto rightDirtBlock   = 1 << 3;   //8
 constexpr auto leftDirtBlock    = 1 << 4;   //16*/
 void UpdateBlock(Block* block)
 {
+    if (block->tileType == TileType::invalid)
+        return;
+
     Block left = GetBlock({ block->location.x - 1, block->location.y });
     Block right = GetBlock({ block->location.x + 1, block->location.y });
     Block top = GetBlock({ block->location.x, block->location.y + 1});
@@ -494,7 +514,8 @@ void CollisionSystemCall(Player* player)
                 if ((block.second.location.y + 1) * blockSize > yCollisionBox.bottomLeft.y && (block.second.location.y + 1)* blockSize < yCollisionBox.topRight.y)
                 {
                     player->position.y = (block.second.location.y + 1) * blockSize;
-                    player->velocity.y = 0;
+                    if (player->velocity.y < 0)
+                        player->velocity.y = 0;
                     player->jumpCount = 2;
                 }
             }
@@ -659,36 +680,38 @@ int main(int argc, char* argv[])
         SDL_Rect clickRect = {};
         SDL_Rect curserRect = {};
 
-        
         if (mouseButtonEvent.timestamp == totalTime)
         {
             Vector clickLocation = CameraToPixelCoord(mouseButtonEvent.location);
             Vector clickLocationTranslated = { float(int32(clickLocation.x + 0.5f) / blockSize), float(int32(clickLocation.y + 0.5f) / blockSize) };
             clickRect = { int(clickLocation.x - 5), int(clickLocation.y - 5), 10, 10 };
 
-            if (CheckForBlockf(clickLocation))
+            //if (CheckForBlockf(clickLocation))
+            //{
+            Block* blockPointer = &blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)];
+            // TODO(choman): Remove this when we have a type
+            blockPointer->location = clickLocationTranslated;
+            if (blockPointer->tileType == TileType::invalid)
             {
-                Block* blockPointer = &blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)];
-                if (blockPointer->tileType == TileType::invalid)
-                {
-                    paintType = TileType::grass;
-                    blockPointer->tileType = TileType::grass;
-                    ClickUpdate(blockPointer, false);
-                }
-                else
-                {
-                    paintType = TileType::invalid;
-                    blockPointer->tileType = TileType::invalid;
-                    SurroundBlockUpdate(blockPointer, false);
-                }
+                paintType = TileType::grass;
+                blockPointer->tileType = TileType::grass;
+                ClickUpdate(blockPointer, false);
             }
             else
             {
-                blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)] = { clickLocationTranslated, TileType::grass };
-                ClickUpdate(&blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)], false);
-                paintType = TileType::grass;
+                paintType = TileType::invalid;
+                blockPointer->tileType = TileType::invalid;
+                SurroundBlockUpdate(blockPointer, false);
             }
+            //}
+            //else
+            //{
+            //    blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)] = { clickLocationTranslated, TileType::grass };
+            //    ClickUpdate(&blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)], false);
+            //    paintType = TileType::grass;
+            //}
         }
+
         if (debugList[DebugOptions::paintMethod] && mouseButtonEvent.type == SDL_MOUSEBUTTONDOWN)
         {
             Vector mouseLocation = CameraToPixelCoord({ float(mouseMotionEvent.x), float(mouseMotionEvent.y) });
@@ -698,57 +721,24 @@ int main(int argc, char* argv[])
             if ((mouseButtonEvent.location.x != previousMouseLocation.x || mouseButtonEvent.location.y != previousMouseLocation.y))
             {
                 Block* blockPointer = &blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)];
-                if (CheckForBlockf(mouseLocation))
+                // TODO(choman): Remove this when we have a type
+                blockPointer->location = mouseLocationTranslated;
+                if (blockPointer->tileType != paintType)
                 {
                     blockPointer->tileType = paintType;
                     //ClickUpdate(blockPointer, true);
                     //UpdateBlock(blockPointer);
-                    SurroundBlockUpdate(blockPointer, true);
+                    ClickUpdate(blockPointer, false);
+
                 }
                 else
                 {
-                    blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)] = { mouseLocationTranslated, paintType };
-                    ClickUpdate(&blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)], true);
+                    //blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)] = { mouseLocationTranslated, paintType };
+                    //ClickUpdate(&blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)], true);
                 }
                 previousMouseLocation = mouseLocation;
             }
         }
-
-
-            /*
-        //if (mouseButtonEvent.timestamp == totalTime)
-        if (mouseButtonEvent.timestamp > 0)
-        {
-            Vector clickLocation = CameraToPixelCoord(mouseButtonEvent.location);
-            clickRect = { int(clickLocation.x - 5), int(clickLocation.y - 5), 10, 10 };
-            Vector clickLocationTranslated = { float(int32(clickLocation.x + 0.5f) / blockSize), float(int32(clickLocation.y + 0.5f) / blockSize) };
-            if (CheckForBlockf(clickLocation))
-            {
-                Block* blockPointer = &blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)];
-                if (blockPointer->tileType == TileType::invalid)
-                {
-                    if (mouseButtonEvent.timestamp == totalTime)
-                        paintType = TileType::grass;
-                    blockPointer->tileType = paintType;
-                    ClickUpdate(blockPointer, false);
-                }
-                else
-                {
-                    if (mouseButtonEvent.timestamp == totalTime)
-                        paintType = TileType::invalid;
-                    blockPointer->tileType = paintType;
-                    SurroundBlockUpdate(blockPointer, false);
-                }
-            }
-            else
-            {
-                if (mouseButtonEvent.timestamp == totalTime)
-                    paintType = TileType::grass;
-                blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)] = { clickLocationTranslated, paintType };
-                ClickUpdate(&blocks2[HashingFunction(int32(clickLocation.x + 0.5f) / blockSize, int32(clickLocation.y + 0.5f) / blockSize)], false);
-            }
-        }
-                */
 
 
 

@@ -120,7 +120,8 @@ enum class TileType {
     dirt,
     grass,
     grassCorner,
-    grassEdge
+    grassEdge,
+    floating
 };
 
 
@@ -167,6 +168,10 @@ public:
 	{
 		return blocks.find(HashingFunction(int32(loc.x), int32(loc.y))) != blocks.end();
 	}
+    void RenderBlocks(Sprite* spriteMap)
+    {
+        
+    }
 };
 static TileMap tileMap;
 //static std::unordered_map<uint64, Block> blocks;
@@ -190,19 +195,13 @@ struct Rectangle {
 
 struct MouseButtonEvent {
     Uint32 type;        /**< ::SDL_MOUSEBUTTONDOWN or ::SDL_MOUSEBUTTONUP */
-    //uint32 padding1;
     double timestamp;   /**< In milliseconds, populated using SDL_GetTicks() */
     //Uint32 windowID;    /**< The window with mouse focus, if any */
     //Uint32 which;       /**< The mouse instance id, or SDL_TOUCH_MOUSEID */
     Uint8 button;       /**< The mouse button index */
     Uint8 state;        /**< ::SDL_PRESSED or ::SDL_RELEASED */
     //Uint8 clicks;       /**< 1 for single-click, 2 for double-click, etc. */
-    //Uint16 padding2;
-    //Uint32 padding3;
     Vector location;
-    
-    //float x;           /**< X coordinate, relative to window */
-    //float y;           /**< Y coordinate, relative to window */
 };
 
 
@@ -259,58 +258,6 @@ Vector PixeltoBlock(Vector loc)
 	return { float(uint32(loc.x + 0.5f) / blockSize), float(uint32(loc.y + 0.5f) / blockSize) };
 }
 
-/*
-bool CheckForBlockf(Vector input)//Pixel Coordinate Space
-{
-    uint32 x = uint32(input.x + 0.5f) / blockSize;
-    uint32 y = uint32(input.y + 0.5f) / blockSize;
-
-    if (blocks.find(HashingFunction(x, y)) != blocks.end())
-        return blocks[HashingFunction(x, y)].tileType != TileType::invalid;
-    else
-        return false;
-}
-
-
-bool checkMapForBlock(Vector input)
-{
-    uint32 x = uint32(input.x + 0.5f) / blockSize;
-    uint32 y = uint32(input.y + 0.5f) / blockSize;
-
-    return blocks.find(HashingFunction(x, y)) != blocks.end();
-}
-
-
-bool CheckForBlocki(Vector input)//Block Coordinate Space
-{
-    uint32 x = uint32(input.x + 0.5f);
-    uint32 y = uint32(input.y + 0.5f);
-
-    if (blocks.find(HashingFunction(x, y)) != blocks.end())
-        return blocks[HashingFunction(x, y)].tileType != TileType::invalid;
-    else
-        return false; //blocks2.find(HashingFunction(x, y)) != blocks2.end();//.tileType != TileType::invalid;
-}
-
-
-Block GetBlock(Vector input) //Block Coordinate Space
-{
-    uint32 x = uint32(input.x + 0.5f);
-    uint32 y = uint32(input.y + 0.5f);
-    if (CheckForBlocki(input))
-        return blocks[HashingFunction(x, y)];
-    else
-        return {};
-}
-
-
-Block* ForceGetBlock(Vector input) //Block Coordinate Space
-{
-    uint32 x = uint32(input.x + 0.5f);
-    uint32 y = uint32(input.y + 0.5f);
-    return &blocks[HashingFunction(x, y)];
-}
-*/
 
 /*constexpr auto leftGrassBlock   = 1 << 0;   //1 or odd
 constexpr auto rightGrassBlock  = 1 << 1;   //2
@@ -324,7 +271,8 @@ void UpdateBlock(Block* block)
 
     Block left = tileMap.GetBlock({ block->location.x - 1, block->location.y });
     Block right = tileMap.GetBlock({ block->location.x + 1, block->location.y });
-    Block top = tileMap.GetBlock({ block->location.x, block->location.y + 1});
+    Block top = tileMap.GetBlock({ block->location.x, block->location.y + 1 });
+    Block bot = tileMap.GetBlock({ block->location.x, block->location.y - 1 });
 
     //Check if dirt block
     if (top.tileType != TileType::invalid)
@@ -333,13 +281,17 @@ void UpdateBlock(Block* block)
     else if ((left.tileType != TileType::invalid && left.tileType != TileType::dirt))// && (right.tileType != TileType::invalid && right.tileType != TileType::dirt))
         block->tileType = TileType::grass;
     
+    //check for floating block
+    else if (bot.tileType == TileType::invalid && left.tileType == TileType::invalid && right.tileType == TileType::invalid)
+        block->tileType = TileType::floating;
+    
     //check for left corner block
     else if (left.tileType == TileType::invalid)
         block->tileType = TileType::grassCorner;
     //check for right corner block
     else if (right.tileType == TileType::invalid)
         block->tileType = TileType::grass;
-
+    
     //check for right edge block
     else if (left.tileType == TileType::dirt)
         block->tileType = TileType::grass;
@@ -550,7 +502,11 @@ int main(int argc, char* argv[])
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
     double totalTime = SDL_GetPerformanceCounter() / freq; //sec
     double previousTime = totalTime;
-
+    
+    /*
+    SDL_Surface iconSurface = {};
+    iconSurface.
+    */
 
     //Sprite Creation
     Sprite playerSprite = CreateSprite(windowInfo.renderer, "Player.png", SDL_BLENDMODE_BLEND);
@@ -727,15 +683,7 @@ int main(int argc, char* argv[])
                 if (blockPointer->tileType != paintType)
                 {
                     blockPointer->tileType = paintType;
-                    //ClickUpdate(blockPointer, true);
-                    //UpdateBlock(blockPointer);
                     ClickUpdate(blockPointer, false);
-
-                }
-                else
-                {
-                    //blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)] = { mouseLocationTranslated, paintType };
-                    //ClickUpdate(&blocks2[HashingFunction(int32(mouseLocation.x + 0.5f) / blockSize, int32(mouseLocation.y + 0.5f) / blockSize)], true);
                 }
                 previousMouseLocation = mouseLocation;
             }
@@ -766,20 +714,7 @@ int main(int argc, char* argv[])
         {
             if (block.second.tileType != TileType::invalid)
             {
-                //SpriteMapRender(minecraftSprite, block.second.tileType, block.second.PixelPosition(), 16);
-                //if (!CheckForBlocki({ block.second.location.x, block.second.location.y + 1 }) && CheckForBlocki({ block.second.location.x + 1, block.second.location.y }) && CheckForBlocki({ block.second.location.x - 1, block.second.location.y }))
-                //{
-                //    if (GetBlock({ block.second.location.x + 1, block.second.location.y }).tileType != TileType::dirt && GetBlock({ block.second.location.x - 1, block.second.location.y }).tileType != TileType::dirt)
-                //        block.second.tileType = TileType::grass;
-                //}
-                //else if (CheckForBlocki({ block.second.location.x, block.second.location.y + 1 }))
-                //    block.second.tileType = TileType::dirt;
-                //else if (GetBlock({ block.second.location.x + 1, block.second.location.y }).tileType == TileType::dirt)
-                //    block.second.tileType = TileType::grassEdge;
-                //else if (GetBlock({ block.second.location.x + 1, block.second.location.y }).tileType == TileType::grass && !CheckForBlocki({ block.second.location.x - 1, block.second.location.y }))
-                //    block.second.tileType = TileType::grassCorner;
-
-                SpriteMapRender(spriteMap, block.second.tileType, block.second.PixelPosition(), 2);
+                SpriteMapRender(spriteMap, block.second.tileType, block.second.PixelPosition(), 4);
 
                 if (debugList[DebugOptions::blockCollision] && block.second.tileType != TileType::invalid)
                 {
@@ -791,7 +726,6 @@ int main(int argc, char* argv[])
                 }
             }
         }
-        
         if (debugList[DebugOptions::clickLocation])
         {
             DebugRectRender(clickRect, transGreen);

@@ -14,14 +14,85 @@
 /*
 draw colliders using SD
 go over void Char*** = &argv
-what does .end() do?
+-what does .end() do?
+-setting up if statements for blocks
 set flags for each situation that needs to change what block it is
 do this at the start when all the blocks are built then do it only when a block is added or removed.
 if block to the right is grass then add >>1, if block to the left is grass then add 1>>2, if there is a block above then 1>>3
 if there isnt a block the the left then dont bit shift, if there isnt a block to the left then 
 
+
+TODO(choman):
+    -entity system
+    -auto tile system
+    -camera zoom
+    -sub pixel rendering
+    -saving maps/levels serialization
+    -refactor paint code
+    -code copy lamo
+    -save to png, load from png
+
+
+
 */
 
+//void foo()
+//{
+//    // The iterator
+//    std::vector<int> ints;
+//    ints.push_back(1);
+//
+//    for (auto& i : ints)
+//    {
+//    }
+//
+//
+//    for (std::vector<int>::iterator it = ints.begin();
+//         it != ints.end();
+//         ++it)
+//    {
+//    }
+//
+//    for (std::vector<int>::reverse_iterator it = ints.rbegin();
+//         it != ints.rend();
+//         ++it)
+//    {
+//    }
+//
+//    for (auto it = ints.begin();
+//         it != ints.end();
+//         ++it)
+//    {
+//    }
+//
+//
+//    std::unordered_map<std::string, int> strings;
+//    strings["Hello"] = 2;
+//
+//    bool exists = strings.find("Hello") != strings.end();
+//
+//    std::unordered_map<std::string, int>::iterator it = strings.find("Hello");
+//    if (it != strings.end())
+//    {
+//
+//    }
+//    
+//
+//    for (auto& i : strings)
+//    {
+//        //i.first;
+//        //i.second;
+//    }
+//
+//    for (std::unordered_map<std::string, int>::iterator it = strings.begin();
+//         it != strings.end();
+//         ++it)
+//    {
+//        //it->first
+//        //it->second;
+//    }
+//
+//}
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -46,16 +117,15 @@ const SDL_Color transRed    = { 255, 0, 0, 127 };
 const SDL_Color transGreen  = { 0, 255, 0, 127 };
 const SDL_Color transBlue   = { 0, 0, 255, 127 };
 
-const SDL_Color lightRed = { 255, 0, 0, 63 };
-const SDL_Color lightGreen = { 0, 255, 0, 63 };
-const SDL_Color lightBlue = { 0, 0, 255, 63 };
+const SDL_Color lightRed    = { 255, 0, 0, 63 };
+const SDL_Color lightGreen  = { 0, 255, 0, 63 };
+const SDL_Color lightBlue   = { 0, 0, 255, 63 }; 
 
-constexpr auto leftGrassBlock   = 1 << 0;   //1 or odd
-constexpr auto rightGrassBlock  = 1 << 1;   //2
-constexpr auto blockAbove       = 1 << 2;   //4
-constexpr auto rightDirtBlock   = 1 << 3;   //8
-constexpr auto leftDirtBlock    = 1 << 4;   //16
-
+constexpr uint32 leftGrassBlock   = 1 << 0;   //1 or odd
+constexpr uint32 rightGrassBlock  = 1 << 1;   //2
+constexpr uint32 blockAbove       = 1 << 2;   //4
+constexpr uint32 rightDirtBlock   = 1 << 3;   //8
+constexpr uint32 leftDirtBlock    = 1 << 4;   //16
 
 
 struct WindowInfo
@@ -129,7 +199,7 @@ struct Block {
     Vector location = {};
     TileType tileType = TileType::invalid;
 
-    Vector PixelPosition()
+    Vector PixelPosition() const
     {
         return { location.x * blockSize, location.y * blockSize };
     }
@@ -145,8 +215,9 @@ uint64 HashingFunction(int32 x, int32 y)
 
 class TileMap
 {
+    std::unordered_map<uint64, Block> blocks;
+
 public:
-	std::unordered_map<uint64, Block> blocks;
 
 	//Block Coordinate System
 	Block& GetBlock(Vector loc)
@@ -171,6 +242,11 @@ public:
     void RenderBlocks(Sprite* spriteMap)
     {
         
+    }
+    //check?
+    const std::unordered_map<uint64, Block>* blockList()
+    {
+        return &blocks;
     }
 };
 static TileMap tileMap;
@@ -420,7 +496,7 @@ void CollisionSystemCall(Player* player)
     }
 
 
-    for (auto& block : tileMap.blocks)
+    for (auto& block : *tileMap.blockList())
     {
         if (block.second.tileType != TileType::invalid)
         {
@@ -546,14 +622,14 @@ int main(int argc, char* argv[])
 		tileMap.AddBlock({ float(x), 0 }, TileType::grass);
 
     //first pass to set most things
-    for (auto& block : tileMap.blocks)
+    for (auto& block : *tileMap.blockList())
     {
-        UpdateBlock(&block.second);
+        UpdateBlock(&tileMap.GetBlock(block.second.location));
     }
     //2nd pass to clean up what was missed aka grass blocks that should be edge blocks
-    for (auto& block : tileMap.blocks)
+    for (auto& block : *tileMap.blockList())
     {
-        UpdateBlock(&block.second);
+        UpdateBlock(&tileMap.GetBlock(block.second.location));
     }
 
     //Start Of Running Program
@@ -659,13 +735,13 @@ int main(int argc, char* argv[])
             {
                 paintType = TileType::grass;
                 blockPointer->tileType = TileType::grass;
-                ClickUpdate(blockPointer, false);
+                ClickUpdate(blockPointer, true);
             }
             else
             {
                 paintType = TileType::invalid;
                 blockPointer->tileType = TileType::invalid;
-                SurroundBlockUpdate(blockPointer, false);
+                SurroundBlockUpdate(blockPointer, true);
             }
         }
 
@@ -683,7 +759,7 @@ int main(int argc, char* argv[])
                 if (blockPointer->tileType != paintType)
                 {
                     blockPointer->tileType = paintType;
-                    ClickUpdate(blockPointer, false);
+                    ClickUpdate(blockPointer, true);
                 }
                 previousMouseLocation = mouseLocation;
             }
@@ -710,7 +786,7 @@ int main(int argc, char* argv[])
         camera.position = player.position;
 
        //debug/testing blocks
-        for (auto& block : tileMap.blocks)
+        for (auto& block : *tileMap.blockList())
         {
             if (block.second.tileType != TileType::invalid)
             {

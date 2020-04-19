@@ -1,12 +1,10 @@
 #include <SDL.h>
 
-#include <Windows.h>
-#include <Memoryapi.h>
 #include <stdio.h>
 #include "SDL.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
-//#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
 
 #include <iostream>
@@ -23,7 +21,7 @@ TODO(choman):
     -auto tile system
     -camera zoom
     -sub pixel rendering
-    -saving maps/levels serialization save to png, load from png
+    -save player location in saving and loading functinos
     -refactor paint code
 
 */
@@ -123,17 +121,14 @@ struct Camera {
 
 enum class TileType {
     invalid,
-    dirt,
-    grass,
-    grassCorner,
-    grassEdge,
-    floating
+    filled
 };
 
 
 struct Block {
     Vector location = {};
     TileType tileType = TileType::invalid;
+    uint32 flags = {};
 
     Vector PixelPosition() const
     {
@@ -158,7 +153,9 @@ public:
 	//Block Coordinate System
 	Block& GetBlock(Vector loc)
 	{
-		return blocks[HashingFunction(int32(loc.x), int32(loc.y))];
+        auto& result = blocks[HashingFunction(int32(loc.x), int32(loc.y))];
+        result.location = loc;
+        return result;
 	}
 	Block* TryGetBlock(Vector loc)
 	{
@@ -173,7 +170,10 @@ public:
 	}
 	bool CheckForBlock(Vector loc)
 	{
-		return blocks.find(HashingFunction(int32(loc.x), int32(loc.y))) != blocks.end();
+        auto it = blocks.find(HashingFunction(int32(loc.x), int32(loc.y)));
+		if (it != blocks.end())
+            return it->second.tileType != TileType::invalid;
+        return false;
 	}
     void RenderBlocks(Sprite* spriteMap)
     {
@@ -184,11 +184,26 @@ public:
     {
         return &blocks;
     }
+    void ClearBlocks()
+    {
+        blocks.clear();
+    }
+
+    void CleanBlocks()
+    {
+        for (auto it = blocks.begin(); it != blocks.end();)
+        {
+            if (it->second.tileType == TileType::invalid)
+                it = blocks.erase(it);
+            else
+                it++;
+        }
+    }
 };
 static TileMap tileMap;
 
 
-struct CSHRectangle {
+struct Rectangle {
     Vector bottomLeft;
     Vector topRight;
     
@@ -259,77 +274,13 @@ Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blen
 }
 
 
-void WritePNG(const char* filename)
+TileType CheckColor(SDL_Color color)
 {
-    //Finding the edges of the "picture"/level
-    auto& first = tileMap.blockList()->begin;
-
-    int32 left = first.second.location.x;
-    int32 right = first.second.location.x;
-    int32 top = first.second.location.y;
-    int32 bot = first.second.location.y;
-    std::vector<Block> blockList;
-    for (auto& block : tileMap.blockList()->begin)
-    {
-        if (block.second.location.x < left)
-            left = block.second.location.x;
-        else if (block.second.location.x > right)
-            right = block.second.location.x;
-        if (block.second.location.y < bot)
-            bot = block.second.location.y;
-        else if (block.second.location.y > top)
-            top = block.second.location.y;
-        blockList.push_back(block);
-    }
-
-    //Getting memory to write to
-    CSHRectangle pictureSize;
-    pictureSize.bottomLeft = { bot, left };
-    pictureSize.topRight = { top, right };
-
-    uint8* pictureBuffer;
-    int bytesPerPixel = 4;
-    int pictureMemorySize = pictureSize.Width() * pictureSize.Height() * bytesPerPixel;
-    VirtualAlloc(&pictureBuffer, pictureMemorySize, MEM_COMMIT, PAGE_READWRITE);
-
-    //writing to memory
-    //sort from top left to bottom right
-    uint8* bufferIndexer = pictureBuffer;
-    for (int32 y = 0; y < pictureSize.Height(); y++)
-    {
-        for (int32 x = 0; x < pictureSize.Width(); x++)
-        {
-            SDL_Color tileColor = {};
-            for (auto& block : tileMap.blockList()->begin)
-            {
-                //matched need to put into the png
-                //for each of the bytes I need to add the respective RGBA values for the block
-                //I am thinking of add each Byte at a time and incrimenting the pointer as I go
-                //Not sure how to incriment the pointer though
-                if (block.second.location.x == x && block.second.location.y == y)
-                {
-                    tileColor = GetTileMapColor(block);
-                }
-            }
-            //dont understand please help
-            *bufferIndexer = tileColor.r;
-            ++bufferIndexer;
-            *bufferIndexer = tileColor.g;
-            ++bufferIndexer;
-            *bufferIndexer = tileColor.b;
-            ++bufferIndexer;
-            *bufferIndexer = tileColor.a;
-            ++bufferIndexer;
-            //bufferIndexer = &bufferIndexer + 1;
-        }
-    }
-
-    //Saving written memory to file
-    int stride_in_bytes = 0;
-    int colorChannels = 0;
-    stbi_write_png(filename, pictureSize.Width(), pictureSize.Height(), colorChannels, pictureBuffer, stride_in_bytes);
+    if (color.r == Green.r && color.g == Green.g && color.b == Green.b && color.a == Green.a)
+        return TileType::filled;
+    else
+        return TileType::invalid;
 }
-
 
 /*enum class TileType {
     invalid,
@@ -340,21 +291,88 @@ void WritePNG(const char* filename)
     floating
 };*/
 
-SDL_Color GetTileMapColor(Block &block)
+SDL_Color GetTileMapColor(const Block& block)
 {
-    if (block.tileType == TileType::dirt)
-        return Brown;
-    else if (block.tileType == TileType::grass)
+    if (block.tileType == TileType::filled)
         return Green;
-    else if (block.tileType == TileType::grassCorner)
-        return Mint;
-    else if (block.tileType == TileType::grassEdge)
-        return Orange;
-    else if (block.tileType == TileType::floating)
-        return Grey;
     else
         return {};
 
+}
+
+
+void WritePNG(const char* filename)
+{
+    //Setup
+    stbi_flip_vertically_on_write(true);
+    tileMap.CleanBlocks();
+
+    //Finding the edges of the "picture"/level
+    auto first = tileMap.blockList()->begin();
+
+    int32 left = int32(first->second.location.x);
+    int32 right = int32(first->second.location.x);
+    int32 top = int32(first->second.location.y);
+    int32 bot = int32(first->second.location.y);
+
+    for (auto& block : *tileMap.blockList())
+    {
+        if (block.second.location.x < left)
+            left = int32(block.second.location.x);
+        else if (block.second.location.x > right)
+            right = int32(block.second.location.x);
+        
+        if (block.second.location.y < bot)
+            bot = int32(block.second.location.y);
+        else if (block.second.location.y > top)
+            top = int32(block.second.location.y);
+    }
+
+    int32 width = right - left + 1;
+    int32 height = top - bot + 1;
+
+    //Getting memory to write to
+    std::vector<SDL_Color> memBuff;
+    memBuff.resize(width * height, {});
+
+    //writing to memory
+    SDL_Color tileColor = {};
+    for (auto& block : *tileMap.blockList())
+    {
+        if (block.second.tileType == TileType::invalid)
+            continue;
+
+        memBuff[size_t((block.second.location.x - left) + ((block.second.location.y - bot) * size_t(width)))] = GetTileMapColor(block.second);
+    }
+
+    //Saving written memory to file
+    int stride_in_bytes = 4 * width;
+    int colorChannels = 4;
+    stbi_write_png(filename, width, height, colorChannels, memBuff.data(), stride_in_bytes);
+}
+
+
+void LoadPNG(const char* name)
+{
+    tileMap.ClearBlocks();
+
+    stbi_set_flip_vertically_on_load(true);
+
+    int32 textureHeight, textureWidth, colorChannels;
+    SDL_Color* image = (SDL_Color*)stbi_load(name, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
+
+    for (int32 y = 0; y < textureHeight; y++)
+    {
+        for (int32 x = 0; x < textureWidth; x++)
+        {
+            uint32 index = size_t(x) + size_t(y * textureWidth);
+
+            TileType tileColor = CheckColor(image[index]);
+            if (tileColor != TileType::invalid)
+                tileMap.AddBlock( { float(x), float(y) }, tileColor );
+        }
+    }
+    stbi_image_free(image);
 }
 
 
@@ -370,63 +388,82 @@ Vector PixeltoBlock(Vector loc)
 
 
 void UpdateBlockV2(Block* block)
-{
+{//32 pixels per block 64 total 8x8 = 256x256
     uint32 blockFlags = 0;
 
-    constexpr uint32 left = 1 << 0;   //1 or odd
-    constexpr uint32 botLeft = 1 << 1;   //2
-    constexpr uint32 bot = 1 << 2;   //4
-    constexpr uint32 botRight = 1 << 3;   //8
-    constexpr uint32 right = 1 << 4;   //16
+    constexpr uint32 left = 1 << 0;     //1 or odd
+    constexpr uint32 botLeft = 1 << 1;  //2
+    constexpr uint32 bot = 1 << 2;      //4
+    constexpr uint32 botRight = 1 << 3; //8
+    constexpr uint32 right = 1 << 4;    //16
+    constexpr uint32 top = 1 << 5;      //32
 
-    if (tileMap.CheckForBlock({ block->location.x - 1, block->location.y }))
+
+    if (tileMap.CheckForBlock({ block->location.x - 1, block->location.y    }))
         blockFlags += left;
     if (tileMap.CheckForBlock({ block->location.x - 1, block->location.y - 1}))
         blockFlags += botLeft;
     if (tileMap.CheckForBlock({ block->location.x,     block->location.y - 1}))
         blockFlags += bot;
-    if (tileMap.CheckForBlock({ block->location.x + 1, block->location.y - 1 }))
+    if (tileMap.CheckForBlock({ block->location.x + 1, block->location.y - 1}))
         blockFlags += botRight;
-    if (tileMap.CheckForBlock({ block->location.x + 1, block->location.y }))
+    if (tileMap.CheckForBlock({ block->location.x + 1, block->location.y    }))
         blockFlags += right;
+    if (tileMap.CheckForBlock({ block->location.x,     block->location.y + 1}))
+        blockFlags += top;
 
+    block->flags = blockFlags;
+//    block->tileType = blockFlags ? TileType::filled : TileType::invalid;
 }
 
 
-void UpdateBlock(Block* block)
+//void UpdateBlock(Block* block)
+//{
+//    if (block->tileType == TileType::invalid)
+//        return;
+//
+//    Block left = tileMap.GetBlock({ block->location.x - 1, block->location.y });
+//    Block right = tileMap.GetBlock({ block->location.x + 1, block->location.y });
+//    Block top = tileMap.GetBlock({ block->location.x, block->location.y + 1 });
+//    Block bot = tileMap.GetBlock({ block->location.x, block->location.y - 1 });
+//
+//    //Check if dirt block
+//    if (top.tileType != TileType::invalid)
+//        block->tileType = TileType::dirt;
+//    //checking for grass block
+//    else if ((left.tileType != TileType::invalid && left.tileType != TileType::dirt))// && (right.tileType != TileType::invalid && right.tileType != TileType::dirt))
+//        block->tileType = TileType::grass;
+//    
+//    //check for floating block
+//    else if (bot.tileType == TileType::invalid && left.tileType == TileType::invalid && right.tileType == TileType::invalid)
+//        block->tileType = TileType::floating;
+//    
+//    //check for left corner block
+//    else if (left.tileType == TileType::invalid)
+//        block->tileType = TileType::grassCorner;
+//    //check for right corner block
+//    else if (right.tileType == TileType::invalid)
+//        block->tileType = TileType::grass;
+//    
+//    //check for right edge block
+//    else if (left.tileType == TileType::dirt)
+//        block->tileType = TileType::grass;
+//    //check for right edge block
+//    else if (right.tileType == TileType::dirt)
+//        block->tileType = TileType::grassEdge;
+//}
+
+
+void UpdateAllNeighbors(Block* block)
 {
-    if (block->tileType == TileType::invalid)
-        return;
-
-    Block left = tileMap.GetBlock({ block->location.x - 1, block->location.y });
-    Block right = tileMap.GetBlock({ block->location.x + 1, block->location.y });
-    Block top = tileMap.GetBlock({ block->location.x, block->location.y + 1 });
-    Block bot = tileMap.GetBlock({ block->location.x, block->location.y - 1 });
-
-    //Check if dirt block
-    if (top.tileType != TileType::invalid)
-        block->tileType = TileType::dirt;
-    //checking for grass block
-    else if ((left.tileType != TileType::invalid && left.tileType != TileType::dirt))// && (right.tileType != TileType::invalid && right.tileType != TileType::dirt))
-        block->tileType = TileType::grass;
-    
-    //check for floating block
-    else if (bot.tileType == TileType::invalid && left.tileType == TileType::invalid && right.tileType == TileType::invalid)
-        block->tileType = TileType::floating;
-    
-    //check for left corner block
-    else if (left.tileType == TileType::invalid)
-        block->tileType = TileType::grassCorner;
-    //check for right corner block
-    else if (right.tileType == TileType::invalid)
-        block->tileType = TileType::grass;
-    
-    //check for right edge block
-    else if (left.tileType == TileType::dirt)
-        block->tileType = TileType::grass;
-    //check for right edge block
-    else if (right.tileType == TileType::dirt)
-        block->tileType = TileType::grassEdge;
+    for (int32 y = -1; y <= 1; y++)
+    {
+        for (int32 x = -1; x <= 1; x++)
+        {
+            if (tileMap.TryGetBlock({ float(block->location.x + x), float(block->location.y + y) }) != nullptr)
+                UpdateBlockV2(&tileMap.GetBlock({ float(block->location.x + x), float(block->location.y + y) }));
+        }
+    }
 }
 
 
@@ -434,21 +471,21 @@ void SurroundBlockUpdate(Block* block, bool updateTop)
 {
     //update block below
     if (tileMap.CheckForBlock({ block->location.x, block->location.y - 1 }))
-        UpdateBlock(&tileMap.GetBlock({ block->location.x, block->location.y - 1 }));
+        UpdateBlockV2(&tileMap.GetBlock({ block->location.x, block->location.y - 1 }));
     //update block to the left
     if (tileMap.CheckForBlock({ block->location.x - 1, block->location.y }))
-        UpdateBlock(&tileMap.GetBlock({ block->location.x - 1, block->location.y }));
+        UpdateBlockV2(&tileMap.GetBlock({ block->location.x - 1, block->location.y }));
     //update block to the right
     if (tileMap.CheckForBlock({ block->location.x + 1, block->location.y }))
-        UpdateBlock(&tileMap.GetBlock({ block->location.x + 1, block->location.y }));
+        UpdateBlockV2(&tileMap.GetBlock({ block->location.x + 1, block->location.y }));
     if (updateTop && tileMap.CheckForBlock({ block->location.x, block->location.y - 1 }))
-        UpdateBlock(&tileMap.GetBlock({ block->location.x, block->location.y + 1 }));
+        UpdateBlockV2(&tileMap.GetBlock({ block->location.x, block->location.y + 1 }));
 }
 
 
 void ClickUpdate(Block* block, bool updateTop)
 {
-    UpdateBlock(block);
+    UpdateBlockV2(block);
     SurroundBlockUpdate(block, updateTop);
 }
 
@@ -477,13 +514,14 @@ Vector CameraToPixelCoord(Vector input)
 }
 
 
-void SpriteMapRender(Sprite sprite, TileType tile, Vector position, int32 blocksPerRow)
+void SpriteMapRender(Sprite sprite, Block block)
 {
-    int32 x = (uint32(tile) - 1) % blocksPerRow * blockSize;
-    int32 y = (uint32(tile) - 1) / blocksPerRow * blockSize;
+    int32 blocksPerRow = sprite.width / blockSize;
+    int32 x = uint32(block.flags) % blocksPerRow * blockSize;
+    int32 y = uint32(block.flags) / blocksPerRow * blockSize;
 
     SDL_Rect blockRect = { x, y, blockSize, blockSize };
-    SDL_Rect DestRect = CameraOffset( position, { blockSize, blockSize });  
+    SDL_Rect DestRect = CameraOffset( block.PixelPosition(), { blockSize, blockSize });
     SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
 }
 
@@ -511,12 +549,12 @@ void CollisionSystemCall(Player* player)
 
     float playerCoordinate = {};
 
-    CSHRectangle xCollisionBox;
+    Rectangle xCollisionBox;
     xCollisionBox.bottomLeft = { player->position.x + 0.2f * player->sprite.width, player->position.y + (0.2f * player->sprite.height) };
     xCollisionBox.topRight = {player->position.x + 0.8f * player->sprite.width, player->position.y + 0.8f * player->sprite.height };
     float xCollisionBoxWidth = xCollisionBox.Width();
 
-    CSHRectangle yCollisionBox;
+    Rectangle yCollisionBox;
     yCollisionBox.bottomLeft = { player->position.x + (0.3f * player->sprite.width), player->position.y };
     yCollisionBox.topRight = { player->position.x + 0.7f * player->sprite.width, player->position.y + player->sprite.height };
     
@@ -642,38 +680,38 @@ int main(int argc, char* argv[])
     
     //block creation
     std::vector<Block> initilizedBlocks = {
-        { {10, 2}, TileType::grass },
-        { {10, 1}, TileType::grass },
-        { {12, 2}, TileType::grass },
-        { {12, 3}, TileType::grass },
-        { {15, 3}, TileType::grass },
-        { {17, 4}, TileType::grass },
-        { {18, 4}, TileType::grass },
-        { {12, 10}, TileType::grass },
-        { {22, 16}, TileType::grass }
+        { {10, 2}, TileType::filled },
+        { {10, 1}, TileType::filled },
+        { {12, 2}, TileType::filled },
+        { {12, 3}, TileType::filled },
+        { {15, 3}, TileType::filled },
+        { {17, 4}, TileType::filled },
+        { {18, 4}, TileType::filled },
+        { {12, 10}, TileType::filled },
+        { {22, 16}, TileType::filled }
     };
 
     for (uint64 i = 0; i < 50; i++)
-        initilizedBlocks.push_back({ {0, float(i)}, TileType::grass });
+        initilizedBlocks.push_back({ {0, float(i)}, TileType::filled });
 
     for (uint64 i = 0; i < 50; i++)
-        initilizedBlocks.push_back({ {39, float(i)}, TileType::grass });
+        initilizedBlocks.push_back({ {39, float(i)}, TileType::filled });
 
     for (auto& block : initilizedBlocks)
         tileMap.AddBlock(block.location, block.tileType);
 
     for (int32 x = 0; x * blockSize < windowInfo.width; x++)
-		tileMap.AddBlock({ float(x), 0 }, TileType::grass);
+		tileMap.AddBlock({ float(x), 0 }, TileType::filled);
 
     //first pass to set most things
     for (auto& block : *tileMap.blockList())
     {
-        UpdateBlock(&tileMap.GetBlock(block.second.location));
+        UpdateBlockV2(&tileMap.GetBlock(block.second.location));
     }
     //2nd pass to clean up what was missed aka grass blocks that should be edge blocks
     for (auto& block : *tileMap.blockList())
     {
-        UpdateBlock(&tileMap.GetBlock(block.second.location));
+        UpdateBlockV2(&tileMap.GetBlock(block.second.location));
     }
 
     //Start Of Running Program
@@ -760,6 +798,10 @@ int main(int argc, char* argv[])
             debugList[DebugOptions::clickLocation] = !debugList[DebugOptions::clickLocation];
         if (keyBoardEvents[SDLK_4] == totalTime)
             debugList[DebugOptions::paintMethod] = !debugList[DebugOptions::paintMethod];
+        if (keyBoardEvents[SDLK_0] == totalTime)
+            WritePNG("CacheLevel.PNG");
+        if (keyBoardEvents[SDLK_9] == totalTime)
+            LoadPNG("CacheLevel.PNG");
 
 
         //Mouse Control:
@@ -777,15 +819,15 @@ int main(int argc, char* argv[])
             blockPointer->location = clickLocationTranslated;
             if (blockPointer->tileType == TileType::invalid)
             {
-                paintType = TileType::grass;
-                blockPointer->tileType = TileType::grass;
-                ClickUpdate(blockPointer, true);
+                paintType = TileType::filled;
+                blockPointer->tileType = TileType::filled;
+                UpdateAllNeighbors(blockPointer);
             }
             else
             {
                 paintType = TileType::invalid;
                 blockPointer->tileType = TileType::invalid;
-                SurroundBlockUpdate(blockPointer, true);
+                UpdateAllNeighbors(blockPointer);
             }
         }
 
@@ -803,64 +845,11 @@ int main(int argc, char* argv[])
                 if (blockPointer->tileType != paintType)
                 {
                     blockPointer->tileType = paintType;
-                    ClickUpdate(blockPointer, true);
+                    UpdateAllNeighbors(blockPointer);
                 }
                 previousMouseLocation = mouseLocation;
             }
         }
-
-
-
-
-
-
-        if (mouseButtonEvent.timestamp == totalTime)
-        {
-            Vector clickLocation = CameraToPixelCoord(mouseButtonEvent.location);
-            Vector clickLocationTranslated = { float(int32(clickLocation.x + 0.5f) / blockSize), float(int32(clickLocation.y + 0.5f) / blockSize) };
-            clickRect = { int(clickLocation.x - 5), int(clickLocation.y - 5), 10, 10 };
-
-            Block* blockPointer = &tileMap.GetBlock(clickLocationTranslated);
-            // TODO(choman): Remove this when we have a type
-            blockPointer->location = clickLocationTranslated;
-            if (blockPointer->tileType == TileType::invalid)
-            {
-                paintType = TileType::grass;
-                blockPointer->tileType = TileType::grass;
-                ClickUpdate(blockPointer, true);
-            }
-            else
-            {
-                paintType = TileType::invalid;
-                blockPointer->tileType = TileType::invalid;
-                SurroundBlockUpdate(blockPointer, true);
-            }
-        }
-
-        if (debugList[DebugOptions::paintMethod] && mouseButtonEvent.type == SDL_MOUSEBUTTONDOWN)
-        {
-            Vector mouseLocation = CameraToPixelCoord({ float(mouseMotionEvent.x), float(mouseMotionEvent.y) });
-            Vector mouseLocationTranslated = { float(int32(mouseLocation.x + 0.5f) / blockSize), float(int32(mouseLocation.y + 0.5f) / blockSize) };
-            curserRect = { int(mouseLocation.x - 5), int(mouseLocation.y - 5), 10, 10 };
-
-            if ((mouseButtonEvent.location.x != previousMouseLocation.x || mouseButtonEvent.location.y != previousMouseLocation.y))
-            {
-                Block* blockPointer = &tileMap.GetBlock(mouseLocationTranslated);
-                // TODO(choman): Remove this when we have a type
-                blockPointer->location = mouseLocationTranslated;
-                if (blockPointer->tileType != paintType)
-                {
-                    blockPointer->tileType = paintType;
-                    ClickUpdate(blockPointer, true);
-                }
-                previousMouseLocation = mouseLocation;
-            }
-        }
-
-
-
-
-
 
 
         //update x coordinate:
@@ -886,7 +875,7 @@ int main(int argc, char* argv[])
         {
             if (block.second.tileType != TileType::invalid)
             {
-                SpriteMapRender(spriteMap, block.second.tileType, block.second.PixelPosition(), 4);
+                SpriteMapRender(spriteMap, block.second);
 
                 if (debugList[DebugOptions::blockCollision] && block.second.tileType != TileType::invalid)
                 {

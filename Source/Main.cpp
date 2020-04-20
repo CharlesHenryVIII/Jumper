@@ -14,16 +14,11 @@
 #include <cmath>
 
 /*
--setting up if statements for blocks
-
 TODO(choman):
     -entity system
-    -auto tile system
     -camera zoom
     -sub pixel rendering
-    -save player location in saving and loading functinos
     -refactor paint code
-
 */
 
 
@@ -46,7 +41,6 @@ const SDL_Color Red     = { 255, 0, 0, 255 };
 const SDL_Color Green   = { 0, 255, 0, 255 };
 const SDL_Color Blue    = { 0, 0, 255, 255 };
 
-
 const SDL_Color transRed    = { 255, 0, 0, 127 };
 const SDL_Color transGreen  = { 0, 255, 0, 127 };
 const SDL_Color transBlue   = { 0, 0, 255, 127 };
@@ -55,8 +49,8 @@ const SDL_Color lightRed    = { 255, 0, 0, 63 };
 const SDL_Color lightGreen  = { 0, 255, 0, 63 };
 const SDL_Color lightBlue   = { 0, 0, 255, 63 }; 
 
-
-const SDL_Color Brown = { 172, 132, 91, 255 };  //used for dirt block
+const SDL_Color Black = { 0, 0, 0,   255 };
+const SDL_Color Brown = { 130, 100, 70, 255 };  //used for dirt block
 const SDL_Color Mint =  { 0, 255, 127, 255 };   //used for corner block
 const SDL_Color Orange ={ 255, 127, 0, 255 };   //used for edge block
 const SDL_Color Grey =  { 127, 127, 127, 255 }; //used for floating block
@@ -104,6 +98,17 @@ struct VectorInt {
 };
 
 
+Vector BlocktoPixel(Vector loc)
+{
+    return { loc.x * blockSize, loc.y * blockSize };
+}
+
+Vector PixeltoBlock(Vector loc)
+{
+    return { float(uint32(loc.x + 0.5f) / blockSize), float(uint32(loc.y + 0.5f) / blockSize) };
+}
+
+
 struct Player {
     Sprite sprite;
     Vector position;
@@ -149,7 +154,6 @@ class TileMap
     std::unordered_map<uint64, Block> blocks;
 
 public:
-
 	//Block Coordinate System
 	Block& GetBlock(Vector loc)
 	{
@@ -175,9 +179,43 @@ public:
             return it->second.tileType != TileType::invalid;
         return false;
 	}
-    void RenderBlocks(Sprite* spriteMap)
+    //void RenderBlocks(Sprite* spriteMap)
+    //{
+    //    
+    //}
+    void UpdateBlock(Block* block)
+    {//32 pixels per block 64 total 8x8 = 256x256
+        uint32 blockFlags = 0;
+
+        constexpr uint32 left = 1 << 0;     //1 or odd
+        constexpr uint32 botLeft = 1 << 1;  //2
+        constexpr uint32 bot = 1 << 2;      //4
+        constexpr uint32 botRight = 1 << 3; //8
+        constexpr uint32 right = 1 << 4;    //16
+        constexpr uint32 top = 1 << 5;      //32
+
+
+        if (CheckForBlock({ block->location.x - 1, block->location.y }))
+            blockFlags += left;
+        if (CheckForBlock({ block->location.x - 1, block->location.y - 1 }))
+            blockFlags += botLeft;
+        if (CheckForBlock({ block->location.x,     block->location.y - 1 }))
+            blockFlags += bot;
+        if (CheckForBlock({ block->location.x + 1, block->location.y - 1 }))
+            blockFlags += botRight;
+        if (CheckForBlock({ block->location.x + 1, block->location.y }))
+            blockFlags += right;
+        if (CheckForBlock({ block->location.x,     block->location.y + 1 }))
+            blockFlags += top;
+
+        block->flags = blockFlags;
+    }
+    void UpdateAllBlocks()
     {
-        
+        for (auto& block : blocks)
+        {
+            UpdateBlock(&GetBlock(block.second.location));
+        }
     }
     //returns &blocks
     const std::unordered_map<uint64, Block>* blockList()
@@ -188,7 +226,6 @@ public:
     {
         blocks.clear();
     }
-
     void CleanBlocks()
     {
         for (auto it = blocks.begin(); it != blocks.end();)
@@ -222,11 +259,11 @@ struct Rectangle {
 struct MouseButtonEvent {
     Uint32 type;        /**< ::SDL_MOUSEBUTTONDOWN or ::SDL_MOUSEBUTTONUP */
     double timestamp;   /**< In milliseconds, populated using SDL_GetTicks() */
-    //Uint32 windowID;    /**< The window with mouse focus, if any */
-    //Uint32 which;       /**< The mouse instance id, or SDL_TOUCH_MOUSEID */
+    //Uint32 windowID;  /**< The window with mouse focus, if any */
+    //Uint32 which;     /**< The mouse instance id, or SDL_TOUCH_MOUSEID */
     Uint8 button;       /**< The mouse button index */
     Uint8 state;        /**< ::SDL_PRESSED or ::SDL_RELEASED */
-    //Uint8 clicks;       /**< 1 for single-click, 2 for double-click, etc. */
+    //Uint8 clicks;     /**< 1 for single-click, 2 for double-click, etc. */
     Vector location;
 };
 
@@ -301,7 +338,7 @@ SDL_Color GetTileMapColor(const Block& block)
 }
 
 
-void WritePNG(const char* filename)
+void WritePNG(const char* filename, Player* player)
 {
     //Setup
     stbi_flip_vertically_on_write(true);
@@ -333,7 +370,7 @@ void WritePNG(const char* filename)
 
     //Getting memory to write to
     std::vector<SDL_Color> memBuff;
-    memBuff.resize(width * height, {});
+    memBuff.resize(width * height, {}); //+ (player->sprite.height / blockSize)
 
     //writing to memory
     SDL_Color tileColor = {};
@@ -345,6 +382,11 @@ void WritePNG(const char* filename)
         memBuff[size_t((block.second.location.x - left) + ((block.second.location.y - bot) * size_t(width)))] = GetTileMapColor(block.second);
     }
 
+    //TODO(choman):  When new entity system is done change this to include other Actors
+    int32 playerBlockPositionX = int32(PixeltoBlock(player->position).x);
+    int32 playerBlockPositionY = int32(PixeltoBlock(player->position).y);
+    memBuff[size_t((playerBlockPositionX - left) + ((playerBlockPositionY - bot) * size_t(width)))] = Brown;
+
     //Saving written memory to file
     int stride_in_bytes = 4 * width;
     int colorChannels = 4;
@@ -352,7 +394,7 @@ void WritePNG(const char* filename)
 }
 
 
-void LoadPNG(const char* name)
+void LoadPNG(const char* name, Player* player)
 {
     tileMap.ClearBlocks();
 
@@ -368,90 +410,15 @@ void LoadPNG(const char* name)
             uint32 index = size_t(x) + size_t(y * textureWidth);
 
             TileType tileColor = CheckColor(image[index]);
-            if (tileColor != TileType::invalid)
+            if (image[index].r == Brown.r && image[index].g == Brown.g && image[index].b == Brown.b && image[index].a == Brown.a)
+                player->position = BlocktoPixel({ float(x), float(y) });
+            else if (tileColor != TileType::invalid)
                 tileMap.AddBlock( { float(x), float(y) }, tileColor );
         }
     }
+    tileMap.UpdateAllBlocks();
     stbi_image_free(image);
 }
-
-
-Vector BlocktoPixel(Vector loc)
-{
-	return {loc.x * blockSize, loc.y * blockSize};
-}
-
-Vector PixeltoBlock(Vector loc)
-{
-	return { float(uint32(loc.x + 0.5f) / blockSize), float(uint32(loc.y + 0.5f) / blockSize) };
-}
-
-
-void UpdateBlockV2(Block* block)
-{//32 pixels per block 64 total 8x8 = 256x256
-    uint32 blockFlags = 0;
-
-    constexpr uint32 left = 1 << 0;     //1 or odd
-    constexpr uint32 botLeft = 1 << 1;  //2
-    constexpr uint32 bot = 1 << 2;      //4
-    constexpr uint32 botRight = 1 << 3; //8
-    constexpr uint32 right = 1 << 4;    //16
-    constexpr uint32 top = 1 << 5;      //32
-
-
-    if (tileMap.CheckForBlock({ block->location.x - 1, block->location.y    }))
-        blockFlags += left;
-    if (tileMap.CheckForBlock({ block->location.x - 1, block->location.y - 1}))
-        blockFlags += botLeft;
-    if (tileMap.CheckForBlock({ block->location.x,     block->location.y - 1}))
-        blockFlags += bot;
-    if (tileMap.CheckForBlock({ block->location.x + 1, block->location.y - 1}))
-        blockFlags += botRight;
-    if (tileMap.CheckForBlock({ block->location.x + 1, block->location.y    }))
-        blockFlags += right;
-    if (tileMap.CheckForBlock({ block->location.x,     block->location.y + 1}))
-        blockFlags += top;
-
-    block->flags = blockFlags;
-//    block->tileType = blockFlags ? TileType::filled : TileType::invalid;
-}
-
-
-//void UpdateBlock(Block* block)
-//{
-//    if (block->tileType == TileType::invalid)
-//        return;
-//
-//    Block left = tileMap.GetBlock({ block->location.x - 1, block->location.y });
-//    Block right = tileMap.GetBlock({ block->location.x + 1, block->location.y });
-//    Block top = tileMap.GetBlock({ block->location.x, block->location.y + 1 });
-//    Block bot = tileMap.GetBlock({ block->location.x, block->location.y - 1 });
-//
-//    //Check if dirt block
-//    if (top.tileType != TileType::invalid)
-//        block->tileType = TileType::dirt;
-//    //checking for grass block
-//    else if ((left.tileType != TileType::invalid && left.tileType != TileType::dirt))// && (right.tileType != TileType::invalid && right.tileType != TileType::dirt))
-//        block->tileType = TileType::grass;
-//    
-//    //check for floating block
-//    else if (bot.tileType == TileType::invalid && left.tileType == TileType::invalid && right.tileType == TileType::invalid)
-//        block->tileType = TileType::floating;
-//    
-//    //check for left corner block
-//    else if (left.tileType == TileType::invalid)
-//        block->tileType = TileType::grassCorner;
-//    //check for right corner block
-//    else if (right.tileType == TileType::invalid)
-//        block->tileType = TileType::grass;
-//    
-//    //check for right edge block
-//    else if (left.tileType == TileType::dirt)
-//        block->tileType = TileType::grass;
-//    //check for right edge block
-//    else if (right.tileType == TileType::dirt)
-//        block->tileType = TileType::grassEdge;
-//}
 
 
 void UpdateAllNeighbors(Block* block)
@@ -461,7 +428,7 @@ void UpdateAllNeighbors(Block* block)
         for (int32 x = -1; x <= 1; x++)
         {
             if (tileMap.TryGetBlock({ float(block->location.x + x), float(block->location.y + y) }) != nullptr)
-                UpdateBlockV2(&tileMap.GetBlock({ float(block->location.x + x), float(block->location.y + y) }));
+                tileMap.UpdateBlock(&tileMap.GetBlock({ float(block->location.x + x), float(block->location.y + y) }));
         }
     }
 }
@@ -471,21 +438,21 @@ void SurroundBlockUpdate(Block* block, bool updateTop)
 {
     //update block below
     if (tileMap.CheckForBlock({ block->location.x, block->location.y - 1 }))
-        UpdateBlockV2(&tileMap.GetBlock({ block->location.x, block->location.y - 1 }));
+        tileMap.UpdateBlock(&tileMap.GetBlock({ block->location.x, block->location.y - 1 }));
     //update block to the left
     if (tileMap.CheckForBlock({ block->location.x - 1, block->location.y }))
-        UpdateBlockV2(&tileMap.GetBlock({ block->location.x - 1, block->location.y }));
+        tileMap.UpdateBlock(&tileMap.GetBlock({ block->location.x - 1, block->location.y }));
     //update block to the right
     if (tileMap.CheckForBlock({ block->location.x + 1, block->location.y }))
-        UpdateBlockV2(&tileMap.GetBlock({ block->location.x + 1, block->location.y }));
+        tileMap.UpdateBlock(&tileMap.GetBlock({ block->location.x + 1, block->location.y }));
     if (updateTop && tileMap.CheckForBlock({ block->location.x, block->location.y - 1 }))
-        UpdateBlockV2(&tileMap.GetBlock({ block->location.x, block->location.y + 1 }));
+        tileMap.UpdateBlock(&tileMap.GetBlock({ block->location.x, block->location.y + 1 }));
 }
 
 
 void ClickUpdate(Block* block, bool updateTop)
 {
-    UpdateBlockV2(block);
+    tileMap.UpdateBlock(block);
     SurroundBlockUpdate(block, updateTop);
 }
 
@@ -585,24 +552,10 @@ void CollisionSystemCall(Player* player)
             //checking the right side of player against the left side of a block
             if (block.second.location.x * blockSize > xCollisionBox.bottomLeft.x&& block.second.location.x* blockSize < xCollisionBox.topRight.x)
             {
-                //float bottom = xCollisionBox.bottomLeft.y - blockSize * 0.5f; 
-                //float top = xCollisionBox.topRight.y + blockSize * 0.5f;
-                //float blockCenter = block.second.location.y * blockSize + blockSize * 0.5f;
-                //if (blockCenter > bottom && blockCenter < top)
-                //{
-                //    player->position.x = block.second.location.x - player->sprite.width;
-                //}
-
                 if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y&& block.second.location.y* blockSize < xCollisionBox.topRight.y)
                 {
                     player->position.x = block.second.location.x * blockSize - 0.8f * player->sprite.width;
                     player->velocity.x = 0;
-
-                    //collisionXRect.x = int(ChooseSmallest(block.second.location.x * blockSize, player->position.x));
-                    //collisionXRect.y = int(ChooseSmallest(block.second.location.y * blockSize, player->position.y));
-                    //collisionXRect.w = int(fabs(block.second.location.x * blockSize - player->position.x));
-                    //collisionXRect.h = int(fabs(block.second.location.y * blockSize - player->position.y));
-
                 }
             }
             //checking the left side of player against the right side of the block
@@ -703,16 +656,7 @@ int main(int argc, char* argv[])
     for (int32 x = 0; x * blockSize < windowInfo.width; x++)
 		tileMap.AddBlock({ float(x), 0 }, TileType::filled);
 
-    //first pass to set most things
-    for (auto& block : *tileMap.blockList())
-    {
-        UpdateBlockV2(&tileMap.GetBlock(block.second.location));
-    }
-    //2nd pass to clean up what was missed aka grass blocks that should be edge blocks
-    for (auto& block : *tileMap.blockList())
-    {
-        UpdateBlockV2(&tileMap.GetBlock(block.second.location));
-    }
+    tileMap.UpdateAllBlocks();
 
     //Start Of Running Program
     while (running)
@@ -783,8 +727,6 @@ int main(int argc, char* argv[])
                 player.jumpCount -= 1;
             }
         }
-        //else if (keyBoardEvents[SDLK_s] == totalTime || keyBoardEvents[SDLK_DOWN] == totalTime)
-        //    player.velocity.x=0;
         if (keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT])
             player.velocity.x -= 10 * blockSize;
         if (keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT])
@@ -799,9 +741,9 @@ int main(int argc, char* argv[])
         if (keyBoardEvents[SDLK_4] == totalTime)
             debugList[DebugOptions::paintMethod] = !debugList[DebugOptions::paintMethod];
         if (keyBoardEvents[SDLK_0] == totalTime)
-            WritePNG("CacheLevel.PNG");
+            WritePNG("Level.PNG", &player);
         if (keyBoardEvents[SDLK_9] == totalTime)
-            LoadPNG("CacheLevel.PNG");
+            LoadPNG("Level.PNG", &player);
 
 
         //Mouse Control:

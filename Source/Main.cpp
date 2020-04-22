@@ -775,10 +775,10 @@ int main(int argc, char* argv[])
 
                 if (debugList[DebugOptions::blockCollision] && block.second.tileType != TileType::invalid)
                 {
-                    SDL_Rect blockRect = { int(block.second.location.x * blockSize),
-                                            int((block.second.location.y) * blockSize),
-                                            blockSize,
-                                            blockSize };
+                    Rectangle blockRect;
+                    blockRect.bottomLeft = block.second.location;
+                    blockRect.topRight = { block.second.location.x + 1 , block.second.location.y + 1 };
+
                     DebugRectRender(blockRect, lightRed);
                 }
             }

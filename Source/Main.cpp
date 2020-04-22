@@ -6,6 +6,9 @@
 #include "stb/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
+//#define STB_TRUETYPE_IMPLEMENTATION
+//#include "stb/stb_truetype.h"
+
 
 #include <iostream>
 #include <cstdint>
@@ -18,7 +21,7 @@ TODO(choman):
     -entity system
     -camera zoom
     -sub pixel rendering
-    -refactor paint code
+    -multithread saving/png compression
 */
 
 
@@ -98,14 +101,25 @@ struct VectorInt {
 };
 
 
-Vector BlocktoPixel(Vector loc)
+int BlocktoPixel(float loc)
 {
-    return { loc.x * blockSize, loc.y * blockSize };
+    return int(loc * blockSize);
 }
 
-Vector PixeltoBlock(Vector loc)
+VectorInt BlocktoPixel(Vector loc)
 {
-    return { float(uint32(loc.x + 0.5f) / blockSize), float(uint32(loc.y + 0.5f) / blockSize) };
+    return { BlocktoPixel(loc.x), BlocktoPixel(loc.y) };
+}
+
+
+float PixeltoBlock(int loc)
+{
+    return { float(loc) / blockSize };
+}
+
+Vector PixeltoBlock(VectorInt loc)
+{
+    return { PixeltoBlock(loc.x), PixeltoBlock(loc.y) };
 }
 
 
@@ -264,12 +278,9 @@ struct MouseButtonEvent {
     Uint8 button;       /**< The mouse button index */
     Uint8 state;        /**< ::SDL_PRESSED or ::SDL_RELEASED */
     //Uint8 clicks;     /**< 1 for single-click, 2 for double-click, etc. */
-    Vector location;
+    VectorInt location;
 };
 
-
-SDL_Rect collisionXRect = {};
-SDL_Rect collisionYRect = {};
 
 enum class CollisionDirection {
     right,
@@ -313,7 +324,7 @@ Sprite CreateSprite(SDL_Renderer* renderer, const char* name, SDL_BlendMode blen
 
 TileType CheckColor(SDL_Color color)
 {
-    if (color.r == Green.r && color.g == Green.g && color.b == Green.b && color.a == Green.a)
+    if (color.r == Brown.r && color.g == Brown.g && color.b == Brown.b && color.a == Brown.a)
         return TileType::filled;
     else
         return TileType::invalid;
@@ -331,7 +342,7 @@ TileType CheckColor(SDL_Color color)
 SDL_Color GetTileMapColor(const Block& block)
 {
     if (block.tileType == TileType::filled)
-        return Green;
+        return Brown;
     else
         return {};
 
@@ -345,29 +356,27 @@ void WritePNG(const char* filename, Player* player)
     tileMap.CleanBlocks();
 
     //Finding the edges of the "picture"/level
-    auto first = tileMap.blockList()->begin();
-
-    int32 left = int32(first->second.location.x);
-    int32 right = int32(first->second.location.x);
-    int32 top = int32(first->second.location.y);
-    int32 bot = int32(first->second.location.y);
+    int32 left  = int32(player->position.x);
+    int32 right = int32(player->position.x);
+    int32 top   = int32(player->position.y);
+    int32 bot   = int32(player->position.y);
 
     for (auto& block : *tileMap.blockList())
     {
         if (block.second.location.x < left)
             left = int32(block.second.location.x);
-        else if (block.second.location.x > right)
+        if (block.second.location.x > right)
             right = int32(block.second.location.x);
         
         if (block.second.location.y < bot)
             bot = int32(block.second.location.y);
-        else if (block.second.location.y > top)
+        if (block.second.location.y > top)
             top = int32(block.second.location.y);
     }
 
     int32 width = right - left + 1;
     int32 height = top - bot + 1;
-
+    
     //Getting memory to write to
     std::vector<SDL_Color> memBuff;
     memBuff.resize(width * height, {}); //+ (player->sprite.height / blockSize)
@@ -383,9 +392,9 @@ void WritePNG(const char* filename, Player* player)
     }
 
     //TODO(choman):  When new entity system is done change this to include other Actors
-    int32 playerBlockPositionX = int32(PixeltoBlock(player->position).x);
-    int32 playerBlockPositionY = int32(PixeltoBlock(player->position).y);
-    memBuff[size_t((playerBlockPositionX - left) + ((playerBlockPositionY - bot) * size_t(width)))] = Brown;
+    int32 playerBlockPositionX = int32(player->position.x);
+    int32 playerBlockPositionY = int32(player->position.y);
+    memBuff[size_t((playerBlockPositionX - left) + ((playerBlockPositionY - bot) * size_t(width)))] = Blue;
 
     //Saving written memory to file
     int stride_in_bytes = 4 * width;
@@ -410,9 +419,9 @@ void LoadPNG(const char* name, Player* player)
             uint32 index = size_t(x) + size_t(y * textureWidth);
 
             TileType tileColor = CheckColor(image[index]);
-            if (image[index].r == Brown.r && image[index].g == Brown.g && image[index].b == Brown.b && image[index].a == Brown.a)
-                player->position = BlocktoPixel({ float(x), float(y) });
-            else if (tileColor != TileType::invalid)
+            if (image[index].r == Blue.r && image[index].g == Blue.g && image[index].b == Blue.b && image[index].a == Blue.a)
+                player->position = { float(x + 0.5f), float(y + 0.5f) };
+            else if (tileColor != TileType::invalid)     
                 tileMap.AddBlock( { float(x), float(y) }, tileColor );
         }
     }
@@ -457,14 +466,16 @@ void ClickUpdate(Block* block, bool updateTop)
 }
 
 
-SDL_Rect CameraOffset(Vector location, VectorInt size)
+SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize)
 {
-    float xOffset = camera.position.x - windowInfo.width / 2;
-    float yOffset = camera.position.y - windowInfo.height / 2;
+    VectorInt location = BlocktoPixel(gameLocation);
+    VectorInt size = BlocktoPixel(gameSize);
+    int xOffset = BlocktoPixel(camera.position.x) - windowInfo.width / 2;
+    int yOffset = BlocktoPixel(camera.position.y) - windowInfo.height / 2;
 
     SDL_Rect result;
-    result.x = int(location.x - xOffset);
-    result.y = windowInfo.height - int(location.y - yOffset) - size.y;
+    result.x = location.x - xOffset;
+    result.y = windowInfo.height - (location.y - yOffset) - size.y;
     result.w = size.x;
     result.h = size.y;
 
@@ -473,10 +484,10 @@ SDL_Rect CameraOffset(Vector location, VectorInt size)
 
 
 //difference between the player and the center of the screen
-Vector CameraToPixelCoord(Vector input)
+VectorInt CameraToPixelCoord(VectorInt input)
 {
-    float xOffset = camera.position.x - windowInfo.width / 2;
-    float yOffset = camera.position.y - windowInfo.height / 2;
+    int xOffset = BlocktoPixel(camera.position.x) - windowInfo.width / 2;
+    int yOffset = BlocktoPixel(camera.position.y) - windowInfo.height / 2;
     return { input.x + xOffset, windowInfo.height - input.y + yOffset};
 }
 
@@ -488,15 +499,16 @@ void SpriteMapRender(Sprite sprite, Block block)
     int32 y = uint32(block.flags) / blocksPerRow * blockSize;
 
     SDL_Rect blockRect = { x, y, blockSize, blockSize };
-    SDL_Rect DestRect = CameraOffset( block.PixelPosition(), { blockSize, blockSize });
+    SDL_Rect DestRect = CameraOffset( block.location, { 1, 1 });
     SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
 }
 
 
-void DebugRectRender(SDL_Rect rect, SDL_Color color)
+void DebugRectRender(Rectangle rect, SDL_Color color)
 {
     SDL_SetRenderDrawColor(windowInfo.renderer, color.r, color.g, color.b, color.a);
-    SDL_Rect rect2 = CameraOffset({ float(rect.x), float(rect.y) }, { rect.w, rect.h });
+    SDL_Rect rect2 = CameraOffset(rect.bottomLeft, { rect.Width(), rect.Height() });
+
     SDL_RenderDrawRect(windowInfo.renderer, &rect2);
     SDL_RenderFillRect(windowInfo.renderer, &rect2);
 }
@@ -504,44 +516,20 @@ void DebugRectRender(SDL_Rect rect, SDL_Color color)
 
 void CollisionSystemCall(Player* player)
 {
-    collisionXRect = {};
-    collisionYRect = {};
-
-    Vector referenceBlock = { };
-    
-    Vector playerCollisionPoint1 = {};
-    Vector playerCollisionPoint2 = {};
-    Vector playerCollisionPoint3 = {};
-    Vector playerCollisionPoint4 = {};
-
-    float playerCoordinate = {};
-
     Rectangle xCollisionBox;
-    xCollisionBox.bottomLeft = { player->position.x + 0.2f * player->sprite.width, player->position.y + (0.2f * player->sprite.height) };
-    xCollisionBox.topRight = {player->position.x + 0.8f * player->sprite.width, player->position.y + 0.8f * player->sprite.height };
-    float xCollisionBoxWidth = xCollisionBox.Width();
+    xCollisionBox.bottomLeft = { player->position.x + 0.2f * PixeltoBlock(player->sprite.width), player->position.y + 0.2f * PixeltoBlock(player->sprite.height) };
+    xCollisionBox.topRight = {player->position.x + 0.8f * PixeltoBlock(player->sprite.width), player->position.y + 0.8f * PixeltoBlock(player->sprite.height) };
 
     Rectangle yCollisionBox;
-    yCollisionBox.bottomLeft = { player->position.x + (0.3f * player->sprite.width), player->position.y };
-    yCollisionBox.topRight = { player->position.x + 0.7f * player->sprite.width, player->position.y + player->sprite.height };
+    yCollisionBox.bottomLeft = { player->position.x + 0.3f * PixeltoBlock(player->sprite.width), player->position.y };
+    yCollisionBox.topRight = { player->position.x + 0.7f * PixeltoBlock(player->sprite.width), player->position.y + PixeltoBlock(player->sprite.height) };
     
     
-    if (debugList[DebugOptions::playerCollision]) //debug draw
+    if (debugList[DebugOptions::playerCollision])
     {
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-        
-        SDL_Rect xRect = { int(xCollisionBox.bottomLeft.x),
-                            int(xCollisionBox.bottomLeft.y),
-                            int(xCollisionBox.topRight.x - xCollisionBox.bottomLeft.x),
-                            int(xCollisionBox.topRight.y - xCollisionBox.bottomLeft.y) };
-        DebugRectRender(xRect, transGreen);
-
-        SDL_Rect yRect = { int(yCollisionBox.bottomLeft.x),
-                            int(yCollisionBox.bottomLeft.y),
-                            int(yCollisionBox.topRight.x - yCollisionBox.bottomLeft.x),
-                            int(yCollisionBox.topRight.y - yCollisionBox.bottomLeft.y) };
-        DebugRectRender(yRect, transGreen);
-
+        DebugRectRender(xCollisionBox, transGreen);
+        DebugRectRender(yCollisionBox, transGreen);
     }
 
 
@@ -550,42 +538,42 @@ void CollisionSystemCall(Player* player)
         if (block.second.tileType != TileType::invalid)
         {
             //checking the right side of player against the left side of a block
-            if (block.second.location.x * blockSize > xCollisionBox.bottomLeft.x&& block.second.location.x* blockSize < xCollisionBox.topRight.x)
+            if (block.second.location.x > xCollisionBox.bottomLeft.x && block.second.location.x < xCollisionBox.topRight.x)
             {
-                if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y&& block.second.location.y* blockSize < xCollisionBox.topRight.y)
+                if ((block.second.location.y + 1) > xCollisionBox.bottomLeft.y && block.second.location.y < xCollisionBox.topRight.y)
                 {
-                    player->position.x = block.second.location.x * blockSize - 0.8f * player->sprite.width;
+                    player->position.x = block.second.location.x - 0.8f * PixeltoBlock(player->sprite.width);
                     player->velocity.x = 0;
                 }
             }
             //checking the left side of player against the right side of the block
-            if ((block.second.location.x + 1) * blockSize > xCollisionBox.bottomLeft.x && (block.second.location.x + 1)* blockSize < xCollisionBox.topRight.x)
+            if ((block.second.location.x + 1) > xCollisionBox.bottomLeft.x && (block.second.location.x + 1) < xCollisionBox.topRight.x)
             {
-                if ((block.second.location.y + 1) * blockSize > xCollisionBox.bottomLeft.y&& block.second.location.y* blockSize < xCollisionBox.topRight.y)
+                if ((block.second.location.y + 1) > xCollisionBox.bottomLeft.y && block.second.location.y < xCollisionBox.topRight.y)
                 {
-                    player->position.x = (block.second.location.x + 1) * blockSize - 0.2f * player->sprite.width;
+                    player->position.x = (block.second.location.x + 1) - 0.2f * PixeltoBlock(player->sprite.width);
                     player->velocity.x = 0;
                 }
             }
 
             //checking the top of player against the bottom of the block
             //checking if the block is within the x bounds of the collisionBox
-            if ((block.second.location.x + 1) * blockSize > yCollisionBox.bottomLeft.x&& block.second.location.x* blockSize < yCollisionBox.topRight.x)
+            if ((block.second.location.x + 1) > yCollisionBox.bottomLeft.x && block.second.location.x < yCollisionBox.topRight.x)
             {
-                if (block.second.location.y * blockSize > yCollisionBox.bottomLeft.y&& block.second.location.y* blockSize < yCollisionBox.topRight.y)
+                if (block.second.location.y > yCollisionBox.bottomLeft.y && block.second.location.y < yCollisionBox.topRight.y)
                 {
-                    player->position.y = block.second.location.y * blockSize - player->sprite.height;
+                    player->position.y = block.second.location.y - PixeltoBlock(player->sprite.height);
                     if (player->velocity.y > 0)
                         player->velocity.y = 0;
                 }
             }
             //checking the bottom of player against the top of the block
             //checking if the block is within the x bounds of the collisionBox
-            if ((block.second.location.x + 1) * blockSize > yCollisionBox.bottomLeft.x&& block.second.location.x* blockSize < yCollisionBox.topRight.x)
+            if ((block.second.location.x + 1) > yCollisionBox.bottomLeft.x && block.second.location.x < yCollisionBox.topRight.x)
             {
-                if ((block.second.location.y + 1) * blockSize > yCollisionBox.bottomLeft.y && (block.second.location.y + 1)* blockSize < yCollisionBox.topRight.y)
+                if ((block.second.location.y + 1) > yCollisionBox.bottomLeft.y && (block.second.location.y + 1) < yCollisionBox.topRight.y)
                 {
-                    player->position.y = (block.second.location.y + 1) * blockSize;
+                    player->position.y = block.second.location.y + 1;
                     if (player->velocity.y < 0)
                         player->velocity.y = 0;
                     player->jumpCount = 2;
@@ -604,7 +592,7 @@ int main(int argc, char* argv[])
     SDL_MouseMotionEvent mouseMotionEvent = {};
     bool running = true;
     SDL_Event SDLEvent;
-    Vector previousMouseLocation = {};
+    VectorInt previousMouseLocation = {};
     TileType paintType = TileType::invalid;
 
     windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
@@ -627,35 +615,8 @@ int main(int argc, char* argv[])
     //Player Creation
     Player player;
     player.sprite = playerSprite;
-    player.position = { 3.0f*blockSize, 10.0f * blockSize }; //bottom left
-    player.collisionSize = { 32, 64 }; 
 
-    
-    //block creation
-    std::vector<Block> initilizedBlocks = {
-        { {10, 2}, TileType::filled },
-        { {10, 1}, TileType::filled },
-        { {12, 2}, TileType::filled },
-        { {12, 3}, TileType::filled },
-        { {15, 3}, TileType::filled },
-        { {17, 4}, TileType::filled },
-        { {18, 4}, TileType::filled },
-        { {12, 10}, TileType::filled },
-        { {22, 16}, TileType::filled }
-    };
-
-    for (uint64 i = 0; i < 50; i++)
-        initilizedBlocks.push_back({ {0, float(i)}, TileType::filled });
-
-    for (uint64 i = 0; i < 50; i++)
-        initilizedBlocks.push_back({ {39, float(i)}, TileType::filled });
-
-    for (auto& block : initilizedBlocks)
-        tileMap.AddBlock(block.location, block.tileType);
-
-    for (int32 x = 0; x * blockSize < windowInfo.width; x++)
-		tileMap.AddBlock({ float(x), 0 }, TileType::filled);
-
+    LoadPNG("DefaultLevel.PNG", &player);
     tileMap.UpdateAllBlocks();
 
     //Start Of Running Program
@@ -699,16 +660,16 @@ int main(int argc, char* argv[])
                     mouseButtonEvent.timestamp = totalTime;//SDLEvent.button.timestamp;
                 mouseButtonEvent.button = SDLEvent.button.button;
                 mouseButtonEvent.state = SDLEvent.button.state;
-                mouseButtonEvent.location.x = float(SDLEvent.button.x);
-                mouseButtonEvent.location.y = float(SDLEvent.button.y);
+                mouseButtonEvent.location.x = SDLEvent.button.x;
+                mouseButtonEvent.location.y = SDLEvent.button.y;
                 break;
             case SDL_MOUSEBUTTONUP:
                 mouseButtonEvent.type = SDLEvent.button.type;
                 mouseButtonEvent.timestamp = 0;//SDLEvent.button.timestamp;
                 mouseButtonEvent.button = SDLEvent.button.button;
                 mouseButtonEvent.state = SDLEvent.button.state;
-                mouseButtonEvent.location.x = float(SDLEvent.button.x);
-                mouseButtonEvent.location.y = float(SDLEvent.button.y);
+                mouseButtonEvent.location.x = SDLEvent.button.x;
+                mouseButtonEvent.location.y = SDLEvent.button.y;
                 break;
             case SDL_MOUSEMOTION:
                 mouseMotionEvent = SDLEvent.motion;
@@ -723,14 +684,14 @@ int main(int argc, char* argv[])
         {
             if (player.jumpCount > 0)
             {
-                player.velocity.y = float(20 * blockSize);
+                player.velocity.y = 20.0f;
                 player.jumpCount -= 1;
             }
         }
         if (keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT])
-            player.velocity.x -= 10 * blockSize;
+            player.velocity.x -= 10;
         if (keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT])
-            player.velocity.x += 10 * blockSize;
+            player.velocity.x += 10;
 
         if (keyBoardEvents[SDLK_1] == totalTime)
             debugList[DebugOptions::playerCollision] = !debugList[DebugOptions::playerCollision];
@@ -747,58 +708,51 @@ int main(int argc, char* argv[])
 
 
         //Mouse Control:
-        SDL_Rect clickRect = {};
-        SDL_Rect curserRect = {};
+        Rectangle clickRect = {};
 
-        if (mouseButtonEvent.timestamp == totalTime)
+        if (mouseButtonEvent.timestamp)
         {
-            Vector clickLocation = CameraToPixelCoord(mouseButtonEvent.location);
-            Vector clickLocationTranslated = { float(int32(clickLocation.x + 0.5f) / blockSize), float(int32(clickLocation.y + 0.5f) / blockSize) };
-            clickRect = { int(clickLocation.x - 5), int(clickLocation.y - 5), 10, 10 };
+            VectorInt mouseLocation = CameraToPixelCoord({ mouseMotionEvent.x, mouseMotionEvent.y });
+            Vector mouseLocationTranslated = PixeltoBlock(mouseLocation);
+            
+            clickRect.bottomLeft = { mouseLocationTranslated.x - 0.5f, mouseLocationTranslated.y - 0.5f };
+            clickRect.topRight = { mouseLocationTranslated.x + 0.5f, mouseLocationTranslated.y + 0.5f };
+            Block* blockPointer = &tileMap.GetBlock(mouseLocationTranslated);
+            blockPointer->location = mouseLocationTranslated;
+            blockPointer->location.x = floorf(blockPointer->location.x);
+            blockPointer->location.y = floorf(blockPointer->location.y);
 
-			Block* blockPointer = &tileMap.GetBlock(clickLocationTranslated);
-            // TODO(choman): Remove this when we have a type
-            blockPointer->location = clickLocationTranslated;
-            if (blockPointer->tileType == TileType::invalid)
+            if (mouseButtonEvent.timestamp == totalTime)
             {
-                paintType = TileType::filled;
-                blockPointer->tileType = TileType::filled;
+                if (mouseButtonEvent.button == SDL_BUTTON_LEFT)
+                    paintType = TileType::filled;
+                else if (mouseButtonEvent.button == SDL_BUTTON_RIGHT)
+                    paintType = TileType::invalid;
+
+                blockPointer->tileType = paintType;
                 UpdateAllNeighbors(blockPointer);
             }
-            else
+            else if (debugList[DebugOptions::paintMethod] && mouseButtonEvent.type == SDL_MOUSEBUTTONDOWN)
             {
-                paintType = TileType::invalid;
-                blockPointer->tileType = TileType::invalid;
-                UpdateAllNeighbors(blockPointer);
-            }
-        }
-
-        if (debugList[DebugOptions::paintMethod] && mouseButtonEvent.type == SDL_MOUSEBUTTONDOWN)
-        {
-            Vector mouseLocation = CameraToPixelCoord({ float(mouseMotionEvent.x), float(mouseMotionEvent.y) });
-            Vector mouseLocationTranslated = { float(int32(mouseLocation.x + 0.5f) / blockSize), float(int32(mouseLocation.y + 0.5f) / blockSize) };
-            curserRect = { int(mouseLocation.x - 5), int(mouseLocation.y - 5), 10, 10 };
-
-            if ((mouseButtonEvent.location.x != previousMouseLocation.x || mouseButtonEvent.location.y != previousMouseLocation.y))
-            {
-				Block* blockPointer = &tileMap.GetBlock(mouseLocationTranslated);
-                // TODO(choman): Remove this when we have a type
-                blockPointer->location = mouseLocationTranslated;
-                if (blockPointer->tileType != paintType)
+                if ((mouseButtonEvent.location.x != previousMouseLocation.x || mouseButtonEvent.location.y != previousMouseLocation.y))
                 {
-                    blockPointer->tileType = paintType;
-                    UpdateAllNeighbors(blockPointer);
+                    if (blockPointer->tileType != paintType)
+                    {
+                        blockPointer->tileType = paintType;
+                        UpdateAllNeighbors(blockPointer);
+                    }
+                    previousMouseLocation = mouseLocation;
                 }
-                previousMouseLocation = mouseLocation;
             }
         }
+
 
 
         //update x coordinate:
         player.position.x += player.velocity.x * deltaTime;
 
         //update y coordinate based on gravity and bounding box:
-        float gravity = float(-60 * blockSize);
+        float gravity = -60.0f;
 
         player.velocity.y += gravity * deltaTime; //v = v0 + at
         player.position.y += player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
@@ -832,10 +786,9 @@ int main(int argc, char* argv[])
         if (debugList[DebugOptions::clickLocation])
         {
             DebugRectRender(clickRect, transGreen);
-            DebugRectRender(curserRect, Red);
         }
 
-        SDL_Rect tempRect = CameraOffset(player.position, { player.sprite.width, player.sprite.height });
+        SDL_Rect tempRect = CameraOffset(player.position, PixeltoBlock({ player.sprite.width, player.sprite.height }));
         SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
 
 

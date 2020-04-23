@@ -101,25 +101,25 @@ struct VectorInt {
 };
 
 
-int BlocktoPixel(float loc)
+int BlockToPixel(float loc)
 {
     return int(loc * blockSize);
 }
 
-VectorInt BlocktoPixel(Vector loc)
+VectorInt BlockToPixel(Vector loc)
 {
-    return { BlocktoPixel(loc.x), BlocktoPixel(loc.y) };
+    return { BlockToPixel(loc.x), BlockToPixel(loc.y) };
 }
 
 
-float PixeltoBlock(int loc)
+float PixelToBlock(int loc)
 {
     return { float(loc) / blockSize };
 }
 
-Vector PixeltoBlock(VectorInt loc)
+Vector PixelToBlock(VectorInt loc)
 {
-    return { PixeltoBlock(loc.x), PixeltoBlock(loc.y) };
+    return { PixelToBlock(loc.x), PixelToBlock(loc.y) };
 }
 
 
@@ -157,17 +157,15 @@ struct Block {
 };
 
 
-uint64 HashingFunction(int32 x, int32 y)
-{
-	return (uint64(y) << 32 | uint64(x));
-}
-
-
 class TileMap
 {
     std::unordered_map<uint64, Block> blocks;
 
 public:
+    uint64 HashingFunction(int32 x, int32 y)
+    {
+        return (uint64(y) << 32 | uint64(x));
+    }
 	//Block Coordinate System
 	Block& GetBlock(Vector loc)
 	{
@@ -193,10 +191,6 @@ public:
             return it->second.tileType != TileType::invalid;
         return false;
 	}
-    //void RenderBlocks(Sprite* spriteMap)
-    //{
-    //    
-    //}
     void UpdateBlock(Block* block)
     {//32 pixels per block 64 total 8x8 = 256x256
         uint32 blockFlags = 0;
@@ -468,10 +462,10 @@ void ClickUpdate(Block* block, bool updateTop)
 
 SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize)
 {
-    VectorInt location = BlocktoPixel(gameLocation);
-    VectorInt size = BlocktoPixel(gameSize);
-    int xOffset = BlocktoPixel(camera.position.x) - windowInfo.width / 2;
-    int yOffset = BlocktoPixel(camera.position.y) - windowInfo.height / 2;
+    VectorInt location = BlockToPixel(gameLocation);
+    VectorInt size = BlockToPixel(gameSize);
+    int xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
+    int yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
 
     SDL_Rect result;
     result.x = location.x - xOffset;
@@ -486,21 +480,37 @@ SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize)
 //difference between the player and the center of the screen
 VectorInt CameraToPixelCoord(VectorInt input)
 {
-    int xOffset = BlocktoPixel(camera.position.x) - windowInfo.width / 2;
-    int yOffset = BlocktoPixel(camera.position.y) - windowInfo.height / 2;
+    int xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
+    int yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
     return { input.x + xOffset, windowInfo.height - input.y + yOffset};
+}
+
+
+void SpriteMapRender(Sprite sprite, int32 i, int32 itemSize, int32 xTrimSize, Vector loc)
+{
+    int32 blocksPerRow = sprite.width / itemSize;
+    int32 x = uint32(i) % blocksPerRow * itemSize + xTrimSize / 2;
+    int32 y = uint32(i) / blocksPerRow * itemSize;
+
+    SDL_Rect blockRect = { x, y, itemSize - xTrimSize, itemSize };
+    float itemSizeTranslatedx = PixelToBlock(itemSize - xTrimSize);
+    float itemSizeTranslatedy = PixelToBlock(itemSize);
+    SDL_Rect DestRect = CameraOffset(loc, { itemSizeTranslatedx, itemSizeTranslatedy });
+
+    SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
 }
 
 
 void SpriteMapRender(Sprite sprite, Block block)
 {
-    int32 blocksPerRow = sprite.width / blockSize;
-    int32 x = uint32(block.flags) % blocksPerRow * blockSize;
-    int32 y = uint32(block.flags) / blocksPerRow * blockSize;
+    SpriteMapRender(sprite, block.flags, blockSize, 0, block.location);
+    //int32 blocksPerRow = sprite.width / blockSize;
+    //int32 x = uint32(block.flags) % blocksPerRow * blockSize;
+    //int32 y = uint32(block.flags) / blocksPerRow * blockSize;
 
-    SDL_Rect blockRect = { x, y, blockSize, blockSize };
-    SDL_Rect DestRect = CameraOffset( block.location, { 1, 1 });
-    SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
+    //SDL_Rect blockRect = { x, y, blockSize, blockSize };
+    //SDL_Rect DestRect = CameraOffset( block.location, { 1, 1 });
+    //SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
 }
 
 
@@ -514,15 +524,34 @@ void DebugRectRender(Rectangle rect, SDL_Color color)
 }
 
 
+//Bottom left location in block coordinate space, default 12 pixels
+void DrawText(Sprite sprite, SDL_Color c, int32 pixelTrim, std::string text, VectorInt loc)
+{
+    Vector transLoc = PixelToBlock(CameraToPixelCoord(loc));
+    int32 charPerRow = 16;
+    int32 charSize = 32;
+
+    SDL_SetTextureColorMod(sprite.texture, c.r, c.g, c.b);
+
+    for (uint32 i = 0; i < text.size(); i++)
+    {
+        //ascii to SpriteMapText
+        int32 SpriteMapIndex = text[i] - 32;
+        float x = transLoc.x + i * (PixelToBlock(charSize - pixelTrim));
+        SpriteMapRender(sprite, SpriteMapIndex, charSize, pixelTrim, { x, transLoc.y });
+    }
+}
+
+
 void CollisionSystemCall(Player* player)
 {
     Rectangle xCollisionBox;
-    xCollisionBox.bottomLeft = { player->position.x + 0.2f * PixeltoBlock(player->sprite.width), player->position.y + 0.2f * PixeltoBlock(player->sprite.height) };
-    xCollisionBox.topRight = {player->position.x + 0.8f * PixeltoBlock(player->sprite.width), player->position.y + 0.8f * PixeltoBlock(player->sprite.height) };
+    xCollisionBox.bottomLeft = { player->position.x + 0.2f * PixelToBlock(player->sprite.width), player->position.y + 0.2f * PixelToBlock(player->sprite.height) };
+    xCollisionBox.topRight = {player->position.x + 0.8f * PixelToBlock(player->sprite.width), player->position.y + 0.8f * PixelToBlock(player->sprite.height) };
 
     Rectangle yCollisionBox;
-    yCollisionBox.bottomLeft = { player->position.x + 0.3f * PixeltoBlock(player->sprite.width), player->position.y };
-    yCollisionBox.topRight = { player->position.x + 0.7f * PixeltoBlock(player->sprite.width), player->position.y + PixeltoBlock(player->sprite.height) };
+    yCollisionBox.bottomLeft = { player->position.x + 0.3f * PixelToBlock(player->sprite.width), player->position.y };
+    yCollisionBox.topRight = { player->position.x + 0.7f * PixelToBlock(player->sprite.width), player->position.y + PixelToBlock(player->sprite.height) };
     
     
     if (debugList[DebugOptions::playerCollision])
@@ -542,7 +571,7 @@ void CollisionSystemCall(Player* player)
             {
                 if ((block.second.location.y + 1) > xCollisionBox.bottomLeft.y && block.second.location.y < xCollisionBox.topRight.y)
                 {
-                    player->position.x = block.second.location.x - 0.8f * PixeltoBlock(player->sprite.width);
+                    player->position.x = block.second.location.x - 0.8f * PixelToBlock(player->sprite.width);
                     player->velocity.x = 0;
                 }
             }
@@ -551,7 +580,7 @@ void CollisionSystemCall(Player* player)
             {
                 if ((block.second.location.y + 1) > xCollisionBox.bottomLeft.y && block.second.location.y < xCollisionBox.topRight.y)
                 {
-                    player->position.x = (block.second.location.x + 1) - 0.2f * PixeltoBlock(player->sprite.width);
+                    player->position.x = (block.second.location.x + 1) - 0.2f * PixelToBlock(player->sprite.width);
                     player->velocity.x = 0;
                 }
             }
@@ -562,7 +591,7 @@ void CollisionSystemCall(Player* player)
             {
                 if (block.second.location.y > yCollisionBox.bottomLeft.y && block.second.location.y < yCollisionBox.topRight.y)
                 {
-                    player->position.y = block.second.location.y - PixeltoBlock(player->sprite.height);
+                    player->position.y = block.second.location.y - PixelToBlock(player->sprite.height);
                     if (player->velocity.y > 0)
                         player->velocity.y = 0;
                 }
@@ -611,6 +640,8 @@ int main(int argc, char* argv[])
     Sprite playerSprite = CreateSprite(windowInfo.renderer, "Player.png", SDL_BLENDMODE_BLEND);
     Sprite minecraftSprite = CreateSprite(windowInfo.renderer, "TileMap.png", SDL_BLENDMODE_BLEND);
     Sprite spriteMap = CreateSprite(windowInfo.renderer, "SpriteMap.png", SDL_BLENDMODE_BLEND);
+    Sprite textSheet = CreateSprite(windowInfo.renderer, "Text.png", SDL_BLENDMODE_BLEND);
+
 
     //Player Creation
     Player player;
@@ -713,7 +744,7 @@ int main(int argc, char* argv[])
         if (mouseButtonEvent.timestamp)
         {
             VectorInt mouseLocation = CameraToPixelCoord({ mouseMotionEvent.x, mouseMotionEvent.y });
-            Vector mouseLocationTranslated = PixeltoBlock(mouseLocation);
+            Vector mouseLocationTranslated = PixelToBlock(mouseLocation);
             
             clickRect.bottomLeft = { mouseLocationTranslated.x - 0.5f, mouseLocationTranslated.y - 0.5f };
             clickRect.topRight = { mouseLocationTranslated.x + 0.5f, mouseLocationTranslated.y + 0.5f };
@@ -788,10 +819,11 @@ int main(int argc, char* argv[])
             DebugRectRender(clickRect, transGreen);
         }
 
-        SDL_Rect tempRect = CameraOffset(player.position, PixeltoBlock({ player.sprite.width, player.sprite.height }));
+        SDL_Rect tempRect = CameraOffset(player.position, PixelToBlock({ player.sprite.width, player.sprite.height }));
         SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
 
 
+        DrawText(textSheet, Blue, 12, "Test", { 100, 100 });
 
         //Present Screen
         SDL_RenderPresent(windowInfo.renderer);

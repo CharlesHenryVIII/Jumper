@@ -22,6 +22,7 @@ TODO(choman):
     -camera zoom
     -sub pixel rendering
     -multithread saving/png compression
+    -buttons
 */
 
 
@@ -74,6 +75,22 @@ struct Sprite {
     SDL_Texture* texture;
     int32 width;
     int32 height;
+};
+
+
+enum class UIY
+{
+    bot,
+    mid,
+    top
+};
+
+
+enum class UIX
+{
+    left,
+    mid,
+    right
 };
 
 
@@ -324,14 +341,6 @@ TileType CheckColor(SDL_Color color)
         return TileType::invalid;
 }
 
-/*enum class TileType {
-    invalid,
-    dirt,
-    grass,
-    grassCorner,
-    grassEdge,
-    floating
-};*/
 
 SDL_Color GetTileMapColor(const Block& block)
 {
@@ -373,7 +382,7 @@ void WritePNG(const char* filename, Player* player)
     
     //Getting memory to write to
     std::vector<SDL_Color> memBuff;
-    memBuff.resize(width * height, {}); //+ (player->sprite.height / blockSize)
+    memBuff.resize(width * height, {});
 
     //writing to memory
     SDL_Color tileColor = {};
@@ -525,20 +534,28 @@ void DebugRectRender(Rectangle rect, SDL_Color color)
 
 
 //Bottom left location in block coordinate space, default 12 pixels
-void DrawText(Sprite sprite, SDL_Color c, int32 pixelTrim, std::string text, VectorInt loc)
+//Bot left is zero for UIX and UIY while top right is 2+2;
+void DrawText(Sprite sprite, SDL_Color c, int32 pixelTrim, std::string text, VectorInt loc, UIX XLayout, UIY YLayout)
 {
-    Vector transLoc = PixelToBlock(CameraToPixelCoord(loc));
+    SDL_SetTextureColorMod(sprite.texture, c.r, c.g, c.b);
+    Vector result = {};
+    
+    VectorInt pixelLoc = CameraToPixelCoord(loc);
+
     int32 charPerRow = 16;
     int32 charSize = 32;
-
-    SDL_SetTextureColorMod(sprite.texture, c.r, c.g, c.b);
+    int32 actualCharSize = charSize - pixelTrim;
+    
+    int32 xOffset = (int32(XLayout) * actualCharSize * int32(text.size())) / 2;
+    int32 yOffset = (int32(YLayout) * charSize) / 2;
 
     for (uint32 i = 0; i < text.size(); i++)
     {
         //ascii to SpriteMapText
         int32 SpriteMapIndex = text[i] - 32;
-        float x = transLoc.x + i * (PixelToBlock(charSize - pixelTrim));
-        SpriteMapRender(sprite, SpriteMapIndex, charSize, pixelTrim, { x, transLoc.y });
+        result.x = PixelToBlock(pixelLoc.x - xOffset) + i * (PixelToBlock(actualCharSize));
+        result.y = PixelToBlock(pixelLoc.y - yOffset);
+        SpriteMapRender(sprite, SpriteMapIndex, charSize, pixelTrim, result);
     }
 }
 
@@ -823,7 +840,7 @@ int main(int argc, char* argv[])
         SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
 
 
-        DrawText(textSheet, Blue, 12, "Test", { 100, 100 });
+        DrawText(textSheet, Blue, 12, "Test", { 0, 0 }, UIX::left, UIY::top);
 
         //Present Screen
         SDL_RenderPresent(windowInfo.renderer);

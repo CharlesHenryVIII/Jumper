@@ -495,6 +495,43 @@ VectorInt CameraToPixelCoord(VectorInt input)
 }
 
 
+void BackgroundRender(Sprite sprite, Player* player)
+{
+    //HARDCODING FOR NOW UNTIL WINDOW SIZE CHANGES
+    assert(windowInfo.width == 1280 && windowInfo.height == 720);
+
+    SDL_Rect spriteRect = {};
+
+    //topLeft
+    spriteRect.w = windowInfo.width / 2;    //360
+    spriteRect.h = windowInfo.height / 2;   //640
+    spriteRect.x = 0;
+    spriteRect.y = spriteRect.y = sprite.height - spriteRect.h;
+
+    
+    //checking to make sure the sprite doesnt go further left than the actual sprite and go beyond the border on the right;
+    if (player->position.x > 0)
+    {
+        if (int32(player->position.x) + spriteRect.w < sprite.width)
+            spriteRect.x = int32(player->position.x * 2);
+        else
+            spriteRect.x = sprite.width - spriteRect.w;
+    }
+
+    if (player->position.y > 0)
+    {
+        int32 spriteRectYOffset = spriteRect.h + int32(player->position.y / 2);
+        if (spriteRectYOffset < sprite.height)
+            spriteRect.y = sprite.height - spriteRectYOffset;
+        else
+            spriteRect.y = sprite.height - sprite.height;
+    }
+    
+       
+    SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &spriteRect, NULL, 0, NULL, SDL_FLIP_NONE);
+}
+
+
 void SpriteMapRender(Sprite sprite, int32 i, int32 itemSize, int32 xTrimSize, Vector loc)
 {
     int32 blocksPerRow = sprite.width / itemSize;
@@ -658,6 +695,7 @@ int main(int argc, char* argv[])
     Sprite minecraftSprite = CreateSprite(windowInfo.renderer, "TileMap.png", SDL_BLENDMODE_BLEND);
     Sprite spriteMap = CreateSprite(windowInfo.renderer, "SpriteMap.png", SDL_BLENDMODE_BLEND);
     Sprite textSheet = CreateSprite(windowInfo.renderer, "Text.png", SDL_BLENDMODE_BLEND);
+    Sprite background = CreateSprite(windowInfo.renderer, "Background.png", SDL_BLENDMODE_BLEND);
 
 
     //Player Creation
@@ -683,7 +721,7 @@ int main(int argc, char* argv[])
 
         SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
         SDL_RenderClear(windowInfo.renderer);
-
+        BackgroundRender(background, &player);
 
         //Event Queing and handling:
         while (SDL_PollEvent(&SDLEvent))

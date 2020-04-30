@@ -25,6 +25,7 @@ TODO(choman):
     -add tile destroying gun(s)
     -add layered background(s)
     seperate collision detection function and use it for projectile detection as well
+    -windows settings local grid highlight
 */
 
 
@@ -40,6 +41,7 @@ using uint64 = uint64_t;
 
 
 int32 blockSize = 32;
+
 
 
 const SDL_Color Red     = { 255, 0, 0, 255 };
@@ -94,7 +96,6 @@ enum class UIY
     top,
     mid,
     bot,
-    count
 };
 
 
@@ -103,7 +104,6 @@ enum class UIX
     left,
     mid,
     right,
-    count
 };
 
 
@@ -132,6 +132,24 @@ struct VectorInt {
 };
 
 
+Vector operator-(const Vector& lhs, const Vector& rhs)
+{
+    return {lhs.x - rhs.x, lhs.y - rhs.y};
+}
+
+
+Vector operator+(const Vector& lhs, const Vector& rhs)
+{
+    return { lhs.x + rhs.x, lhs.y + rhs.y };
+}
+
+
+Vector operator*(const Vector& a, const float b)
+{
+    return { a.x * b,  a.y * b};
+}
+
+
 int BlockToPixel(float loc)
 {
     return int(loc * blockSize);
@@ -154,14 +172,16 @@ Vector PixelToBlock(VectorInt loc)
 }
 
 
-struct Player {
+struct Actor {
     Sprite sprite;
     Vector position;
     Vector velocity = {};
     Vector acceleration;
     Vector collisionSize;
     int jumpCount = 2;
+    bool inUse = true;
 };
+
 
 
 struct Camera {
@@ -173,6 +193,14 @@ enum class TileType {
     invalid,
     filled
 };
+
+struct Projectile {
+    Actor actor;
+    Vector destination;
+    TileType paintType;
+    float rotation = 0;
+};
+std::vector<Projectile> bulletList = {};
 
 
 struct Block {
@@ -238,6 +266,8 @@ public:
 	//Block Coordinate System
 	Block& GetBlock(Vector loc)
 	{
+        loc.x = floorf(loc.x);
+        loc.y = floorf(loc.y);
         auto& result = blocks[HashingFunction(loc)];
         result.location = loc;
         return result;
@@ -424,7 +454,7 @@ SDL_Color GetTileMapColor(const Block& block)
 }
 
 
-void WritePNG(const char* filename, Player* player)
+void WritePNG(const char* filename, Actor* player)
 {
     //Setup
     stbi_flip_vertically_on_write(true);
@@ -478,7 +508,7 @@ void WritePNG(const char* filename, Player* player)
 }
 
 
-void LoadPNG(const char* name, Player* player)
+void LoadPNG(const char* name, Actor* player)
 {
     tileMap.ClearBlocks();
 
@@ -567,7 +597,7 @@ VectorInt CameraToPixelCoord(VectorInt input)
 }
 
 
-void BackgroundRender(Sprite sprite, Player* player)
+void BackgroundRender(Sprite sprite, Actor* player)
 {
     //HARDCODING FOR NOW UNTIL WINDOW SIZE CHANGES
     assert(windowInfo.width == 1280 && windowInfo.height == 720);
@@ -754,7 +784,7 @@ bool DrawButton(FontSprite textSprite, std::string text, VectorInt loc, UIX XLay
 }
 
 
-void CollisionSystemCall(Player* player)
+void CollisionSystemCall(Actor* player)
 {
     Rectangle xCollisionBox;
     xCollisionBox.bottomLeft = { player->position.x + 0.2f * PixelToBlock(player->sprite.width), player->position.y + 0.2f * PixelToBlock(player->sprite.height) };
@@ -823,6 +853,125 @@ void CollisionSystemCall(Player* player)
     }
 }
 
+float RadToDeg(float angle)
+{
+    return ((angle + 3.14159f) / (2 * 3.14159f)) * 360;
+}
+
+
+float VectorDistance(Vector A, Vector B)
+{
+    return sqrtf(powf(B.x - A.x, 2) + powf(B.y - A.y, 2));
+}
+
+
+Vector Normalize(Vector v)
+{
+    float hyp = sqrt(powf(v.x, 2) + powf(v.y, 2));
+    return { v.x / hyp, v.y / hyp };
+}
+
+
+void CreateBullet(Actor* player, Sprite bulletSprite, Vector mouseLoc, TileType blockToBeType)
+{
+    Projectile bullet = {};
+    bullet.paintType = blockToBeType;
+    bullet.actor.inUse = true;
+    bullet.actor.sprite = bulletSprite;
+    bullet.actor.collisionSize.x = float(bulletSprite.width);
+    bullet.actor.collisionSize.y = float(bulletSprite.height);
+
+    float playerBulletRadius = 0.5f; //half a block
+    bullet.destination = mouseLoc;
+    bullet.rotation = atan2f(bullet.destination.y - player->position.y, bullet.destination.x - player->position.x);
+    
+    float speed = 1.0f;
+
+    Vector ToDest = bullet.destination - bullet.actor.position;
+    ToDest = Normalize(ToDest);
+    bullet.actor.velocity = ToDest * speed;
+
+    bullet.actor.position = player->position + ToDest * playerBulletRadius;
+   
+
+    bool notCached = true;
+    for (int32 i = 0; i < bulletList.size(); i++)
+    {
+        if (!bulletList[i].actor.inUse)
+        {
+            notCached = false;
+            bulletList[i] = bullet;
+            break;
+        }
+    }
+    if (notCached)
+        bulletList.push_back(bullet);
+}
+
+
+float DotProduct(Vector a, Vector b)
+{
+    return a.x * b.x + a.y * b.y;
+}
+
+
+void UpdateLocation(Actor* actor, float gravity, float deltaTime)
+{
+    actor->position.x += actor->velocity.x * deltaTime;
+    actor->velocity.y += gravity * deltaTime; //v = v0 + at
+    actor->position.y += actor->velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
+}
+
+
+void UpdateBullets(float deltaTime)
+{
+    for (int32 i = 0; i < bulletList.size(); i++)
+    {
+        Projectile* bullet = &bulletList[i];
+        
+        if (bullet->actor.inUse)
+        {
+            UpdateLocation(&bullet->actor, 0, deltaTime);
+            if (DotProduct(bullet->actor.velocity, bullet->destination - bullet->actor.position) < 0)
+            {
+                //paint block and remove bullet
+                Block* blockPointer = &tileMap.GetBlock(bullet->destination);
+                blockPointer->tileType = bullet->paintType;
+                UpdateAllNeighbors(blockPointer);
+                bullet->actor.inUse = false;
+            }
+        }
+    }
+}
+
+
+void RenderActor(Actor* actor)
+{
+    SDL_Rect tempRect = CameraOffset(actor->position, PixelToBlock({ actor->sprite.width, actor->sprite.height }));
+    SDL_RenderCopyEx(windowInfo.renderer, actor->sprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
+}
+
+
+void RenderBullets()
+{
+    for (int32 i = 0; i < bulletList.size(); i++)
+    {
+        Projectile* bullet = &bulletList[i];
+        if (bullet->actor.inUse)
+        {
+            SDL_Color PC = {};
+            if (bullet->paintType == TileType::filled)
+                PC = Green;
+            else
+                PC = Red;
+            SDL_SetTextureColorMod(bullet->actor.sprite.texture, PC.r, PC.g, PC.b);
+            SDL_Rect DRect = {};
+            RenderActor(&bullet->actor);
+            //SDL_RenderCopyEx(windowInfo.renderer, bullet->actor.sprite.texture, NULL, &DRect, /*RadToDeg(bullet->rotation)*/0, NULL, SDL_FLIP_NONE);
+        }
+    }
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -854,10 +1003,11 @@ int main(int argc, char* argv[])
     //Sprite textSheet = CreateSprite("Text.png", SDL_BLENDMODE_BLEND);
     FontSprite textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
     Sprite background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
+    Sprite bulletSprite = CreateSprite("Bullet.png", SDL_BLENDMODE_BLEND);
 
 
     //Player Creation
-    Player player;
+    Actor player;
     player.sprite = playerSprite;
 
     LoadPNG("DefaultLevel.PNG", &player);
@@ -976,9 +1126,10 @@ int main(int argc, char* argv[])
                     paintType = TileType::filled;
                 else if (mouseButtonEvent.button == SDL_BUTTON_RIGHT)
                     paintType = TileType::invalid;
-
-                blockPointer->tileType = paintType;
-                UpdateAllNeighbors(blockPointer);
+                
+                CreateBullet(&player, bulletSprite, mouseLocationTranslated, paintType);
+                //blockPointer->tileType = paintType;
+                //UpdateAllNeighbors(blockPointer);
             }
             else if (debugList[DebugOptions::paintMethod] && mouseButtonEvent.type == SDL_MOUSEBUTTONDOWN)
             {
@@ -997,13 +1148,14 @@ int main(int argc, char* argv[])
 
 
         //update x coordinate:
-        player.position.x += player.velocity.x * deltaTime;
+        float gravity = -60.0f;
+        UpdateLocation(&player, gravity, deltaTime);
+        //player.position.x += player.velocity.x * deltaTime;
 
         //update y coordinate based on gravity and bounding box:
-        float gravity = -60.0f;
 
-        player.velocity.y += gravity * deltaTime; //v = v0 + at
-        player.position.y += player.velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
+
+
 
 
         CollisionSystemCall(&player);
@@ -1013,7 +1165,7 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
 
         camera.position = player.position;
-
+        UpdateBullets(deltaTime);
 
        //debug/testing blocks
         for (auto& block : *tileMap.blockList())
@@ -1037,8 +1189,9 @@ int main(int argc, char* argv[])
             DebugRectRender(clickRect, transGreen);
         }
 
-        SDL_Rect tempRect = CameraOffset(player.position, PixelToBlock({ player.sprite.width, player.sprite.height }));
-        SDL_RenderCopyEx(windowInfo.renderer, playerSprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
+        RenderBullets();
+
+        RenderActor(&player);
 
         DrawButton(textSheet, "Test", { 0, 0 }, UIX::left, UIY::top, Green, Orange, mouseButtonEvent, mouseMotionEvent);
         //DrawText(textSheet, Red, "Test", { windowInfo.width / 2, windowInfo.height / 2}, UIX::mid, UIY::mid);

@@ -24,7 +24,7 @@ TODO(choman):
     -multithread saving/png compression
     -add tile destroying gun(s)
     -add layered background(s)
-    seperate collision detection function and use it for projectile detection as well
+    -seperate collision detection function and use it for projectile detection as well
     -windows settings local grid highlight
 */
 
@@ -855,7 +855,7 @@ void CollisionSystemCall(Actor* player)
 
 float RadToDeg(float angle)
 {
-    return ((angle + 3.14159f) / (2 * 3.14159f)) * 360;
+    return ((angle) / (2 * 3.14159f)) * 360;
 }
 
 
@@ -868,7 +868,17 @@ float VectorDistance(Vector A, Vector B)
 Vector Normalize(Vector v)
 {
     float hyp = sqrt(powf(v.x, 2) + powf(v.y, 2));
-    return { v.x / hyp, v.y / hyp };
+    return { (v.x / hyp), (v.y / hyp) };
+}
+
+
+float Atan2fToDegreeDiff(float theta)
+{
+    float result = 0;
+    if (theta < 0)
+        return RadToDeg(fabsf(theta));
+    else
+        return 360 + 360 - RadToDeg(theta);
 }
 
 
@@ -880,18 +890,20 @@ void CreateBullet(Actor* player, Sprite bulletSprite, Vector mouseLoc, TileType 
     bullet.actor.sprite = bulletSprite;
     bullet.actor.collisionSize.x = float(bulletSprite.width);
     bullet.actor.collisionSize.y = float(bulletSprite.height);
+    Vector adjustedPlayerPosition = { player->position.x, player->position.y + 1 };
 
     float playerBulletRadius = 0.5f; //half a block
     bullet.destination = mouseLoc;
-    bullet.rotation = atan2f(bullet.destination.y - player->position.y, bullet.destination.x - player->position.x);
+    bullet.rotation = Atan2fToDegreeDiff(atan2f(bullet.destination.y - adjustedPlayerPosition.y, bullet.destination.x - adjustedPlayerPosition.x));
     
-    float speed = 1.0f;
+    float speed = 50.0f;
 
-    Vector ToDest = bullet.destination - bullet.actor.position;
+    Vector ToDest = bullet.destination - adjustedPlayerPosition;
+
     ToDest = Normalize(ToDest);
     bullet.actor.velocity = ToDest * speed;
 
-    bullet.actor.position = player->position + ToDest * playerBulletRadius;
+    bullet.actor.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
    
 
     bool notCached = true;
@@ -945,10 +957,10 @@ void UpdateBullets(float deltaTime)
 }
 
 
-void RenderActor(Actor* actor)
+void RenderActor(Actor* actor, float rotation)
 {
     SDL_Rect tempRect = CameraOffset(actor->position, PixelToBlock({ actor->sprite.width, actor->sprite.height }));
-    SDL_RenderCopyEx(windowInfo.renderer, actor->sprite.texture, NULL, &tempRect, 0, NULL, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(windowInfo.renderer, actor->sprite.texture, NULL, &tempRect, rotation, NULL, SDL_FLIP_NONE);
 }
 
 
@@ -965,8 +977,8 @@ void RenderBullets()
             else
                 PC = Red;
             SDL_SetTextureColorMod(bullet->actor.sprite.texture, PC.r, PC.g, PC.b);
-            SDL_Rect DRect = {};
-            RenderActor(&bullet->actor);
+            //SDL_Rect DRect = {};
+            RenderActor(&bullet->actor, bullet->rotation);
             //SDL_RenderCopyEx(windowInfo.renderer, bullet->actor.sprite.texture, NULL, &DRect, /*RadToDeg(bullet->rotation)*/0, NULL, SDL_FLIP_NONE);
         }
     }
@@ -1191,7 +1203,7 @@ int main(int argc, char* argv[])
 
         RenderBullets();
 
-        RenderActor(&player);
+        RenderActor(&player, 0);
 
         DrawButton(textSheet, "Test", { 0, 0 }, UIX::left, UIY::top, Green, Orange, mouseButtonEvent, mouseMotionEvent);
         //DrawText(textSheet, Red, "Test", { windowInfo.width / 2, windowInfo.height / 2}, UIX::mid, UIY::mid);

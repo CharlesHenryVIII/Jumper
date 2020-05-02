@@ -22,7 +22,6 @@ TODO(choman):
     -camera zoom
     -sub pixel rendering
     -multithread saving/png compression
-    -add tile destroying gun(s)
     -add layered background(s)
     -seperate collision detection function and use it for projectile detection as well
     -windows settings local grid highlight
@@ -199,7 +198,7 @@ struct Projectile {
     Vector destination;
     TileType paintType;
     float rotation = 0;
-};
+} laser = {};
 std::vector<Projectile> bulletList = {};
 
 
@@ -872,6 +871,21 @@ Vector Normalize(Vector v)
 }
 
 
+/*
+Atan2f return value:
+
+3pi/4      pi/2        pi/4
+
+
+            O
++/-pi      /|\          0
+           / \   
+
+
+-3pi/4    -pi/2        pi/4
+*/
+
+
 float Atan2fToDegreeDiff(float theta)
 {
     float result = 0;
@@ -888,9 +902,9 @@ void CreateBullet(Actor* player, Sprite bulletSprite, Vector mouseLoc, TileType 
     bullet.paintType = blockToBeType;
     bullet.actor.inUse = true;
     bullet.actor.sprite = bulletSprite;
-    bullet.actor.collisionSize.x = float(bulletSprite.width);
-    bullet.actor.collisionSize.y = float(bulletSprite.height);
-    Vector adjustedPlayerPosition = { player->position.x, player->position.y + 1 };
+    //bullet.actor.collisionSize.x = float(bulletSprite.width);
+    //bullet.actor.collisionSize.y = float(bulletSprite.height);
+    Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
 
     float playerBulletRadius = 0.5f; //half a block
     bullet.destination = mouseLoc;
@@ -918,6 +932,47 @@ void CreateBullet(Actor* player, Sprite bulletSprite, Vector mouseLoc, TileType 
     }
     if (notCached)
         bulletList.push_back(bullet);
+}
+
+
+void CreateLaser(Actor* player, Sprite sprite, Vector mouseLoc, TileType paintType)
+{
+    laser.paintType = paintType;
+    laser.actor.inUse = true;
+    laser.actor.sprite = sprite;
+    Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
+
+    float playerBulletRadius = 0.5f; //half a block
+    laser.destination = mouseLoc;
+    laser.rotation = Atan2fToDegreeDiff(atan2f(laser.destination.y - adjustedPlayerPosition.y, laser.destination.x - adjustedPlayerPosition.x));
+
+    Vector ToDest = Normalize(laser.destination - adjustedPlayerPosition);
+
+    laser.actor.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
+}
+
+
+float Pythags(Vector a)
+{
+    return sqrtf(powf(a.x, 2) + powf(a.y, 2));
+}
+
+
+void RenderLaser()
+{
+    if (laser.actor.inUse)
+    {//x, y, w, h
+        SDL_Color PC = {};
+        if (laser.paintType == TileType::filled)
+            PC = Green;
+        else
+            PC = Red;
+        SDL_SetTextureColorMod(laser.actor.sprite.texture, PC.r, PC.g, PC.b);
+        
+        SDL_Rect rect = CameraOffset(laser.actor.position, { Pythags(laser.destination - laser.actor.position), PixelToBlock(laser.actor.sprite.height) });
+        SDL_Point rotationPoint = { 0, rect.h / 2 };
+        SDL_RenderCopyEx(windowInfo.renderer, laser.actor.sprite.texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+    }
 }
 
 
@@ -1119,7 +1174,7 @@ int main(int argc, char* argv[])
 
         //Mouse Control:
         Rectangle clickRect = {};
-
+        laser.actor.inUse = false;
         if (debugList[DebugOptions::editBlocks] && mouseButtonEvent.timestamp)
         {
             VectorInt mouseLocation = CameraToPixelCoord({ mouseMotionEvent.x, mouseMotionEvent.y });
@@ -1138,22 +1193,23 @@ int main(int argc, char* argv[])
                     paintType = TileType::filled;
                 else if (mouseButtonEvent.button == SDL_BUTTON_RIGHT)
                     paintType = TileType::invalid;
-                
-                CreateBullet(&player, bulletSprite, mouseLocationTranslated, paintType);
-                //blockPointer->tileType = paintType;
-                //UpdateAllNeighbors(blockPointer);
             }
-            else if (debugList[DebugOptions::paintMethod] && mouseButtonEvent.type == SDL_MOUSEBUTTONDOWN)
+            if (debugList[DebugOptions::paintMethod] && mouseButtonEvent.type == SDL_MOUSEBUTTONDOWN)
             {
                 if ((mouseButtonEvent.location.x != previousMouseLocation.x || mouseButtonEvent.location.y != previousMouseLocation.y))
                 {
-                    if (blockPointer->tileType != paintType)
+                    //if (blockPointer->tileType != paintType)
                     {
+                        CreateLaser(&player, bulletSprite, mouseLocationTranslated, paintType);
                         blockPointer->tileType = paintType;
                         UpdateAllNeighbors(blockPointer);
                     }
                     previousMouseLocation = mouseLocation;
                 }
+            }
+            else if (mouseButtonEvent.timestamp == totalTime)
+            {
+                CreateBullet(&player, bulletSprite, mouseLocationTranslated, paintType);
             }
         }
 
@@ -1202,7 +1258,7 @@ int main(int argc, char* argv[])
         }
 
         RenderBullets();
-
+        RenderLaser();
         RenderActor(&player, 0);
 
         DrawButton(textSheet, "Test", { 0, 0 }, UIX::left, UIY::top, Green, Orange, mouseButtonEvent, mouseMotionEvent);

@@ -9,12 +9,12 @@
 //#define STB_TRUETYPE_IMPLEMENTATION
 //#include "stb/stb_truetype.h"
 
-
 #include <iostream>
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
 #include <cmath>
+
 
 /*
 TODO(choman):
@@ -25,6 +25,34 @@ TODO(choman):
     -add layered background(s)
     -seperate collision detection function and use it for projectile detection as well
     -windows settings local grid highlight
+    -add gun to change blocks aka <spring/wind, tacky(can hop off walls with it), timed explosion to get more height>
+    -add momentum
+    -handle multiple levels
+    -moving platforms
+    -enemy ai
+    -power ups
+    -explosives?
+
+
+
+    -game design:
+        *jump_on_head>melee>ranged>magic
+        *Levels:
+            1.  Just jumping to get use to the mechanics;
+            2.  jump on top of enemies to kill them;
+            3.  boss fight, jump on head 3 times and boss flees;
+            4.  learn how to melee and use it on enemies, continue platforming;
+            5.  boss fight with same boss but looks different since its the next phase, try to kill him with melees and timing, he flees;
+            6.  learn ranged and continue platforming;
+            7.  boss fight with same boss but looks different since its the next phase, try to kill him with ranged and timing, he flees;
+            8.  learn magic and continue platforming;
+            9.  with same boss but looks different since its the next phase, try to kill him with magic but he flees;
+            10. final fight with the boss where you have to do all the phases at once but different arena and what not. fin;
+
+Core Gameplay
+    -get to the /end/ of the level
+    -use the tools you have to get there with the least amount of blocks added/changed
+    -tools include block place and block modifier?
 */
 
 
@@ -149,6 +177,14 @@ Vector operator*(const Vector& a, const float b)
 }
 
 
+const Vector& operator+=(Vector& lhs, const Vector& rhs)
+{
+    lhs.x += rhs.x;
+    lhs.y += rhs.y;
+    return lhs;
+}
+
+
 int BlockToPixel(float loc)
 {
     return int(loc * blockSize);
@@ -171,16 +207,25 @@ Vector PixelToBlock(VectorInt loc)
 }
 
 
-struct Actor {
+struct Actor
+{
     Sprite sprite;
     Vector position;
     Vector velocity = {};
     Vector acceleration;
     Vector collisionSize;
     int jumpCount = 2;
+    int health = 0;
     bool inUse = true;
 };
 
+
+struct Projectile : public Actor
+{
+    Vector destination;
+    TileType paintType;
+    float rotation = 0;
+}
 
 
 struct Camera {
@@ -193,12 +238,7 @@ enum class TileType {
     filled
 };
 
-struct Projectile {
-    Actor actor;
-    Vector destination;
-    TileType paintType;
-    float rotation = 0;
-} laser = {};
+Projectile laser = {};
 std::vector<Projectile> bulletList = {};
 
 
@@ -213,40 +253,6 @@ struct Block {
     }
 
 };
-
-// 0110001
-// 1001110
-// 1001111
-
-
-// 0001  == 1
-// 1111  == -1
-
-// 1001
-//or
-//and
-//xor
-
-
-// input: 11100
-//    or: 11110
-//      : 11110
-
-// input: 1110
-//   and: 0100
-//      : 0100
-
-// input: 11100
-//   xor: 10101
-//      : 01001
-
-
-// input: 11100
-//   NOR: 10101
-//      : 00010
-
-// NOR
-// NAND
 
 class TileMap
 {
@@ -652,13 +658,6 @@ void SpriteMapRender(Sprite sprite, int32 i, int32 itemSize, int32 xCharSize, Ve
 void SpriteMapRender(Sprite sprite, Block block)
 {
     SpriteMapRender(sprite, block.flags, blockSize, blockSize, block.location);
-    //int32 blocksPerRow = sprite.width / blockSize;
-    //int32 x = uint32(block.flags) % blocksPerRow * blockSize;
-    //int32 y = uint32(block.flags) / blocksPerRow * blockSize;
-
-    //SDL_Rect blockRect = { x, y, blockSize, blockSize };
-    //SDL_Rect DestRect = CameraOffset( block.location, { 1, 1 });
-    //SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
 }
 
 
@@ -710,12 +709,6 @@ SDL_Rect RectangleToSDL(Rectangle rect)
 //bottom left and top right
 Rectangle SDLToRectangle(SDL_Rect rect)
 {
-    //Rectangle result = {};
-    //result.bottomLeft.x = rect.x;
-    //result.bottomLeft.y = rect.y - rect.h;
-    //result.topRight.x = rect.x + rect.w;
-    //result.topRight.y = rect.y;
-
     return { { (float)rect.x, float(rect.y + rect.h) }, { float(rect.x + rect.w), (float)rect.y } };
 }
 
@@ -760,7 +753,6 @@ bool DrawButton(FontSprite textSprite, std::string text, VectorInt loc, UIX XLay
     buttonRect.y = loc.y - yOffset;
 
     SDL_SetRenderDrawColor(windowInfo.renderer, BC.r, BC.g, BC.b, BC.a);
-    //SDL_Rect SDLRect = RectangleToSDL(buttonRect);
     Rectangle cshRect = SDLToRectangle(buttonRect);
     SDL_RenderDrawRect(windowInfo.renderer, &buttonRect);
 
@@ -900,10 +892,8 @@ void CreateBullet(Actor* player, Sprite bulletSprite, Vector mouseLoc, TileType 
 {
     Projectile bullet = {};
     bullet.paintType = blockToBeType;
-    bullet.actor.inUse = true;
-    bullet.actor.sprite = bulletSprite;
-    //bullet.actor.collisionSize.x = float(bulletSprite.width);
-    //bullet.actor.collisionSize.y = float(bulletSprite.height);
+    bullet.inUse = true;
+    bullet.sprite = bulletSprite;
     Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
 
     float playerBulletRadius = 0.5f; //half a block
@@ -915,15 +905,15 @@ void CreateBullet(Actor* player, Sprite bulletSprite, Vector mouseLoc, TileType 
     Vector ToDest = bullet.destination - adjustedPlayerPosition;
 
     ToDest = Normalize(ToDest);
-    bullet.actor.velocity = ToDest * speed;
+    bullet.velocity = ToDest * speed;
 
-    bullet.actor.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
+    bullet.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
    
 
     bool notCached = true;
     for (int32 i = 0; i < bulletList.size(); i++)
     {
-        if (!bulletList[i].actor.inUse)
+        if (!bulletList[i].inUse)
         {
             notCached = false;
             bulletList[i] = bullet;
@@ -938,8 +928,8 @@ void CreateBullet(Actor* player, Sprite bulletSprite, Vector mouseLoc, TileType 
 void CreateLaser(Actor* player, Sprite sprite, Vector mouseLoc, TileType paintType)
 {
     laser.paintType = paintType;
-    laser.actor.inUse = true;
-    laser.actor.sprite = sprite;
+    laser.inUse = true;
+    laser.sprite = sprite;
     Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
     float playerBulletRadius = 0.5f; //half a block
@@ -948,7 +938,7 @@ void CreateLaser(Actor* player, Sprite sprite, Vector mouseLoc, TileType paintTy
 
     Vector ToDest = Normalize(laser.destination - adjustedPlayerPosition);
 
-    laser.actor.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
+    laser.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
 }
 
 
@@ -960,18 +950,18 @@ float Pythags(Vector a)
 
 void RenderLaser()
 {
-    if (laser.actor.inUse)
+    if (laser.inUse)
     {//x, y, w, h
         SDL_Color PC = {};
         if (laser.paintType == TileType::filled)
             PC = Green;
         else
             PC = Red;
-        SDL_SetTextureColorMod(laser.actor.sprite.texture, PC.r, PC.g, PC.b);
+        SDL_SetTextureColorMod(laser.sprite.texture, PC.r, PC.g, PC.b);
         
-        SDL_Rect rect = CameraOffset(laser.actor.position, { Pythags(laser.destination - laser.actor.position), PixelToBlock(laser.actor.sprite.height) });
+        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(laser.sprite.height) });
         SDL_Point rotationPoint = { 0, rect.h / 2 };
-        SDL_RenderCopyEx(windowInfo.renderer, laser.actor.sprite.texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(windowInfo.renderer, laser.sprite.texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
     }
 }
 
@@ -981,12 +971,31 @@ float DotProduct(Vector a, Vector b)
     return a.x * b.x + a.y * b.y;
 }
 
+float terminalVelocity = 300;
+
+template <typename T>
+T Min(T a, T b) 
+{ 
+    return a < b ? a : b; 
+}
+
+template <typename T>
+T Max(T a, T b) 
+{ 
+    return a > b ? a : b; 
+}
+
+template <typename T>
+T Clamp(T v, T min, T max)
+{ 
+    return Max(min, Min(max, v)); 
+}
 
 void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 {
-    actor->position.x += actor->velocity.x * deltaTime;
-    actor->velocity.y += gravity * deltaTime; //v = v0 + at
-    actor->position.y += actor->velocity.y * deltaTime + 0.5f * gravity * deltaTime * deltaTime; //y = y0 + vt + .5at^2
+    actor->velocity.y += gravity * deltaTime;
+    actor->velocity.y = Clamp(actor->velocity.y, -terminalVelocity, terminalVelocity);
+    actor->position += actor->velocity * deltaTime;
 }
 
 
@@ -996,16 +1005,16 @@ void UpdateBullets(float deltaTime)
     {
         Projectile* bullet = &bulletList[i];
         
-        if (bullet->actor.inUse)
+        if (bullet->inUse)
         {
-            UpdateLocation(&bullet->actor, 0, deltaTime);
-            if (DotProduct(bullet->actor.velocity, bullet->destination - bullet->actor.position) < 0)
+            UpdateLocation(bullet, 0, deltaTime);
+            if (DotProduct(bullet->velocity, bullet->destination - bullet->position) < 0)
             {
                 //paint block and remove bullet
                 Block* blockPointer = &tileMap.GetBlock(bullet->destination);
                 blockPointer->tileType = bullet->paintType;
                 UpdateAllNeighbors(blockPointer);
-                bullet->actor.inUse = false;
+                bullet->inUse = false;
             }
         }
     }
@@ -1024,16 +1033,16 @@ void RenderBullets()
     for (int32 i = 0; i < bulletList.size(); i++)
     {
         Projectile* bullet = &bulletList[i];
-        if (bullet->actor.inUse)
+        if (bullet->inUse)
         {
             SDL_Color PC = {};
             if (bullet->paintType == TileType::filled)
                 PC = Green;
             else
                 PC = Red;
-            SDL_SetTextureColorMod(bullet->actor.sprite.texture, PC.r, PC.g, PC.b);
+            SDL_SetTextureColorMod(bullet->sprite.texture, PC.r, PC.g, PC.b);
             //SDL_Rect DRect = {};
-            RenderActor(&bullet->actor, bullet->rotation);
+            RenderActor(bullet, bullet->rotation);
             //SDL_RenderCopyEx(windowInfo.renderer, bullet->actor.sprite.texture, NULL, &DRect, /*RadToDeg(bullet->rotation)*/0, NULL, SDL_FLIP_NONE);
         }
     }
@@ -1174,7 +1183,7 @@ int main(int argc, char* argv[])
 
         //Mouse Control:
         Rectangle clickRect = {};
-        laser.actor.inUse = false;
+        laser.inUse = false;
         if (debugList[DebugOptions::editBlocks] && mouseButtonEvent.timestamp)
         {
             VectorInt mouseLocation = CameraToPixelCoord({ mouseMotionEvent.x, mouseMotionEvent.y });

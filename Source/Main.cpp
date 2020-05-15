@@ -134,6 +134,15 @@ enum class UIX
 };
 
 
+enum class enemyType
+{
+    head,
+    melee,
+    ranged,
+    magic
+};
+
+
 enum class DebugOptions
 {
     none,
@@ -215,17 +224,15 @@ struct Actor
     Vector acceleration;
     Vector collisionSize;
     int jumpCount = 2;
-    int health = 0;
+    int health = 100;
     bool inUse = true;
-};
+} player = {};
 
 
-struct Projectile : public Actor
+struct Enemy : public Actor
 {
-    Vector destination;
-    TileType paintType;
-    float rotation = 0;
-}
+    enemyType enemyType;
+};
 
 
 struct Camera {
@@ -237,6 +244,15 @@ enum class TileType {
     invalid,
     filled
 };
+
+
+struct Projectile : public Actor
+{
+    Vector destination;
+    TileType paintType;
+    float rotation = 0;
+};
+
 
 Projectile laser = {};
 std::vector<Projectile> bulletList = {};
@@ -253,6 +269,16 @@ struct Block {
     }
 
 };
+
+
+struct Level
+{
+    std::vector<Enemy> enemyList;
+    const char* filename;  //DefaultLevel.PNG;
+    Block entrance;
+    Block exit;
+} currentLevel;
+
 
 class TileMap
 {
@@ -459,17 +485,17 @@ SDL_Color GetTileMapColor(const Block& block)
 }
 
 
-void WritePNG(const char* filename, Actor* player)
+void SaveLevel(Level* level)
 {
     //Setup
     stbi_flip_vertically_on_write(true);
     tileMap.CleanBlocks();
 
     //Finding the edges of the "picture"/level
-    int32 left  = int32(player->position.x);
-    int32 right = int32(player->position.x);
-    int32 top   = int32(player->position.y);
-    int32 bot   = int32(player->position.y);
+    int32 left  = int32(player.position.x);
+    int32 right = int32(player.position.x);
+    int32 top   = int32(player.position.y);
+    int32 bot   = int32(player.position.y);
 
     for (auto& block : *tileMap.blockList())
     {
@@ -502,25 +528,25 @@ void WritePNG(const char* filename, Actor* player)
     }
 
     //TODO(choman):  When new entity system is done change this to include other Actors
-    int32 playerBlockPositionX = int32(player->position.x);
-    int32 playerBlockPositionY = int32(player->position.y);
+    int32 playerBlockPositionX = int32(player.position.x);
+    int32 playerBlockPositionY = int32(player.position.y);
     memBuff[size_t((playerBlockPositionX - left) + ((playerBlockPositionY - bot) * size_t(width)))] = Blue;
 
     //Saving written memory to file
     int stride_in_bytes = 4 * width;
     int colorChannels = 4;
-    stbi_write_png(filename, width, height, colorChannels, memBuff.data(), stride_in_bytes);
+    stbi_write_png(level->filename, width, height, colorChannels, memBuff.data(), stride_in_bytes);
 }
 
 
-void LoadPNG(const char* name, Actor* player)
+void LoadLevel(Level* level)
 {
     tileMap.ClearBlocks();
 
     stbi_set_flip_vertically_on_load(true);
 
     int32 textureHeight, textureWidth, colorChannels;
-    SDL_Color* image = (SDL_Color*)stbi_load(name, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
+    SDL_Color* image = (SDL_Color*)stbi_load(level->filename, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
 
     for (int32 y = 0; y < textureHeight; y++)
     {
@@ -530,7 +556,7 @@ void LoadPNG(const char* name, Actor* player)
 
             TileType tileColor = CheckColor(image[index]);
             if (image[index].r == Blue.r && image[index].g == Blue.g && image[index].b == Blue.b && image[index].a == Blue.a)
-                player->position = { float(x + 0.5f), float(y + 0.5f) };
+                player.position = { float(x + 0.5f), float(y + 0.5f) };
             else if (tileColor != TileType::invalid)     
                 tileMap.AddBlock( { float(x), float(y) }, tileColor );
         }
@@ -1041,9 +1067,7 @@ void RenderBullets()
             else
                 PC = Red;
             SDL_SetTextureColorMod(bullet->sprite.texture, PC.r, PC.g, PC.b);
-            //SDL_Rect DRect = {};
             RenderActor(bullet, bullet->rotation);
-            //SDL_RenderCopyEx(windowInfo.renderer, bullet->actor.sprite.texture, NULL, &DRect, /*RadToDeg(bullet->rotation)*/0, NULL, SDL_FLIP_NONE);
         }
     }
 }
@@ -1076,20 +1100,29 @@ int main(int argc, char* argv[])
     Sprite playerSprite = CreateSprite("Player.png", SDL_BLENDMODE_BLEND);
     Sprite minecraftSprite = CreateSprite("TileMap.png", SDL_BLENDMODE_BLEND);
     Sprite spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
-    //Sprite textSheet = CreateSprite("Text.png", SDL_BLENDMODE_BLEND);
     FontSprite textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
     Sprite background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
     Sprite bulletSprite = CreateSprite("Bullet.png", SDL_BLENDMODE_BLEND);
 
 
     //Player Creation
-    Actor player;
     player.sprite = playerSprite;
 
-    LoadPNG("DefaultLevel.PNG", &player);
-    tileMap.UpdateAllBlocks();
+    //Level instantiations
+    currentLevel.filename = "DefaultLevel.PNG";
+    LoadLevel(&currentLevel);
+    Level cacheLevel = {};
+    cacheLevel.filename = "Level.PNG";
 
-    //Button* testButton = CreateButton({ { 0,0 }, { 40, 20 } }, "test", true, White);
+    //add enemies to current level (temporoary,  add to each level's metadata)
+    Enemy enemy = {};
+    enemy.sprite = CreateSprite("HeadMinion.png", SDL_BLENDMODE_BLEND);
+    enemy.position = { 28, 1 };
+    enemy.velocity.x = 10;
+    currentLevel.enemyList.push_back(enemy);
+
+
+    tileMap.UpdateAllBlocks();
 
     //Start Of Running Program
     while (running)
@@ -1176,9 +1209,9 @@ int main(int argc, char* argv[])
         if (keyBoardEvents[SDLK_5] == totalTime)
             debugList[DebugOptions::editBlocks] = !debugList[DebugOptions::editBlocks];
         if (keyBoardEvents[SDLK_0] == totalTime)
-            WritePNG("Level.PNG", &player);
+            SaveLevel(&cacheLevel);
         if (keyBoardEvents[SDLK_9] == totalTime)
-            LoadPNG("Level.PNG", &player);
+            LoadLevel(&cacheLevel);
 
 
         //Mouse Control:
@@ -1222,19 +1255,11 @@ int main(int argc, char* argv[])
             }
         }
 
-
-
-        //update x coordinate:
+        //Update Player Location
         float gravity = -60.0f;
         UpdateLocation(&player, gravity, deltaTime);
-        //player.position.x += player.velocity.x * deltaTime;
 
-        //update y coordinate based on gravity and bounding box:
-
-
-
-
-
+        //Update player colliders
         CollisionSystemCall(&player);
 
 
@@ -1244,7 +1269,6 @@ int main(int argc, char* argv[])
         camera.position = player.position;
         UpdateBullets(deltaTime);
 
-       //debug/testing blocks
         for (auto& block : *tileMap.blockList())
         {
             if (block.second.tileType != TileType::invalid)

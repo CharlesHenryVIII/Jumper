@@ -10,6 +10,7 @@
 //#include "stb/stb_truetype.h"
 
 #include <iostream>
+#include <string>
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
@@ -84,11 +85,20 @@ const SDL_Color lightGreen  = { 0, 255, 0, 63 };
 const SDL_Color lightBlue   = { 0, 0, 255, 63 }; 
 
 const SDL_Color White = { 255, 255, 255, 255};
+const SDL_Color lightWhite = { 100, 100, 100, 100 };
 const SDL_Color Black = { 0, 0, 0, 255 };
 const SDL_Color Brown = { 130, 100, 70, 255 };  //used for dirt block
 const SDL_Color Mint =  { 0, 255, 127, 255 };   //used for corner block
 const SDL_Color Orange ={ 255, 127, 0, 255 };   //used for edge block
 const SDL_Color Grey =  { 127, 127, 127, 255 }; //used for floating block
+
+
+const uint32 CollisionNone = 0;
+const uint32 CollisionTop = 1;
+const uint32 CollisionBot = 2;
+const uint32 CollisionRight = 4;
+const uint32 CollisionLeft = 8;
+
 
 
 struct WindowInfo
@@ -193,6 +203,23 @@ const Vector& operator+=(Vector& lhs, const Vector& rhs)
     return lhs;
 }
 
+template <typename T>
+T Min(T a, T b)
+{
+    return a < b ? a : b;
+}
+
+template <typename T>
+T Max(T a, T b)
+{
+    return a > b ? a : b;
+}
+
+template <typename T>
+T Clamp(T v, T min, T max)
+{
+    return Max(min, Min(max, v));
+}
 
 int BlockToPixel(float loc)
 {
@@ -216,15 +243,19 @@ Vector PixelToBlock(VectorInt loc)
 }
 
 
+
+
+
 struct Actor
 {
     Sprite sprite;
     Vector position;
     Vector velocity = {};
     Vector acceleration;
-    Vector collisionSize;
+    Vector colOffset;
     int jumpCount = 2;
-    int health = 100;
+    float health = 100;
+    float damage;
     bool inUse = true;
 } player = {};
 
@@ -801,74 +832,244 @@ bool DrawButton(FontSprite textSprite, std::string text, VectorInt loc, UIX XLay
 }
 
 
-void CollisionSystemCall(Actor* player)
+Rectangle CollisionXOffsetToRectangle(Actor* actor)
 {
-    Rectangle xCollisionBox;
-    xCollisionBox.bottomLeft = { player->position.x + 0.2f * PixelToBlock(player->sprite.width), player->position.y + 0.2f * PixelToBlock(player->sprite.height) };
-    xCollisionBox.topRight = {player->position.x + 0.8f * PixelToBlock(player->sprite.width), player->position.y + 0.8f * PixelToBlock(player->sprite.height) };
+    Rectangle result = {};
+    result.bottomLeft = { actor->position.x + actor->colOffset.x * PixelToBlock(actor->sprite.width), actor->position.y + actor->colOffset.x * PixelToBlock(actor->sprite.height) };
+    result.topRight = { actor->position.x + (1 - actor->colOffset.x) * PixelToBlock(actor->sprite.width), actor->position.y + (1 - actor->colOffset.x) * PixelToBlock(actor->sprite.height) };
+    return result;
+}
+Rectangle CollisionYOffsetToRectangle(Actor* actor)
+{
+    Rectangle result = {};
+    result.bottomLeft = { actor->position.x + actor->colOffset.y * PixelToBlock(actor->sprite.width), actor->position.y };
+    result.topRight = { actor->position.x + (1 - actor->colOffset.y) * PixelToBlock(actor->sprite.width), actor->position.y + PixelToBlock(actor->sprite.height) };
+    return result;
+}
 
-    Rectangle yCollisionBox;
-    yCollisionBox.bottomLeft = { player->position.x + 0.3f * PixelToBlock(player->sprite.width), player->position.y };
-    yCollisionBox.topRight = { player->position.x + 0.7f * PixelToBlock(player->sprite.width), player->position.y + PixelToBlock(player->sprite.height) };
-    
-    
+
+uint32 CollisionWithRect(Actor* actor, Rectangle rect)
+{
+    uint32 result = CollisionNone;
+
+    Rectangle xRect = CollisionXOffsetToRectangle(actor);
+    Rectangle yRect = CollisionYOffsetToRectangle(actor);
+
     if (debugList[DebugOptions::playerCollision])
     {
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-        DebugRectRender(xCollisionBox, transGreen);
-        DebugRectRender(yCollisionBox, transGreen);
+        DebugRectRender(xRect, transGreen);
+        DebugRectRender(yRect, transGreen);
     }
 
+    //checking the right side of player against the left side of a block
+    if (rect.bottomLeft.x > xRect.bottomLeft.x&& rect.bottomLeft.x < xRect.topRight.x)
+        if ((rect.topRight.y) > xRect.bottomLeft.y&& rect.bottomLeft.y < xRect.topRight.y)
+            result += CollisionRight;
 
+    //checking the left side of player against the right side of the block
+    if ((rect.topRight.x) > xRect.bottomLeft.x && (rect.topRight.x) < xRect.topRight.x)
+        if ((rect.topRight.y) > xRect.bottomLeft.y&& rect.bottomLeft.y < xRect.topRight.y)
+            result += CollisionLeft;
+
+
+    //checking the top of player against the bottom of the block
+    if ((rect.topRight.x) > yRect.bottomLeft.x&& rect.bottomLeft.x < yRect.topRight.x)
+        if (rect.bottomLeft.y > yRect.bottomLeft.y&& rect.bottomLeft.y < yRect.topRight.y)
+            result += CollisionTop;
+
+    //checking the bottom of player against the top of the block
+    if ((rect.topRight.x) > yRect.bottomLeft.x&& rect.bottomLeft.x < yRect.topRight.x)
+        if ((rect.topRight.y) > yRect.bottomLeft.y && (rect.topRight.y) < yRect.topRight.y)
+            result += CollisionBot;
+    
+    return result;
+}
+
+
+void CollisionWithBlocks(Actor* actor, bool isEnemy)
+{
     for (auto& block : *tileMap.blockList())
     {
-        if (block.second.tileType != TileType::invalid)
-        {
-            //checking the right side of player against the left side of a block
-            if (block.second.location.x > xCollisionBox.bottomLeft.x && block.second.location.x < xCollisionBox.topRight.x)
-            {
-                if ((block.second.location.y + 1) > xCollisionBox.bottomLeft.y && block.second.location.y < xCollisionBox.topRight.y)
-                {
-                    player->position.x = block.second.location.x - 0.8f * PixelToBlock(player->sprite.width);
-                    player->velocity.x = 0;
-                }
-            }
-            //checking the left side of player against the right side of the block
-            if ((block.second.location.x + 1) > xCollisionBox.bottomLeft.x && (block.second.location.x + 1) < xCollisionBox.topRight.x)
-            {
-                if ((block.second.location.y + 1) > xCollisionBox.bottomLeft.y && block.second.location.y < xCollisionBox.topRight.y)
-                {
-                    player->position.x = (block.second.location.x + 1) - 0.2f * PixelToBlock(player->sprite.width);
-                    player->velocity.x = 0;
-                }
-            }
+        if (block.second.tileType == TileType::invalid)
+            continue;
 
-            //checking the top of player against the bottom of the block
-            //checking if the block is within the x bounds of the collisionBox
-            if ((block.second.location.x + 1) > yCollisionBox.bottomLeft.x && block.second.location.x < yCollisionBox.topRight.x)
-            {
-                if (block.second.location.y > yCollisionBox.bottomLeft.y && block.second.location.y < yCollisionBox.topRight.y)
-                {
-                    player->position.y = block.second.location.y - PixelToBlock(player->sprite.height);
-                    if (player->velocity.y > 0)
-                        player->velocity.y = 0;
-                }
-            }
-            //checking the bottom of player against the top of the block
-            //checking if the block is within the x bounds of the collisionBox
-            if ((block.second.location.x + 1) > yCollisionBox.bottomLeft.x && block.second.location.x < yCollisionBox.topRight.x)
-            {
-                if ((block.second.location.y + 1) > yCollisionBox.bottomLeft.y && (block.second.location.y + 1) < yCollisionBox.topRight.y)
-                {
-                    player->position.y = block.second.location.y + 1;
-                    if (player->velocity.y < 0)
-                        player->velocity.y = 0;
-                    player->jumpCount = 2;
-                }
-            }
+        uint32 collisionFlags = CollisionWithRect(actor, { block.second.location, { block.second.location + Vector({ 1, 1 }) } });
+        
+        if (collisionFlags & CollisionRight)
+        {
+            actor->position.x = block.second.location.x - (1 - actor->colOffset.x) * PixelToBlock(actor->sprite.width);
+            if (isEnemy)
+                actor->velocity.x = -1 * actor->velocity.x;
+            else
+                actor->velocity.x = 0;
+        }
+        if (collisionFlags & CollisionLeft)
+        {
+            actor->position.x = (block.second.location.x + 1) - actor->colOffset.x * PixelToBlock(actor->sprite.width);
+            if (isEnemy)
+                actor->velocity.x = -1 * actor->velocity.x;
+            else
+                actor->velocity.x = 0;
+        }
+        if (collisionFlags & CollisionTop)
+        {
+            actor->position.y = block.second.location.y - PixelToBlock(actor->sprite.height);
+            if (actor->velocity.y > 0)
+                actor->velocity.y = 0;
+        }
+        if (collisionFlags & CollisionBot)
+        {
+            actor->position.y = block.second.location.y + 1;
+            if (actor->velocity.y < 0)
+                actor->velocity.y = 0;
+            actor->jumpCount = 2;
         }
     }
 }
+
+
+bool CollisionWithEnemy(Actor* actor)
+{
+    bool result = false;
+    for (int32 i = 0; i < currentLevel.enemyList.size(); i++)
+    {
+        Enemy* enemy = &currentLevel.enemyList[i];
+        if (!enemy->inUse)
+            continue;
+
+        Rectangle xRect = CollisionXOffsetToRectangle(enemy);
+        Rectangle yRect = CollisionYOffsetToRectangle(enemy);
+
+        uint32 xCollisionFlags = CollisionWithRect(&player, xRect);
+        uint32 yCollisionFlags = CollisionWithRect(&player, yRect);
+        float knockBackAmount = 10;
+
+        if (xCollisionFlags & CollisionRight)
+        {
+            //hit by enemy, knockback, take damage, screen flash
+            actor->velocity = { -knockBackAmount, knockBackAmount };
+            actor->health -= enemy->damage;
+            result = true;
+        }
+        if (xCollisionFlags & CollisionLeft)
+        {
+            //hit by enemy, knockback, take damage, screen flash
+            actor->velocity = { knockBackAmount, knockBackAmount };
+            actor->health -= enemy->damage;
+            result = true;
+        }
+        if (yCollisionFlags & CollisionTop)
+        {
+            //hit enemy, apply damage to enemy
+            enemy->health -= actor->damage;
+        }
+        if (yCollisionFlags & CollisionBot)
+        {
+            //hit by enemy, take damage, screen flash
+            actor->health -= enemy->damage;
+            result = true;
+        }
+    }
+    return result;
+}
+
+
+void UpdateActorHealth(Actor* actor)
+{
+    if (actor->inUse)
+    {
+        Clamp(actor->health, 0.0f, 100.0f);
+        if (!actor->health)
+        {
+            actor->inUse = false;
+        }
+    }
+}
+void UpdateEnemyHealth()
+{
+    for (int32 i = 0; i < currentLevel.enemyList.size(); i++)
+    {
+        Enemy* enemy = &currentLevel.enemyList[i];
+        UpdateActorHealth(enemy);
+    }
+}
+
+
+//void CollisionSystemCall(Actor* player, bool isEnemy)
+//{
+//    Rectangle xCollisionBox;
+//    xCollisionBox.bottomLeft = { player->position.x + 0.2f * PixelToBlock(player->sprite.width), player->position.y + 0.2f * PixelToBlock(player->sprite.height) };
+//    xCollisionBox.topRight = {player->position.x + 0.8f * PixelToBlock(player->sprite.width), player->position.y + 0.8f * PixelToBlock(player->sprite.height) };
+//
+//    Rectangle yCollisionBox;
+//    yCollisionBox.bottomLeft = { player->position.x + 0.3f * PixelToBlock(player->sprite.width), player->position.y };
+//    yCollisionBox.topRight = { player->position.x + 0.7f * PixelToBlock(player->sprite.width), player->position.y + PixelToBlock(player->sprite.height) };
+//    
+//    
+//    if (debugList[DebugOptions::playerCollision])
+//    {
+//        SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
+//        DebugRectRender(xCollisionBox, transGreen);
+//        DebugRectRender(yCollisionBox, transGreen);
+//    }
+//
+//
+//    for (auto& block : *tileMap.blockList())
+//    {
+//        if (block.second.tileType != TileType::invalid)
+//        {
+//            //checking the right side of player against the left side of a block
+//            if (block.second.location.x > xCollisionBox.bottomLeft.x && block.second.location.x < xCollisionBox.topRight.x)
+//            {
+//                if ((block.second.location.y + 1) > xCollisionBox.bottomLeft.y && block.second.location.y < xCollisionBox.topRight.y)
+//                {
+//                    player->position.x = block.second.location.x - 0.8f * PixelToBlock(player->sprite.width);
+//                    if (isEnemy)
+//                        player->velocity.x = -1 * player->velocity.x;
+//                    else
+//                        player->velocity.x = 0;
+//                }
+//            }
+//            //checking the left side of player against the right side of the block
+//            if ((block.second.location.x + 1) > xCollisionBox.bottomLeft.x && (block.second.location.x + 1) < xCollisionBox.topRight.x)
+//            {
+//                if ((block.second.location.y + 1) > xCollisionBox.bottomLeft.y && block.second.location.y < xCollisionBox.topRight.y)
+//                {
+//                    player->position.x = (block.second.location.x + 1) - 0.2f * PixelToBlock(player->sprite.width);
+//                    if (isEnemy)
+//                        player->velocity.x = -1 * player->velocity.x;
+//                    else
+//                        player->velocity.x = 0;
+//                }
+//            }
+//
+//            //checking the top of player against the bottom of the block
+//            //checking if the block is within the x bounds of the collisionBox
+//            if ((block.second.location.x + 1) > yCollisionBox.bottomLeft.x && block.second.location.x < yCollisionBox.topRight.x)
+//            {
+//                if (block.second.location.y > yCollisionBox.bottomLeft.y && block.second.location.y < yCollisionBox.topRight.y)
+//                {
+//                    player->position.y = block.second.location.y - PixelToBlock(player->sprite.height);
+//                    if (player->velocity.y > 0)
+//                        player->velocity.y = 0;
+//                }
+//            }
+//            //checking the bottom of player against the top of the block
+//            //checking if the block is within the x bounds of the collisionBox
+//            if ((block.second.location.x + 1) > yCollisionBox.bottomLeft.x && block.second.location.x < yCollisionBox.topRight.x)
+//            {
+//                if ((block.second.location.y + 1) > yCollisionBox.bottomLeft.y && (block.second.location.y + 1) < yCollisionBox.topRight.y)
+//                {
+//                    player->position.y = block.second.location.y + 1;
+//                    if (player->velocity.y < 0)
+//                        player->velocity.y = 0;
+//                    player->jumpCount = 2;
+//                }
+//            }
+//        }
+//    }
+//}
 
 float RadToDeg(float angle)
 {
@@ -999,23 +1200,7 @@ float DotProduct(Vector a, Vector b)
 
 float terminalVelocity = 300;
 
-template <typename T>
-T Min(T a, T b) 
-{ 
-    return a < b ? a : b; 
-}
 
-template <typename T>
-T Max(T a, T b) 
-{ 
-    return a > b ? a : b; 
-}
-
-template <typename T>
-T Clamp(T v, T min, T max)
-{ 
-    return Max(min, Min(max, v)); 
-}
 
 void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 {
@@ -1073,6 +1258,28 @@ void RenderBullets()
 }
 
 
+void UpdateEnemiesPosition(float gravity, float deltaTime)
+{
+    for (int32 i = 0; i < currentLevel.enemyList.size(); i++)
+    {
+        Enemy* enemyPointer = &currentLevel.enemyList[i];
+
+        UpdateLocation(enemyPointer, gravity, deltaTime);
+        CollisionWithBlocks(enemyPointer, true);
+    }
+}
+
+
+void RenderEnemies()
+{
+    for (int32 i = 0; i < currentLevel.enemyList.size(); i++)
+    {
+        Enemy* enemyPointer = &currentLevel.enemyList[i];
+        RenderActor(enemyPointer, 0);
+    }
+}
+
+
 int main(int argc, char* argv[])
 {
     //Window and Program Setups:
@@ -1107,19 +1314,28 @@ int main(int argc, char* argv[])
 
     //Player Creation
     player.sprite = playerSprite;
+    player.colOffset.x = 0.2f;
+    player.colOffset.y = 0.3f;
+    player.damage = 100;
 
     //Level instantiations
     currentLevel.filename = "DefaultLevel.PNG";
-    LoadLevel(&currentLevel);
-    Level cacheLevel = {};
-    cacheLevel.filename = "Level.PNG";
-
+    
     //add enemies to current level (temporoary,  add to each level's metadata)
     Enemy enemy = {};
     enemy.sprite = CreateSprite("HeadMinion.png", SDL_BLENDMODE_BLEND);
     enemy.position = { 28, 1 };
-    enemy.velocity.x = 10;
+    enemy.velocity.x = 4;
+    enemy.colOffset.x = 0.125f;
+    enemy.colOffset.y = 0.25f;
+    enemy.damage = 5;
     currentLevel.enemyList.push_back(enemy);
+    LoadLevel(&currentLevel);
+
+    Level cacheLevel = {};
+    cacheLevel.filename = "Level.PNG";
+
+
 
 
     tileMap.UpdateAllBlocks();
@@ -1259,9 +1475,14 @@ int main(int argc, char* argv[])
         float gravity = -60.0f;
         UpdateLocation(&player, gravity, deltaTime);
 
-        //Update player colliders
-        CollisionSystemCall(&player);
+        UpdateEnemiesPosition(gravity, deltaTime);
 
+        CollisionWithBlocks(&player, false);
+
+        bool screenFlash = CollisionWithEnemy(&player);
+
+        UpdateActorHealth(&player);
+        UpdateEnemyHealth();
 
         //Create Renderer:
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
@@ -1289,12 +1510,24 @@ int main(int argc, char* argv[])
         {
             DebugRectRender(clickRect, transGreen);
         }
-
         RenderBullets();
         RenderLaser();
+        RenderEnemies();
         RenderActor(&player, 0);
+        
+        DrawText(textSheet, Green, std::to_string(1 / deltaTime), { 0, 0 }, UIX::left, UIY::top);
+        DrawText(textSheet, Green, std::to_string(player.health), { windowInfo.width, 0 }, UIX::right, UIY::top);
 
-        DrawButton(textSheet, "Test", { 0, 0 }, UIX::left, UIY::top, Green, Orange, mouseButtonEvent, mouseMotionEvent);
+
+        if (screenFlash)
+        {
+            SDL_SetRenderDrawColor(windowInfo.renderer, lightWhite.r, lightWhite.g, lightWhite.b, lightWhite.a);
+            SDL_RenderDrawRect(windowInfo.renderer, NULL);
+            SDL_RenderFillRect(windowInfo.renderer, NULL);
+
+            DebugRectRender({ {0,0}, {float(windowInfo.width), float(windowInfo.height)} }, White);
+        }
+        //DrawButton(textSheet, "Test", { 0, 0 }, UIX::left, UIY::top, Green, Orange, mouseButtonEvent, mouseMotionEvent);
         //DrawText(textSheet, Red, "Test", { windowInfo.width / 2, windowInfo.height / 2}, UIX::mid, UIY::mid);
 
         //Present Screen

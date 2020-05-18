@@ -949,27 +949,29 @@ bool CollisionWithEnemy(Actor* actor)
         {
             //hit by enemy, knockback, take damage, screen flash
             actor->velocity = { -knockBackAmount, knockBackAmount };
-            actor->health -= enemy->damage;
             result = true;
         }
-        if (xCollisionFlags & CollisionLeft)
+		if (xCollisionFlags & CollisionLeft)
         {
             //hit by enemy, knockback, take damage, screen flash
             actor->velocity = { knockBackAmount, knockBackAmount };
-            actor->health -= enemy->damage;
             result = true;
         }
-        if (yCollisionFlags & CollisionTop)
+
+        
+		if (yCollisionFlags & CollisionTop)
         {
             //hit enemy, apply damage to enemy
             enemy->health -= actor->damage;
         }
-        if (yCollisionFlags & CollisionBot)
-        {
-            //hit by enemy, take damage, screen flash
-            actor->health -= enemy->damage;
-            result = true;
-        }
+		else if (xCollisionFlags || yCollisionFlags)
+		{
+			actor->health -= enemy->damage;
+		}
+
+		//hit by enemy, take damage, screen flash
+		if (yCollisionFlags & CollisionBot)
+			result = true;
     }
     return result;
 }
@@ -1317,6 +1319,7 @@ int main(int argc, char* argv[])
     player.colOffset.x = 0.2f;
     player.colOffset.y = 0.3f;
     player.damage = 100;
+	player.inUse = true;
 
     //Level instantiations
     currentLevel.filename = "DefaultLevel.PNG";

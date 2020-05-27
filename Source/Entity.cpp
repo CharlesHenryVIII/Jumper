@@ -3,12 +3,51 @@
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
 
+
+ActorID Actor::lastID = 0;
+
 TileMap tileMap;
-Actor player;
 Projectile laser = {};
-std::vector<Projectile> bulletList = {};
+std::vector<Actor*> actorList= {};
 Level currentLevel;
 static const Vector terminalVelocity = { 10 , 300 };
+
+/*********************
+ *
+ * Projectile
+ *
+ ********/
+
+void Projectile::Update(float deltaTime)
+{
+	UpdateLocation(this, 0, deltaTime);
+	if (DotProduct(velocity, destination - position) < 0)
+	{
+		//paint block and remove bullet
+		Block* blockPointer = &tileMap.GetBlock(destination);
+		blockPointer->tileType = paintType;
+		UpdateAllNeighbors(blockPointer);
+		inUse = false;
+	}
+}
+
+void Projectile::Render()
+{
+	SDL_Color PC = {};
+	if (paintType == TileType::filled)
+		PC = Green;
+	else
+		PC = Red;
+	SDL_SetTextureColorMod(sprite->texture, PC.r, PC.g, PC.b);
+	RenderActor(this, rotation);
+}
+
+
+/*********************
+ *
+ * TileMap
+ *
+ ********/
 
 
 uint64 TileMap::HashingFunction(Vector loc)
@@ -103,7 +142,6 @@ void TileMap::CleanBlocks()
 }
 
 
-
 TileType CheckColor(SDL_Color color)
 {
 	if (color.r == Brown.r && color.g == Brown.g && color.b == Brown.b && color.a == Brown.a)
@@ -123,7 +161,7 @@ SDL_Color GetTileMapColor(const Block& block)
 }
 
 
-void SaveLevel(Level* level)
+void SaveLevel(Level* level, Player &player)
 {
 	//Setup
 	stbi_flip_vertically_on_write(true);
@@ -177,7 +215,7 @@ void SaveLevel(Level* level)
 }
 
 
-void LoadLevel(Level* level)
+void LoadLevel(Level* level, Player& player)
 {
 	tileMap.ClearBlocks();
 
@@ -338,7 +376,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 }
 
 
-bool CollisionWithEnemy(Actor* actor, float currentTime)
+bool CollisionWithEnemy(Actor* actor, float currentTime, Player& player)
 {
 	bool result = false;
 	for (int32 i = 0; i < currentLevel.enemyList.size(); i++)
@@ -413,12 +451,15 @@ void UpdateEnemyHealth(float totalTime)
 }
 
 
-void CreateBullet(Actor* player, Sprite* bulletSprite, Vector mouseLoc, TileType blockToBeType)
+Actor* CreateBullet(Actor* player, Sprite* bulletSprite, Vector mouseLoc, TileType blockToBeType)
 {
-	Projectile bullet = {};
+	Projectile* bullet_a = new Projectile();
+	Projectile& bullet = *bullet_a;
+
 	bullet.paintType = blockToBeType;
 	bullet.inUse = true;
 	bullet.sprite = bulletSprite;
+	bullet.terminalVelocity = { 1000, 1000 };
 	Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block
@@ -434,7 +475,9 @@ void CreateBullet(Actor* player, Sprite* bulletSprite, Vector mouseLoc, TileType
 
 	bullet.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
 
+	return bullet_a;
 
+#if 0
 	bool notCached = true;
 	for (int32 i = 0; i < bulletList.size(); i++)
 	{
@@ -447,6 +490,7 @@ void CreateBullet(Actor* player, Sprite* bulletSprite, Vector mouseLoc, TileType
 	}
 	if (notCached)
 		bulletList.push_back(bullet);
+#endif
 }
 
 
@@ -470,13 +514,13 @@ void CreateLaser(Actor* player, Sprite* sprite, Vector mouseLoc, TileType paintT
 void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 {
 	actor->velocity.y += gravity * deltaTime;
-	actor->velocity.y = Clamp(actor->velocity.y, -terminalVelocity.y, terminalVelocity.y);
+	actor->velocity.y = Clamp(actor->velocity.y, -actor->terminalVelocity.y, actor->terminalVelocity.y);
 
 	actor->velocity.x += actor->acceleration.x * deltaTime;
-	actor->velocity.x -= ((0.20f) * (actor->velocity.x / 2.0f));
+	//actor->velocity.x -= ((0.20f) * (actor->velocity.x / 2.0f));
 
 
-	actor->velocity.x = Clamp(actor->velocity.x, -terminalVelocity.x, terminalVelocity.x);
+	actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
 
 	actor->position += actor->velocity * deltaTime;
 }
@@ -484,24 +528,12 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 
 
 
-void UpdateBullets(float deltaTime)
+void UpdateActors(float deltaTime)
 {
-	for (int32 i = 0; i < bulletList.size(); i++)
+	for (int32 i = 0; i < actorList.size(); i++)
 	{
-		Projectile* bullet = &bulletList[i];
-
-		if (bullet->inUse)
-		{
-			UpdateLocation(bullet, 0, deltaTime);
-			if (DotProduct(bullet->velocity, bullet->destination - bullet->position) < 0)
-			{
-				//paint block and remove bullet
-				Block* blockPointer = &tileMap.GetBlock(bullet->destination);
-				blockPointer->tileType = bullet->paintType;
-				UpdateAllNeighbors(blockPointer);
-				bullet->inUse = false;
-			}
-		}
+		Actor* actor = actorList[i];
+		actor->Update(deltaTime);
 	}
 }
 
@@ -516,21 +548,11 @@ void UpdateEnemiesPosition(float gravity, float deltaTime)
 	}
 }
 
-void RenderBullets()
+void RenderActors()
 {
-	for (int32 i = 0; i < bulletList.size(); i++)
+	for (int32 i = 0; i < actorList.size(); i++)
 	{
-		Projectile* bullet = &bulletList[i];
-		if (bullet->inUse)
-		{
-			SDL_Color PC = {};
-			if (bullet->paintType == TileType::filled)
-				PC = Green;
-			else
-				PC = Red;
-			SDL_SetTextureColorMod(bullet->sprite->texture, PC.r, PC.g, PC.b);
-			RenderActor(bullet, bullet->rotation);
-		}
+		actorList[i]->Render();
 	}
 }
 

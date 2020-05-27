@@ -36,11 +36,24 @@ inline Vector PixelToBlock(VectorInt loc)
     return { PixelToBlock(loc.x), PixelToBlock(loc.y) };
 }
 
+typedef uint32 ActorID;
+
 struct Actor
 {
+private:
+    static ActorID lastID;
+
+public:
+
+    Actor() : id(++lastID)
+    {
+    }
+
+    const ActorID id;
     Sprite* sprite;
     Vector position;
     Vector velocity = {};
+    Vector terminalVelocity = { 10 , 300 };
     Vector acceleration;
     Vector colOffset;
     int jumpCount = 2;
@@ -48,11 +61,34 @@ struct Actor
     float damage;
     bool inUse = true;
     float invincible = false;
+
+    virtual void Update(float deltaTime) = 0;
+    virtual void Render() = 0;
 };
 
 struct Enemy : public Actor
 {
     EnemyType enemyType;
+    void Update(float deltaTime) override
+    {
+
+    }
+    void Render() override
+    {
+
+    }
+};
+
+struct Player : public Actor
+{
+    void Update(float deltaTime) override
+    {
+
+    }
+    void Render() override
+    {
+
+    }
 };
 
 enum class TileType {
@@ -66,6 +102,9 @@ struct Projectile : public Actor
     Vector destination;
     TileType paintType;
     float rotation = 0;
+
+    void Update(float deltaTime) override;
+    void Render() override;
 };
 
 
@@ -121,8 +160,8 @@ enum class CollisionDirection {
 
 TileType CheckColor(SDL_Color color);
 SDL_Color GetTileMapColor(const Block& block);
-void SaveLevel(Level* level);
-void LoadLevel(Level* level);
+void SaveLevel(Level* level, Player& player);
+void LoadLevel(Level* level, Player& player);
 void UpdateAllNeighbors(Block* block);
 void SurroundBlockUpdate(Block* block, bool updateTop);
 void ClickUpdate(Block* block, bool updateTop);
@@ -130,20 +169,19 @@ Rectangle CollisionXOffsetToRectangle(Actor* actor);
 Rectangle CollisionYOffsetToRectangle(Actor* actor);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
-bool CollisionWithEnemy(Actor* actor, float currentTime);
+bool CollisionWithEnemy(Actor* actor, float currentTime, Player& player);
 void UpdateActorHealth(Actor* actor, float currentTime);
 void UpdateEnemyHealth(float totalTime);
-void CreateBullet(Actor* player, Sprite* bulletSprite, Vector mouseLoc, TileType blockToBeType);
+Actor* CreateBullet(Actor* player, Sprite* bulletSprite, Vector mouseLoc, TileType blockToBeType);
 void CreateLaser(Actor* player, Sprite* sprite, Vector mouseLoc, TileType paintType);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
-void UpdateBullets(float deltaTime);
+void UpdateActors(float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);
-void RenderBullets();
+void RenderActors();
 void RenderEnemies();
 
 
-extern Actor player;
 extern TileMap tileMap;
 extern Projectile laser;
-extern std::vector<Projectile> bulletList;
+extern std::vector<Actor*> actorList;
 extern Level currentLevel;

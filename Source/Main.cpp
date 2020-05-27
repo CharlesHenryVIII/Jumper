@@ -82,9 +82,45 @@ struct MouseButtonState {
 };
 
 
+enum ActorType
+{
+    ActorType_Player,
+};
+
+
+
+ActorID CreatePlayer(Sprite* playerSprite)
+{
+    Player* player = new Player();
+    player->sprite = playerSprite;
+    player->colOffset.x = 0.2f;
+    player->colOffset.y = 0.3f;
+    player->damage = 100;
+    player->inUse = true;
+    actorList.push_back(player);
+    return player->id;
+}
+
+Actor* FindActor(ActorID actorID) 
+{
+    for (auto& actor : actorList)
+    {
+        if (actor->id == actorID)
+            return actor;
+    }
+    return nullptr;
+}
+
 
 int main(int argc, char* argv[])
 {
+
+    //std::vector<Actor*> actorList;
+    //actorList.push_back(new Player());
+    //actorList.push_back(CreatePlayer());
+    //actorList.push_back(new Enemy());
+
+
     //Window and Program Setups:
     std::unordered_map<SDL_Keycode, double> keyBoardEvents;
     MouseButtonState mouseButtonState = {};
@@ -93,7 +129,7 @@ int main(int argc, char* argv[])
     SDL_Event SDLEvent;
     VectorInt previousMouseLocation = {};
     TileType paintType = TileType::invalid;
-    
+
     CreateWindow();
 
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
@@ -115,12 +151,8 @@ int main(int argc, char* argv[])
     Sprite headMinionSprite = CreateSprite("HeadMinion.png", SDL_BLENDMODE_BLEND);
 
     //Player Creation
-    float playerAccelerationAmount = 250;
-    player.sprite = &playerSprite;
-    player.colOffset.x = 0.2f;
-    player.colOffset.y = 0.3f;
-    player.damage = 100;
-	player.inUse = true;
+    float playerAccelerationAmount = 50;
+    ActorID playerID = CreatePlayer(&playerSprite);
 
     //Level instantiations
     currentLevel.filename = "DefaultLevel.PNG";
@@ -135,13 +167,36 @@ int main(int argc, char* argv[])
     enemy.damage = 5;
     enemy.inUse = true;
     currentLevel.enemyList.push_back(enemy);
-    LoadLevel(&currentLevel);
-
+    LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
+    
     Level cacheLevel = {};
     cacheLevel.filename = "Level.PNG";
 
 
 
+#if 0
+    for (auto it = bulletList.begin(); it != bulletList.end(); /* no ++it! */)
+    {
+        if (shouldDelete)
+            it = bulletList.erase(it);
+        else
+            it++;
+    }
+
+    for (int i = 0; i < bulletList.size(); i++)
+    {
+        if (shouldDelete)
+        {
+            bulletList.erase(bulletList.begin() + i);
+            i--;
+        }
+    }
+
+    for (auto& it : bulletList)
+    {
+
+    }
+#endif
 
     tileMap.UpdateAllBlocks();
 
@@ -159,6 +214,7 @@ int main(int argc, char* argv[])
             deltaTime = 1 / 30.0f;
         }
 
+        Player &player = *(Player*)FindActor(playerID);
         WindowInfo& windowInfo = GetWindowInfo();
 
         SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
@@ -216,10 +272,17 @@ int main(int argc, char* argv[])
                 player.jumpCount -= 1;
             }
         }
-        if (keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT])
+        bool left = keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT];
+        bool right = keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT];
+        if (left)
             player.acceleration.x -= playerAccelerationAmount;
-        if (keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT])
+        if (right)
             player.acceleration.x += playerAccelerationAmount;
+        if (left == right)
+        {
+            player.velocity.x = 0;
+            player.acceleration.x = 0;
+        }
 
         if (keyBoardEvents[SDLK_1] == totalTime)
             debugList[DebugOptions::playerCollision] = !debugList[DebugOptions::playerCollision];
@@ -232,9 +295,9 @@ int main(int argc, char* argv[])
         if (keyBoardEvents[SDLK_5] == totalTime)
             debugList[DebugOptions::editBlocks] = !debugList[DebugOptions::editBlocks];
         if (keyBoardEvents[SDLK_0] == totalTime)
-            SaveLevel(&cacheLevel);
+            SaveLevel(&cacheLevel, player);
         if (keyBoardEvents[SDLK_9] == totalTime)
-            LoadLevel(&cacheLevel);
+            LoadLevel(&cacheLevel, player);
 
 
         //Mouse Control:
@@ -271,7 +334,8 @@ int main(int argc, char* argv[])
             }
             else if (mouseButtonState.timestamp == totalTime)
             {
-                CreateBullet(&player, &bulletSprite, mouseLocationTranslated, paintType);
+                // TODO: remove the cast
+                actorList.push_back(CreateBullet(&player, &bulletSprite, mouseLocationTranslated, paintType));
             }
         }
 
@@ -283,7 +347,7 @@ int main(int argc, char* argv[])
 
         CollisionWithBlocks(&player, false);
 
-        bool screenFlash = CollisionWithEnemy(&player, float(totalTime));
+        bool screenFlash = CollisionWithEnemy(&player, float(totalTime), player);
 
         UpdateActorHealth(&player, float(totalTime));
         UpdateEnemyHealth(float(totalTime));
@@ -292,7 +356,7 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
 
         camera.position = player.position;
-        UpdateBullets(deltaTime);
+        UpdateActors(deltaTime);
 
         for (auto& block : *tileMap.blockList())
         {
@@ -314,7 +378,7 @@ int main(int argc, char* argv[])
         {
             DebugRectRender(clickRect, transGreen);
         }
-        RenderBullets();
+        RenderActors();
         RenderLaser();
         RenderEnemies();
         RenderActor(&player, 0);
@@ -339,6 +403,14 @@ int main(int argc, char* argv[])
 
         //Present Screen
         SDL_RenderPresent(windowInfo.renderer);
+        std::erase_if(actorList, [](Actor* p) {
+            if (!p->inUse)
+            {
+                delete p;
+                return true;
+            }
+            return false;
+        });
     }
     
     return 0;

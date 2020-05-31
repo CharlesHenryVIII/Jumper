@@ -15,6 +15,14 @@ enum class EnemyType
     magic
 };
 
+enum class ActorType
+{
+    none,
+    player,
+    enemy,
+    projectile,
+};
+
 inline int BlockToPixel(float loc)
 {
     return int(loc * blockSize);
@@ -60,35 +68,29 @@ public:
     float health = 100;
     float damage;
     bool inUse = true;
-    float invincible = false;
+    double invinciblityTime = false;
 
     virtual void Update(float deltaTime) = 0;
     virtual void Render() = 0;
+    virtual void UpdateHealth(double totalTime) = 0;
+    virtual ActorType GetActorType() = 0;
 };
 
 struct Enemy : public Actor
 {
     EnemyType enemyType;
-    void Update(float deltaTime) override
-    {
-
-    }
-    void Render() override
-    {
-
-    }
+    void Update(float deltaTime) override;
+    void Render() override;
+    void UpdateHealth(double totalTime) override;
+    ActorType GetActorType() override;
 };
 
 struct Player : public Actor
 {
-    void Update(float deltaTime) override
-    {
-
-    }
-    void Render() override
-    {
-
-    }
+    void Update(float deltaTime) override;
+    void Render() override;
+    void UpdateHealth(double totalTime) override;
+    ActorType GetActorType() override;
 };
 
 enum class TileType {
@@ -105,6 +107,11 @@ struct Projectile : public Actor
 
     void Update(float deltaTime) override;
     void Render() override;
+    void UpdateHealth(double totalTime) override
+    {
+
+    }
+    ActorType GetActorType() override;
 };
 
 
@@ -169,8 +176,8 @@ Rectangle CollisionXOffsetToRectangle(Actor* actor);
 Rectangle CollisionYOffsetToRectangle(Actor* actor);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
-bool CollisionWithEnemy(Actor* actor, float currentTime, Player& player);
-void UpdateActorHealth(Actor* actor, float currentTime);
+bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime);
+void UpdateActorHealth(Actor* actor, double currentTime);
 void UpdateEnemyHealth(float totalTime);
 Actor* CreateBullet(Actor* player, Sprite* bulletSprite, Vector mouseLoc, TileType blockToBeType);
 void CreateLaser(Actor* player, Sprite* sprite, Vector mouseLoc, TileType paintType);
@@ -179,6 +186,8 @@ void UpdateActors(float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);
 void RenderActors();
 void RenderEnemies();
+void RenderActorHealthBars(Actor& actor);
+
 
 
 extern TileMap tileMap;

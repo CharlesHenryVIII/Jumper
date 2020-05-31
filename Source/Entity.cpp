@@ -10,7 +10,67 @@ TileMap tileMap;
 Projectile laser = {};
 std::vector<Actor*> actorList= {};
 Level currentLevel;
-static const Vector terminalVelocity = { 10 , 300 };
+//static const Vector terminalVelocity = { 10 , 300 };
+
+/*********************
+ *
+ * Player
+ *
+ ********/
+
+
+void Player::Update(float deltaTime)
+{
+	UpdateLocation(this, -60.0f, deltaTime);
+	CollisionWithBlocks(this, false);
+}
+
+void Player::Render()
+{
+	RenderActor(this, 0);
+	RenderActorHealthBars(*this);
+}
+
+void Player::UpdateHealth(double totalTime)
+{
+	UpdateActorHealth(this, totalTime);
+}
+
+ActorType Player::GetActorType()
+{
+	return ActorType::player;
+}
+
+
+/*********************
+ *
+ * Enemy
+ *
+ ********/
+
+
+void Enemy::Update(float deltaTime)
+{
+	UpdateLocation(this, -60.0f, deltaTime);
+	CollisionWithBlocks(this, true);
+}
+
+void Enemy::Render()
+{
+	RenderActor(this, 0);
+	RenderActorHealthBars(*this);
+}
+
+void Enemy::UpdateHealth(double totalTime)
+{
+	UpdateActorHealth(this, totalTime);
+}
+
+ActorType Enemy::GetActorType()
+{
+	return ActorType::enemy;
+}
+
 
 /*********************
  *
@@ -40,6 +100,11 @@ void Projectile::Render()
 		PC = Red;
 	SDL_SetTextureColorMod(sprite->texture, PC.r, PC.g, PC.b);
 	RenderActor(this, rotation);
+}
+
+ActorType Projectile::GetActorType()
+{
+	return ActorType::projectile;
 }
 
 
@@ -375,70 +440,63 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	}
 }
 
-
-bool CollisionWithEnemy(Actor* actor, float currentTime, Player& player)
+bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime)
 {
 	bool result = false;
-	for (int32 i = 0; i < currentLevel.enemyList.size(); i++)
-	{
-		Enemy* enemy = &currentLevel.enemyList[i];
-		if (!enemy->inUse)
-			continue;
 
-		Rectangle xRect = CollisionXOffsetToRectangle(enemy);
-		Rectangle yRect = CollisionYOffsetToRectangle(enemy);
+	Rectangle xRect = CollisionXOffsetToRectangle(&enemy);
+	Rectangle yRect = CollisionYOffsetToRectangle(&enemy);
 
-		uint32 xCollisionFlags = CollisionWithRect(&player, xRect);
-		uint32 yCollisionFlags = CollisionWithRect(&player, yRect);
-		float knockBackAmount = 15;
+	uint32 xCollisionFlags = CollisionWithRect(&player, xRect);
+	uint32 yCollisionFlags = CollisionWithRect(&player, yRect);
+	float knockBackAmount = 15;
 
-		result = bool(xCollisionFlags | yCollisionFlags);
+	result = bool(xCollisionFlags | yCollisionFlags);
 
 
-		if (yCollisionFlags & CollisionBot)
-		{//hit enemy, apply damage to enemy
-			enemy->health -= actor->damage;
-			actor->invincible = currentTime;
-			actor->velocity.y = knockBackAmount;
-		}
-		else
-		{
-			if (xCollisionFlags & CollisionRight)
-			{//hit by enemy, knockback, take damage, screen flash
-				actor->velocity.x = -50 * knockBackAmount;
-				actor->velocity.y = knockBackAmount;
-			}
-			if (xCollisionFlags & CollisionLeft)
-			{//hit by enemy, knockback, take damage, screen flash
-				actor->velocity.x = 50 * knockBackAmount;
-				actor->velocity.y = knockBackAmount;
-			}
-		}
-
-		if ((xCollisionFlags || yCollisionFlags) && !actor->invincible)
-		{
-			actor->health -= enemy->damage;
-		}
-
-		if (result && !actor->invincible)
-			actor->invincible = currentTime;
+	if (yCollisionFlags & CollisionBot)
+	{//hit enemy, apply damage to enemy
+		enemy.health -= player.damage;
+		player.velocity.y = knockBackAmount;
 	}
+	else
+	{
+		if (xCollisionFlags & CollisionRight)
+		{//hit by enemy, knockback, take damage, screen flash
+			player.velocity.x = -50 * knockBackAmount;
+			player.velocity.y = knockBackAmount;
+		}
+		if (xCollisionFlags & CollisionLeft)
+		{//hit by enemy, knockback, take damage, screen flash
+			player.velocity.x = 50 * knockBackAmount;
+			player.velocity.y = knockBackAmount;
+		}
+	}
+
+	if ((xCollisionFlags || yCollisionFlags) && player.invinciblityTime <= currentTime)
+	{
+		player.health -= enemy.damage;
+	}
+
+	if (result && player.invinciblityTime <= currentTime)
+		player.invinciblityTime = currentTime + 1.0;
 	return result;
 }
 
 
-void UpdateActorHealth(Actor* actor, float currentTime)
+void UpdateActorHealth(Actor* actor, double currentTime)
 {
 	if (actor->inUse)
 	{
-		if (actor->invincible + 1 <= currentTime)
+		if (actor->invinciblityTime <= currentTime)
+		{
 			if (actor->health <= 0)
 				actor->health = 0;
-
-		//if (!actor->health)
-		//{
-		//    actor->inUse = false;
-		//}
+		}
+		if (!actor->health)
+		{
+		    actor->inUse = false;
+		}
 	}
 }
 void UpdateEnemyHealth(float totalTime)
@@ -556,11 +614,20 @@ void RenderActors()
 	}
 }
 
-void RenderEnemies()
+void RenderActorHealthBars(Actor& actor)
 {
-	for (int32 i = 0; i < currentLevel.enemyList.size(); i++)
-	{
-		Enemy* enemyPointer = &currentLevel.enemyList[i];
-		RenderActor(enemyPointer, 0);
-	}
+	int32 healthHeight = 8;
+	Rectangle full = {};
+	Rectangle actual = {};
+	full.bottomLeft.x = actor.position.x;
+	full.bottomLeft.y = actor.position.y + PixelToBlock(actor.sprite->height);
+	full.topRight.x = full.bottomLeft.x + PixelToBlock(actor.sprite->width);
+	full.topRight.y = full.bottomLeft.y + healthHeight;
+
+	actual.bottomLeft.x = full.topRight.x - (actor.health / 100) * full.Width();
+	actual.bottomLeft.y = full.bottomLeft.y;
+	actual.topRight = full.topRight;
+
+	GameSpaceRectRender(full, HealthBarBackground);
+	GameSpaceRectRender(actual, Green);
 }

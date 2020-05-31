@@ -82,12 +82,6 @@ struct MouseButtonState {
 };
 
 
-enum ActorType
-{
-    ActorType_Player,
-};
-
-
 
 ActorID CreatePlayer(Sprite* playerSprite)
 {
@@ -114,13 +108,6 @@ Actor* FindActor(ActorID actorID)
 
 int main(int argc, char* argv[])
 {
-
-    //std::vector<Actor*> actorList;
-    //actorList.push_back(new Player());
-    //actorList.push_back(CreatePlayer());
-    //actorList.push_back(new Enemy());
-
-
     //Window and Program Setups:
     std::unordered_map<SDL_Keycode, double> keyBoardEvents;
     MouseButtonState mouseButtonState = {};
@@ -158,7 +145,7 @@ int main(int argc, char* argv[])
     currentLevel.filename = "DefaultLevel.PNG";
     
     //add enemies to current level (temporoary,  add to each level's metadata)
-    Enemy enemy = {};
+    Enemy enemy = *new Enemy;
     enemy.sprite = &headMinionSprite;
     enemy.position = { 28, 1 };
     enemy.velocity.x = 4;
@@ -166,7 +153,8 @@ int main(int argc, char* argv[])
     enemy.colOffset.y = 0.25f;
     enemy.damage = 5;
     enemy.inUse = true;
-    currentLevel.enemyList.push_back(enemy);
+    actorList.push_back(&enemy);
+    //currentLevel.enemyList.push_back(enemy);
     LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
     
     Level cacheLevel = {};
@@ -340,15 +328,26 @@ int main(int argc, char* argv[])
         }
 
         //Update Player Location
-        float gravity = -60.0f;
-        UpdateLocation(&player, gravity, deltaTime);
+        //float gravity = -60.0f;
+        //UpdateLocation(&player, gravity, deltaTime);
 
-        UpdateEnemiesPosition(gravity, deltaTime);
+        //UpdateEnemiesPosition(gravity, deltaTime);
 
-        CollisionWithBlocks(&player, false);
+        //CollisionWithBlocks(&player, false);
+        UpdateActors(deltaTime);
+        bool screenFlash = false;
+        for (int i = 0; i < actorList.size(); i++)
+        {
+            if (actorList[i]->GetActorType() == ActorType::enemy)
+                screenFlash = CollisionWithEnemy(player, *actorList[i], float(totalTime));
+        }
 
-        bool screenFlash = CollisionWithEnemy(&player, float(totalTime), player);
-
+        for (int i = 0; i < actorList.size(); i++)
+        {
+            ActorType actorType = actorList[i]->GetActorType();
+            if (actorType == ActorType::player || actorType == ActorType::enemy)
+                actorList[i]->UpdateHealth(totalTime);
+        }
         UpdateActorHealth(&player, float(totalTime));
         UpdateEnemyHealth(float(totalTime));
 
@@ -356,7 +355,6 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
 
         camera.position = player.position;
-        UpdateActors(deltaTime);
 
         for (auto& block : *tileMap.blockList())
         {
@@ -380,12 +378,12 @@ int main(int argc, char* argv[])
         }
         RenderActors();
         RenderLaser();
-        RenderEnemies();
-        RenderActor(&player, 0);
+        //RenderEnemies();
+        //RenderActor(&player, 0);
         
         DrawText(textSheet, Green, std::to_string(1 / deltaTime), 1.0f, { 0, 0 }, UIX::left, UIY::top);
-        DrawText(textSheet, Green, std::to_string(player.health), 1.0f, { windowInfo.width, 0 }, UIX::right, UIY::top);
-        DrawText(textSheet, Green, std::to_string(currentLevel.enemyList[0].health), 1.0f, { windowInfo.width, windowInfo.height }, UIX::right, UIY::bot);
+        //DrawText(textSheet, Green, std::to_string(player.health), 1.0f, { windowInfo.width, 0 }, UIX::right, UIY::top);
+        //DrawText(textSheet, Green, std::to_string(currentLevel.enemyList[0].health), 1.0f, { windowInfo.width, windowInfo.height }, UIX::right, UIY::bot);
         DrawText(textSheet, Green, "{ " + std::to_string(player.position.x) + ", " + std::to_string(player.position.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
         DrawText(textSheet, Green, "{ " + std::to_string(player.velocity.x) + ", " + std::to_string(player.velocity.y) + " }", 0.75f, { 0, windowInfo.height - 20 }, UIX::left, UIY::bot);
         DrawText(textSheet, Green, "{ " + std::to_string(player.acceleration.x) + ", " + std::to_string(player.acceleration.y) + " }", 0.75f, { 0, windowInfo.height }, UIX::left, UIY::bot);

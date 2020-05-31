@@ -76,5 +76,6 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);
 bool DrawButton(FontSprite textSprite, std::string text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC);
 void RenderLaser();
 void RenderActor(Actor* actor, float rotation);
+void GameSpaceRectRender(Rectangle rect, SDL_Color color);
 
 extern Camera camera;

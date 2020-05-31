@@ -280,6 +280,13 @@ void RenderLaser()
 
 void RenderActor(Actor* actor, float rotation)
 {
-    SDL_Rect tempRect = CameraOffset(actor->position, PixelToBlock({ actor->sprite->width, actor->sprite->height }));
-    SDL_RenderCopyEx(windowInfo.renderer, actor->sprite->texture, NULL, &tempRect, rotation, NULL, SDL_FLIP_NONE);
+    SDL_Rect destRect = CameraOffset(actor->position, PixelToBlock({ actor->sprite->width, actor->sprite->height }));
+    SDL_RenderCopyEx(windowInfo.renderer, actor->sprite->texture, NULL, &destRect, rotation, NULL, SDL_FLIP_NONE);
+}
+
+void GameSpaceRectRender(Rectangle rect, SDL_Color color)
+{
+    SDL_Rect tempRect = CameraOffset( rect.bottomLeft , PixelToBlock({ int32(BlockToPixel(rect.Width())), int32(rect.Height()) }));
+    SDL_SetRenderDrawColor(windowInfo.renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderFillRect(windowInfo.renderer, &tempRect);
 }

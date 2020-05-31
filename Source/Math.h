@@ -38,6 +38,8 @@ const SDL_Color Mint = { 0, 255, 127, 255 };   //used for corner block
 const SDL_Color Orange = { 255, 127, 0, 255 };   //used for edge block
 const SDL_Color Grey = { 127, 127, 127, 255 }; //used for floating block
 
+const SDL_Color HealthBarBackground = { 58, 85, 58, 255 };
+
 
 const uint32 CollisionNone = 0;
 const uint32 CollisionTop = 1;

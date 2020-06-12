@@ -84,12 +84,39 @@ struct Rectangle {
     }
 };
 
+struct Rectangle_Int {
+    VectorInt bottomLeft;
+    VectorInt topRight;
+
+    int32 Width()
+    {
+        return topRight.x - bottomLeft.x;
+    }
+
+    int32 Height()
+    {
+        return topRight.y - bottomLeft.y;
+    }
+
+    //bool Collision(VectorInt loc)
+    //{
+    //    bool result = false;
+    //    if (loc.y > bottomLeft.x && loc.y < topRight.x)
+    //        if (loc.x > bottomLeft.x && loc.x < topRight.x)
+    //            result = true;
+    //    return result;
+    //}
+};
+
 
 inline Vector operator-(const Vector& lhs, const Vector& rhs)
 {
     return { lhs.x - rhs.x, lhs.y - rhs.y };
 }
-
+inline Vector operator-(const Vector& lhs, const float rhs)
+{
+    return { lhs.x - rhs, lhs.y - rhs };
+}
 
 inline Vector operator+(const Vector& lhs, const Vector& rhs)
 {
@@ -101,6 +128,10 @@ inline Vector operator*(const Vector& a, const float b)
 {
     return { a.x * b,  a.y * b };
 }
+inline VectorInt operator*(const VectorInt& a, const float b)
+{
+    return { int(a.x * b),  int(a.y * b) };
+}
 
 
 inline const Vector& operator+=(Vector& lhs, const Vector& rhs)
@@ -109,6 +140,8 @@ inline const Vector& operator+=(Vector& lhs, const Vector& rhs)
     lhs.y += rhs.y;
     return lhs;
 }
+
+
 
 template <typename T>
 T Min(T a, T b)

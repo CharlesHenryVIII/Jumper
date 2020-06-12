@@ -6,7 +6,6 @@
 
 struct SDL_Texture;
 
-
 struct WindowInfo
 {
     int32 left;
@@ -79,3 +78,4 @@ void RenderActor(Actor* actor, float rotation);
 void GameSpaceRectRender(Rectangle rect, SDL_Color color);
 
 extern Camera camera;
+extern WindowInfo windowInfo;

@@ -63,10 +63,12 @@ public:
     Vector velocity = {};
     Vector terminalVelocity = { 10 , 300 };
     Vector acceleration;
+    Rectangle_Int colRect;
     Vector colOffset;
     int jumpCount = 2;
     float health = 100;
     float damage;
+    float scaledWidth = 32;
     bool inUse = true;
     double invinciblityTime = false;
 
@@ -74,6 +76,26 @@ public:
     virtual void Render() = 0;
     virtual void UpdateHealth(double totalTime) = 0;
     virtual ActorType GetActorType() = 0;
+    float SpriteRatio()
+    {
+        return scaledWidth / colRect.Width();
+    }
+    float ScaledWidth()
+    {
+        return scaledWidth;// colRect.Width()* GoldenRatio();
+    }
+    float ScaledHeight()
+    {
+        return colRect.Height() * SpriteRatio();
+    }
+    float GameWidth()
+    {
+        return PixelToBlock((int)ScaledWidth());// colRect.Width()* GoldenRatio();
+    }
+    float GameHeight()
+    {
+        return PixelToBlock((int)ScaledHeight());
+    }
 };
 
 struct Enemy : public Actor

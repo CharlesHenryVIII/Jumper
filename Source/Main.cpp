@@ -24,16 +24,24 @@ TODO(choman):
     -sub pixel rendering
     -multithread saving/png compression
     -add layered background(s)
-    -seperate collision detection function and use it for projectile detection as well
     -windows settings local grid highlight
     -add gun to change blocks aka <spring/wind, tacky(can hop off walls with it), timed explosion to get more height>
-    -add momentum
+    -character animation
     -handle multiple levels
     -moving platforms
     -enemy ai
     -power ups
     -explosives?
 
+
+    CS20
+    -singly linked list
+    -doubly linked list
+    -stack
+    -queue
+    -sort funct
+    -priority queue
+    -hashmap
 
 
     -game design:
@@ -82,13 +90,15 @@ struct MouseButtonState {
 };
 
 
-
-ActorID CreatePlayer(Sprite* playerSprite)
+//topLeft is origin
+ActorID CreatePlayer(Sprite* playerSprite, Rectangle_Int rect, float scaledWidth)
 {
     Player* player = new Player();
     player->sprite = playerSprite;
     player->colOffset.x = 0.2f;
     player->colOffset.y = 0.3f;
+    player->colRect = rect;
+    player->scaledWidth = scaledWidth;
     player->damage = 100;
     player->inUse = true;
     actorList.push_back(player);
@@ -129,7 +139,8 @@ int main(int argc, char* argv[])
     */
 
     //Sprite Creation
-    Sprite playerSprite = CreateSprite("Player.png", SDL_BLENDMODE_BLEND);
+    //Sprite playerSprite = CreateSprite("Player.png", SDL_BLENDMODE_BLEND);
+    Sprite playerSprite = CreateSprite("Dino/Idle (1).png", SDL_BLENDMODE_BLEND);
     Sprite minecraftSprite = CreateSprite("TileMap.png", SDL_BLENDMODE_BLEND);
     Sprite spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
     FontSprite textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
@@ -137,20 +148,24 @@ int main(int argc, char* argv[])
     Sprite bulletSprite = CreateSprite("Bullet.png", SDL_BLENDMODE_BLEND);
     Sprite headMinionSprite = CreateSprite("HeadMinion.png", SDL_BLENDMODE_BLEND);
 
+    
+
     //Player Creation
     float playerAccelerationAmount = 50;
-    ActorID playerID = CreatePlayer(&playerSprite);
+    ActorID playerID = CreatePlayer(&playerSprite, { { 130, 472 - 421 }, { 331, 472 - 33 } }, 32); //680 x 472
 
     //Level instantiations
     currentLevel.filename = "DefaultLevel.PNG";
     
     //add enemies to current level (temporoary,  add to each level's metadata)
-    Enemy enemy = *new Enemy;
+    Enemy& enemy = *new Enemy;
     enemy.sprite = &headMinionSprite;
     enemy.position = { 28, 1 };
     enemy.velocity.x = 4;
     enemy.colOffset.x = 0.125f;
     enemy.colOffset.y = 0.25f;
+    enemy.colRect = { { 4, 31 }, { 27, 8 } };
+    enemy.scaledWidth = (float)enemy.colRect.Width();
     enemy.damage = 5;
     enemy.inUse = true;
     actorList.push_back(&enemy);
@@ -160,32 +175,6 @@ int main(int argc, char* argv[])
     Level cacheLevel = {};
     cacheLevel.filename = "Level.PNG";
 
-
-
-#if 0
-    for (auto it = bulletList.begin(); it != bulletList.end(); /* no ++it! */)
-    {
-        if (shouldDelete)
-            it = bulletList.erase(it);
-        else
-            it++;
-    }
-
-    for (int i = 0; i < bulletList.size(); i++)
-    {
-        if (shouldDelete)
-        {
-            bulletList.erase(bulletList.begin() + i);
-            i--;
-        }
-    }
-
-    for (auto& it : bulletList)
-    {
-
-    }
-#endif
-
     tileMap.UpdateAllBlocks();
 
     //Start Of Running Program
@@ -194,8 +183,9 @@ int main(int argc, char* argv[])
 
         //Setting Timer
         totalTime = SDL_GetPerformanceCounter() / freq;
-        float deltaTime = float(totalTime - previousTime);
+        float deltaTime = float(totalTime - previousTime);// / 10;
         previousTime = totalTime;
+        
 
         if (deltaTime > 1 / 30.0f)
         {
@@ -327,14 +317,8 @@ int main(int argc, char* argv[])
             }
         }
 
-        //Update Player Location
-        //float gravity = -60.0f;
-        //UpdateLocation(&player, gravity, deltaTime);
-
-        //UpdateEnemiesPosition(gravity, deltaTime);
-
-        //CollisionWithBlocks(&player, false);
         UpdateActors(deltaTime);
+
         bool screenFlash = false;
         for (int i = 0; i < actorList.size(); i++)
         {
@@ -348,8 +332,6 @@ int main(int argc, char* argv[])
             if (actorType == ActorType::player || actorType == ActorType::enemy)
                 actorList[i]->UpdateHealth(totalTime);
         }
-        UpdateActorHealth(&player, float(totalTime));
-        UpdateEnemyHealth(float(totalTime));
 
         //Create Renderer:
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
@@ -378,12 +360,8 @@ int main(int argc, char* argv[])
         }
         RenderActors();
         RenderLaser();
-        //RenderEnemies();
-        //RenderActor(&player, 0);
         
         DrawText(textSheet, Green, std::to_string(1 / deltaTime), 1.0f, { 0, 0 }, UIX::left, UIY::top);
-        //DrawText(textSheet, Green, std::to_string(player.health), 1.0f, { windowInfo.width, 0 }, UIX::right, UIY::top);
-        //DrawText(textSheet, Green, std::to_string(currentLevel.enemyList[0].health), 1.0f, { windowInfo.width, windowInfo.height }, UIX::right, UIY::bot);
         DrawText(textSheet, Green, "{ " + std::to_string(player.position.x) + ", " + std::to_string(player.position.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
         DrawText(textSheet, Green, "{ " + std::to_string(player.velocity.x) + ", " + std::to_string(player.velocity.y) + " }", 0.75f, { 0, windowInfo.height - 20 }, UIX::left, UIY::bot);
         DrawText(textSheet, Green, "{ " + std::to_string(player.acceleration.x) + ", " + std::to_string(player.acceleration.y) + " }", 0.75f, { 0, windowInfo.height }, UIX::left, UIY::bot);

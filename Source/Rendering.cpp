@@ -3,7 +3,7 @@
 #include "stb/stb_image_write.h"
 #include <cassert>
 
-static WindowInfo windowInfo = { 200, 200, 1280, 720 };
+WindowInfo windowInfo = { 200, 200, 1280, 720 };
 Camera camera;
 
 
@@ -280,7 +280,9 @@ void RenderLaser()
 
 void RenderActor(Actor* actor, float rotation)
 {
-    SDL_Rect destRect = CameraOffset(actor->position, PixelToBlock({ actor->sprite->width, actor->sprite->height }));
+    SDL_Rect destRect = CameraOffset(actor->position - PixelToBlock((actor->colRect.bottomLeft * actor->SpriteRatio())), 
+                            PixelToBlock({ (int)(actor->SpriteRatio() * actor->sprite->width), 
+                                           (int)(actor->SpriteRatio() * actor->sprite->height) }));
     SDL_RenderCopyEx(windowInfo.renderer, actor->sprite->texture, NULL, &destRect, rotation, NULL, SDL_FLIP_NONE);
 }
 

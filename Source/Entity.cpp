@@ -345,15 +345,15 @@ void ClickUpdate(Block* block, bool updateTop)
 Rectangle CollisionXOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	result.bottomLeft = { actor->position.x + actor->colOffset.x * PixelToBlock(actor->sprite->width), actor->position.y + actor->colOffset.x * PixelToBlock(actor->sprite->height) };
-	result.topRight = { actor->position.x + (1 - actor->colOffset.x) * PixelToBlock(actor->sprite->width), actor->position.y + (1 - actor->colOffset.x) * PixelToBlock(actor->sprite->height) };
+	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->ScaledWidth())) / 2, actor->position.y + actor->colOffset.x * PixelToBlock(int32(actor->ScaledHeight())) };
+	result.topRight = { actor->position.x + (1 - actor->colOffset.x) * PixelToBlock(int32(actor->ScaledWidth())), actor->position.y + (1 - actor->colOffset.x) * PixelToBlock(int32(actor->ScaledHeight())) };
 	return result;
 }
 Rectangle CollisionYOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	result.bottomLeft = { actor->position.x + actor->colOffset.y * PixelToBlock(actor->sprite->width), actor->position.y };
-	result.topRight = { actor->position.x + (1 - actor->colOffset.y) * PixelToBlock(actor->sprite->width), actor->position.y + PixelToBlock(actor->sprite->height) };
+	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->ScaledWidth())) / 2, actor->position.y };
+	result.topRight = { actor->position.x + (1 - actor->colOffset.y) * PixelToBlock(int32(actor->ScaledWidth())), actor->position.y + PixelToBlock(int32(actor->ScaledHeight())) };
 	return result;
 }
 
@@ -366,11 +366,20 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	Rectangle xRect = CollisionXOffsetToRectangle(actor);
 	Rectangle yRect = CollisionYOffsetToRectangle(actor);
 
+	float xPercentOffset = 0.2f;
+	float yPercentOffset = 0.3f;
+
+	xRect.bottomLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * yPercentOffset };
+	xRect.topRight		= { actor->position.x + PixelToBlock((int)actor->ScaledWidth()), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - yPercentOffset) };
+
+	yRect.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->ScaledWidth()) * xPercentOffset),		actor->position.y };
+	yRect.topRight		= { actor->position.x + (PixelToBlock((int)actor->ScaledWidth()) * (1 - xPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
+
 	//if (debugList[DebugOptions::playerCollision])
 	//{
-	//	SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-	//	DebugRectRender(xRect, transOrange);
-	//	DebugRectRender(yRect, transGreen);
+		SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
+		DebugRectRender(xRect, transOrange);
+		DebugRectRender(yRect, transGreen);
 	//}
 
 
@@ -408,9 +417,12 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 
 		uint32 collisionFlags = CollisionWithRect(actor, { block.second.location, { block.second.location + Vector({ 1, 1 }) } });
 
+		SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
+		//DebugRectRender({ block.second.location, { block.second.location + Vector({ 1, 1 }) } }, transRed);
+
 		if (collisionFlags & CollisionRight)
 		{
-			actor->position.x = block.second.location.x - (1 - actor->colOffset.x) * PixelToBlock(actor->sprite->width);
+			actor->position.x = block.second.location.x - actor->GameWidth();// PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
 			if (isEnemy)
 				actor->velocity.x = -1 * actor->velocity.x;
 			else
@@ -418,7 +430,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 		}
 		if (collisionFlags & CollisionLeft)
 		{
-			actor->position.x = (block.second.location.x + 1) - actor->colOffset.x * PixelToBlock(actor->sprite->width);
+			actor->position.x = (block.second.location.x + 1);// - actor->colOffset.x * PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
 			if (isEnemy)
 				actor->velocity.x = -1 * actor->velocity.x;
 			else
@@ -426,7 +438,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 		}
 		if (collisionFlags & CollisionTop)
 		{
-			actor->position.y = block.second.location.y - PixelToBlock(actor->sprite->height);
+			actor->position.y = block.second.location.y - actor->GameHeight();//PixelToBlock(int32(actor->colRect.Height() * actor->GoldenRatio()));
 			if (actor->velocity.y > 0)
 				actor->velocity.y = 0;
 		}
@@ -446,6 +458,15 @@ bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime)
 
 	Rectangle xRect = CollisionXOffsetToRectangle(&enemy);
 	Rectangle yRect = CollisionYOffsetToRectangle(&enemy);
+
+	float xPercentOffset = 0.2f;
+	float yPercentOffset = 0.3f;
+
+	xRect.bottomLeft	= { enemy.position.x - PixelToBlock((int)enemy.scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * xPercentOffset };
+	xRect.topRight		= { enemy.position.x + PixelToBlock((int)enemy.scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * (1 - xPercentOffset) };
+
+	yRect.bottomLeft	= { enemy.position.x - PixelToBlock((int)enemy.scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * yPercentOffset };
+	yRect.topRight		= { enemy.position.x + PixelToBlock((int)enemy.scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * (1 - yPercentOffset) };
 
 	uint32 xCollisionFlags = CollisionWithRect(&player, xRect);
 	uint32 yCollisionFlags = CollisionWithRect(&player, yRect);

@@ -19,7 +19,6 @@
 
 /*
 TODO(choman):
-    -entity system
     -camera zoom
     -sub pixel rendering
     -multithread saving/png compression
@@ -32,7 +31,8 @@ TODO(choman):
     -enemy ai
     -power ups
     -explosives?
-
+    -loading bar at the begining of the game
+    -multithread loading
 
     CS20
     -singly linked list
@@ -91,16 +91,22 @@ struct MouseButtonState {
 
 
 //topLeft is origin
-ActorID CreatePlayer(Sprite* playerSprite, Rectangle_Int rect, float scaledWidth)
+ActorID CreatePlayer(/*Sprite* playerSprite, */Rectangle_Int rect, float scaledWidth, double totalTime)
 {
     Player* player = new Player();
-    player->sprite = playerSprite;
+    //player->sprite = playerSprite;
     player->colOffset.x = 0.2f;
     player->colOffset.y = 0.3f;
     player->colRect = rect;
     player->scaledWidth = scaledWidth;
     player->damage = 100;
     player->inUse = true;
+    player->lastAnimationTime = totalTime;
+    player->deathAnime.reserve(20);
+    player->idleAnime.reserve(20);
+    player->runAnime.reserve(20);
+    player->walkAnime.reserve(20);
+    player->jumpAnime.reserve(20);
     actorList.push_back(player);
     return player->id;
 }
@@ -114,6 +120,39 @@ Actor* FindActor(ActorID actorID)
     }
     return nullptr;
 }
+
+
+void InstantiateEachFrame(std::vector<Sprite*>& list, std::string fileName, std::string folderName)
+{
+    list.reserve(20);
+
+    for (int32 i = 1; true; i++)
+    {
+        std::string combinedName = folderName + "/" + fileName + " (" + std::to_string(i) + ").png";
+        Sprite* sprite = new Sprite;
+        *sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
+        if (sprite->texture == nullptr)
+            break;
+        else
+            list.push_back(sprite);
+    }
+}
+
+
+void InstatiateActorAnimations(Actor* actor, std::string folderName)
+{
+    InstantiateEachFrame(actor->deathAnime, "Dead", folderName);
+    InstantiateEachFrame(actor->idleAnime,  "Idle", folderName);
+    InstantiateEachFrame(actor->jumpAnime,  "Jump", folderName);
+    InstantiateEachFrame(actor->runAnime,   "Run", folderName);
+    InstantiateEachFrame(actor->walkAnime,  "Walk", folderName);
+
+    //actor->idleAnime.reserve(reserveCount);
+    //actor->jumpAnime.reserve(reserveCount);
+    //actor->runAnime.reserve(reserveCount);
+    //actor->walkAnime.reserve(reserveCount);
+}
+
 
 
 int main(int argc, char* argv[])
@@ -140,7 +179,7 @@ int main(int argc, char* argv[])
 
     //Sprite Creation
     //Sprite playerSprite = CreateSprite("Player.png", SDL_BLENDMODE_BLEND);
-    Sprite playerSprite = CreateSprite("Dino/Idle (1).png", SDL_BLENDMODE_BLEND);
+    //Sprite playerSprite = CreateSprite("Dino/Idle (1).png", SDL_BLENDMODE_BLEND);
     Sprite minecraftSprite = CreateSprite("TileMap.png", SDL_BLENDMODE_BLEND);
     Sprite spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
     FontSprite textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
@@ -152,22 +191,50 @@ int main(int argc, char* argv[])
 
     //Player Creation
     float playerAccelerationAmount = 50;
-    ActorID playerID = CreatePlayer(&playerSprite, { { 130, 472 - 421 }, { 331, 472 - 33 } }, 32); //680 x 472
+    ActorID playerID = CreatePlayer(/*&playerSprite, */{ { 130, 472 - 421 }, { 331, 472 - 33 } }, 32, totalTime); //680 x 472
+    Actor* actorPlayer = FindActor(playerID);
+    InstatiateActorAnimations(actorPlayer, "Dino");
+    //InstatiateAnimationFrames(actorPlayer->idleAnime,   "Dino/Idle", 10);
+    //InstatiateAnimationFrames(actorPlayer->jumpAnime,   "Dino/Jump", 12);
+    //InstatiateAnimationFrames(actorPlayer->runAnime,    "Dino/Run",  8);
+    //InstatiateAnimationFrames(actorPlayer->walkAnime,   "Dino/Walk", 10);
+    
+    //actorPlayer->idleAnime = new std::vector<Sprite*>;
+    //actorPlayer->idleAnime.reserve(10);
+    //for (int32 i = 1; i <= 10; i++)
+    //{
+    //    std::string combinedName = "Dino/Idle (" + std::to_string(i) + ").png";
+    //    Sprite* sprite = new Sprite;
+    //    sprite = &CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
+    //    actorPlayer->idleAnime.push_back(sprite);
+    //}
+    //actorPlayer->idleAnime->resize(10);
+
+    /*player->idleAnime->reserve(10);
+    for (int32 i = 1; i <= total; i++)
+    {
+        std::string combinedName = name + " (" + std::to_string(i) + ").png";
+        Sprite* sprite = new Sprite;
+        sprite = &CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
+        list->push_back(sprite);
+    }*/
+
 
     //Level instantiations
     currentLevel.filename = "DefaultLevel.PNG";
     
     //add enemies to current level (temporoary,  add to each level's metadata)
     Enemy& enemy = *new Enemy;
-    enemy.sprite = &headMinionSprite;
+    enemy.idleAnime.push_back(&headMinionSprite);
     enemy.position = { 28, 1 };
     enemy.velocity.x = 4;
     enemy.colOffset.x = 0.125f;
     enemy.colOffset.y = 0.25f;
-    enemy.colRect = { { 4, 31 }, { 27, 8 } };
+    enemy.colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
     enemy.scaledWidth = (float)enemy.colRect.Width();
     enemy.damage = 5;
     enemy.inUse = true;
+    enemy.lastAnimationTime = totalTime;
     actorList.push_back(&enemy);
     //currentLevel.enemyList.push_back(enemy);
     LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
@@ -358,7 +425,7 @@ int main(int argc, char* argv[])
         {
             DebugRectRender(clickRect, transGreen);
         }
-        RenderActors();
+        RenderActors(totalTime);
         RenderLaser();
         
         DrawText(textSheet, Green, std::to_string(1 / deltaTime), 1.0f, { 0, 0 }, UIX::left, UIY::top);

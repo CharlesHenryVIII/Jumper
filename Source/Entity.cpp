@@ -25,9 +25,9 @@ void Player::Update(float deltaTime)
 	CollisionWithBlocks(this, false);
 }
 
-void Player::Render()
+void Player::Render(double totalTime)
 {
-	RenderActor(this, 0);
+	RenderActor(this, 0, totalTime);
 	RenderActorHealthBars(*this);
 }
 
@@ -55,9 +55,9 @@ void Enemy::Update(float deltaTime)
 	CollisionWithBlocks(this, true);
 }
 
-void Enemy::Render()
+void Enemy::Render(double totalTime)
 {
-	RenderActor(this, 0);
+	RenderActor(this, 0, totalTime);
 	RenderActorHealthBars(*this);
 }
 
@@ -91,15 +91,15 @@ void Projectile::Update(float deltaTime)
 	}
 }
 
-void Projectile::Render()
+void Projectile::Render(double totalTime)
 {
 	SDL_Color PC = {};
 	if (paintType == TileType::filled)
 		PC = Green;
 	else
 		PC = Red;
-	SDL_SetTextureColorMod(sprite->texture, PC.r, PC.g, PC.b);
-	RenderActor(this, rotation);
+	SDL_SetTextureColorMod(idleAnime[0]->texture, PC.r, PC.g, PC.b);
+	RenderActor(this, rotation, totalTime);
 }
 
 ActorType Projectile::GetActorType()
@@ -530,14 +530,14 @@ void UpdateEnemyHealth(float totalTime)
 }
 
 
-Actor* CreateBullet(Actor* player, Sprite* bulletSprite, Vector mouseLoc, TileType blockToBeType)
+Actor* CreateBullet(Actor* player, Sprite* sprite, Vector mouseLoc, TileType blockToBeType)
 {
 	Projectile* bullet_a = new Projectile();
 	Projectile& bullet = *bullet_a;
 
 	bullet.paintType = blockToBeType;
 	bullet.inUse = true;
-	bullet.sprite = bulletSprite;
+	bullet.idleAnime[0] = sprite;
 	bullet.terminalVelocity = { 1000, 1000 };
 	Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
 
@@ -577,7 +577,7 @@ void CreateLaser(Actor* player, Sprite* sprite, Vector mouseLoc, TileType paintT
 {
 	laser.paintType = paintType;
 	laser.inUse = true;
-	laser.sprite = sprite;
+	laser.idleAnime[0] = sprite;
 	Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block
@@ -602,6 +602,11 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 	actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
 
 	actor->position += actor->velocity * deltaTime;
+
+	if (actor->velocity.x < 0)
+		actor->lastInputWasLeft = true;
+	else if (actor->velocity.x > 0)
+		actor->lastInputWasLeft = false;
 }
 
 
@@ -627,11 +632,11 @@ void UpdateEnemiesPosition(float gravity, float deltaTime)
 	}
 }
 
-void RenderActors()
+void RenderActors(double totalTime)
 {
 	for (int32 i = 0; i < actorList.size(); i++)
 	{
-		actorList[i]->Render();
+		actorList[i]->Render(totalTime);
 	}
 }
 
@@ -641,8 +646,8 @@ void RenderActorHealthBars(Actor& actor)
 	Rectangle full = {};
 	Rectangle actual = {};
 	full.bottomLeft.x = actor.position.x;
-	full.bottomLeft.y = actor.position.y + PixelToBlock(actor.sprite->height);
-	full.topRight.x = full.bottomLeft.x + PixelToBlock(actor.sprite->width);
+	full.bottomLeft.y = actor.position.y + PixelToBlock(int(actor.ScaledHeight() + healthHeight));
+	full.topRight.x = full.bottomLeft.x + PixelToBlock(int(actor.ScaledWidth()));
 	full.topRight.y = full.bottomLeft.y + healthHeight;
 
 	actual.bottomLeft.x = full.topRight.x - (actor.health / 100) * full.Width();

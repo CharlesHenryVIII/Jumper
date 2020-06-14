@@ -58,22 +58,36 @@ public:
     }
 
     const ActorID id;
-    Sprite* sprite;
+    //Sprite* sprite;
     Vector position;
     Vector velocity = {};
     Vector terminalVelocity = { 10 , 300 };
     Vector acceleration;
     Rectangle_Int colRect;
     Vector colOffset;
-    int jumpCount = 2;
+    int32 jumpCount = 2;
+    int32 fps = 10;
     float health = 100;
     float damage;
+    double lastAnimationTime;
     float scaledWidth = 32;
+    bool lastInputWasLeft = false;
     bool inUse = true;
     double invinciblityTime = false;
 
+    std::vector<Sprite*> deathAnime;
+    int32 deathIndex = 0;
+    std::vector<Sprite*> idleAnime;
+    int32 idleIndex = 0;
+    std::vector<Sprite*> runAnime;
+    int32 runIndex = 0;
+    std::vector<Sprite*> walkAnime;
+    int32 walkIndex = 0;
+    std::vector<Sprite*> jumpAnime;
+    int32 jumpIndex = 0;
+
     virtual void Update(float deltaTime) = 0;
-    virtual void Render() = 0;
+    virtual void Render(double totalTime) = 0;
     virtual void UpdateHealth(double totalTime) = 0;
     virtual ActorType GetActorType() = 0;
     float SpriteRatio()
@@ -102,7 +116,7 @@ struct Enemy : public Actor
 {
     EnemyType enemyType;
     void Update(float deltaTime) override;
-    void Render() override;
+    void Render(double totalTime) override;
     void UpdateHealth(double totalTime) override;
     ActorType GetActorType() override;
 };
@@ -110,7 +124,7 @@ struct Enemy : public Actor
 struct Player : public Actor
 {
     void Update(float deltaTime) override;
-    void Render() override;
+    void Render(double totalTime) override;
     void UpdateHealth(double totalTime) override;
     ActorType GetActorType() override;
 };
@@ -128,7 +142,7 @@ struct Projectile : public Actor
     float rotation = 0;
 
     void Update(float deltaTime) override;
-    void Render() override;
+    void Render(double totalTime) override;
     void UpdateHealth(double totalTime) override
     {
 
@@ -206,7 +220,7 @@ void CreateLaser(Actor* player, Sprite* sprite, Vector mouseLoc, TileType paintT
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateActors(float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);
-void RenderActors();
+void RenderActors(double totalTime);
 void RenderEnemies();
 void RenderActorHealthBars(Actor& actor);
 

@@ -270,20 +270,51 @@ void RenderLaser()
             PC = Green;
         else
             PC = Red;
-        SDL_SetTextureColorMod(laser.sprite->texture, PC.r, PC.g, PC.b);
-
-        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(laser.sprite->height) });
+        SDL_SetTextureColorMod(laser.idleAnime[0]->texture, PC.r, PC.g, PC.b);
+        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(laser.idleAnime[0]->height) });
         SDL_Point rotationPoint = { 0, rect.h / 2 };
-        SDL_RenderCopyEx(windowInfo.renderer, laser.sprite->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(windowInfo.renderer, laser.idleAnime[0]->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
     }
 }
 
-void RenderActor(Actor* actor, float rotation)
+void RenderActor(Actor* actor, float rotation, double totalTime)
 {
-    SDL_Rect destRect = CameraOffset(actor->position - PixelToBlock((actor->colRect.bottomLeft * actor->SpriteRatio())), 
-                            PixelToBlock({ (int)(actor->SpriteRatio() * actor->sprite->width), 
-                                           (int)(actor->SpriteRatio() * actor->sprite->height) }));
-    SDL_RenderCopyEx(windowInfo.renderer, actor->sprite->texture, NULL, &destRect, rotation, NULL, SDL_FLIP_NONE);
+    SDL_Rect destRect = {};
+    SDL_RendererFlip flippage = SDL_FLIP_NONE;
+    int32 xPos;
+    Sprite* sprite = actor->idleAnime[actor->idleIndex];
+
+    std::vector<Sprite*>* list = nullptr;
+
+    //if (actor->velocity.x == 0)
+    //    list = &actor->idleAnime;
+    //else if ()
+
+
+
+    if ((actor->lastAnimationTime + (1.0f / (double)actor->fps)) <= totalTime)
+    {
+        actor->idleIndex++;
+        actor->lastAnimationTime = totalTime;
+    }
+    if (actor->idleIndex >= actor->idleAnime.size())
+        actor->idleIndex = 0;
+
+
+    if (actor->lastInputWasLeft)
+    {
+        flippage = SDL_FLIP_HORIZONTAL;
+        xPos = sprite->width - actor->colRect.topRight.x;
+    }
+    else
+    {
+        xPos = actor->colRect.bottomLeft.x;
+    }
+    destRect = CameraOffset({ actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio()))), 
+                              actor->position.y - PixelToBlock((int(actor->colRect.bottomLeft.y * actor->SpriteRatio()))) },
+        PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
+                       (int)(actor->SpriteRatio() * sprite->height) }));
+    SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, NULL, &destRect, rotation, NULL, flippage);
 }
 
 void GameSpaceRectRender(Rectangle rect, SDL_Color color)

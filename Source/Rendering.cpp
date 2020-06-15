@@ -270,11 +270,37 @@ void RenderLaser()
             PC = Green;
         else
             PC = Red;
-        SDL_SetTextureColorMod(laser.idleAnime[0]->texture, PC.r, PC.g, PC.b);
-        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(laser.idleAnime[0]->height) });
+        SDL_SetTextureColorMod(laser.idle.anime[0]->texture, PC.r, PC.g, PC.b);
+        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(laser.idle.anime[0]->height) });
         SDL_Point rotationPoint = { 0, rect.h / 2 };
-        SDL_RenderCopyEx(windowInfo.renderer, laser.idleAnime[0]->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(windowInfo.renderer, laser.idle.anime[0]->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
     }
+}
+
+void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, double totalTime)
+{
+    bool shouldIncriment = ((actor->lastAnimationTime + (1.0 / anime.fps)) <= totalTime);
+    
+    if (stayOnLastFrame)
+        shouldIncriment = (shouldIncriment && (anime.index + 1 < (int32)anime.anime.size()));
+
+    if (shouldIncriment)
+    {
+        anime.index++;
+        actor->lastAnimationTime = totalTime;
+        if (anime.index >= anime.anime.size())
+            anime.index = 0;
+    }
+}
+
+Sprite* SpriteChoice(Animation& anime, ActorState& actorState)
+{
+    if (actorState != ActorState::dead)
+    {
+        anime.index = 0;
+        actorState = ActorState::dead;
+    }
+    return anime.anime[anime.index];
 }
 
 void RenderActor(Actor* actor, float rotation, double totalTime)
@@ -282,23 +308,37 @@ void RenderActor(Actor* actor, float rotation, double totalTime)
     SDL_Rect destRect = {};
     SDL_RendererFlip flippage = SDL_FLIP_NONE;
     int32 xPos;
-    Sprite* sprite = actor->idleAnime[actor->idleIndex];
+    Sprite* sprite = {};
 
-    std::vector<Sprite*>* list = nullptr;
+    std::vector<Sprite*>* list = {};
 
-    //if (actor->velocity.x == 0)
-    //    list = &actor->idleAnime;
-    //else if ()
-
-
-
-    if ((actor->lastAnimationTime + (1.0f / (double)actor->fps)) <= totalTime)
+    if (actor->health <= 0)
     {
-        actor->idleIndex++;
-        actor->lastAnimationTime = totalTime;
+        //death animation
+        sprite = SpriteChoice(actor->death, actor->actorState);
+        IndexIncrimentor(actor->death, true, actor, totalTime);
     }
-    if (actor->idleIndex >= actor->idleAnime.size())
-        actor->idleIndex = 0;
+    else if (actor->velocity.x == 0 && actor->velocity.y == 0)
+    {
+        //idle
+        sprite = SpriteChoice(actor->idle, actor->actorState);
+        IndexIncrimentor(actor->idle, false, actor, totalTime);
+    }
+    else if (actor->velocity.y != 0)
+    {
+        //jumping/in-air, 
+        sprite = SpriteChoice(actor->jump, actor->actorState);
+        IndexIncrimentor(actor->jump, true, actor, totalTime);
+
+        //TODO:  Fix issue with when this wont be true at the top of a jump when velcoity approaches zero
+    }
+    else if (actor->velocity.x != 0)
+    {
+        //walking
+        sprite = SpriteChoice(actor->run, actor->actorState);
+        IndexIncrimentor(actor->run, false, actor, totalTime);
+    }
+
 
 
     if (actor->lastInputWasLeft)

@@ -25,14 +25,15 @@ TODO(choman):
     -add layered background(s)
     -windows settings local grid highlight
     -add gun to change blocks aka <spring/wind, tacky(can hop off walls with it), timed explosion to get more height>
-    -character animation
     -handle multiple levels
     -moving platforms
     -enemy ai
     -power ups
     -explosives?
+    
     -loading bar at the begining of the game
     -multithread loading
+    -character animation
 
     CS20
     -singly linked list
@@ -102,11 +103,11 @@ ActorID CreatePlayer(/*Sprite* playerSprite, */Rectangle_Int rect, float scaledW
     player->damage = 100;
     player->inUse = true;
     player->lastAnimationTime = totalTime;
-    player->deathAnime.reserve(20);
-    player->idleAnime.reserve(20);
-    player->runAnime.reserve(20);
-    player->walkAnime.reserve(20);
-    player->jumpAnime.reserve(20);
+    player->death.anime.reserve(20);
+    player->idle.anime.reserve(20);
+    player->run.anime.reserve(20);
+    player->walk.anime.reserve(20);
+    player->jump.anime.reserve(20);
     actorList.push_back(player);
     return player->id;
 }
@@ -141,12 +142,12 @@ void InstantiateEachFrame(std::vector<Sprite*>& list, std::string fileName, std:
 
 void InstatiateActorAnimations(Actor* actor, std::string folderName)
 {
-    InstantiateEachFrame(actor->deathAnime, "Dead", folderName);
-    InstantiateEachFrame(actor->idleAnime,  "Idle", folderName);
-    InstantiateEachFrame(actor->jumpAnime,  "Jump", folderName);
-    InstantiateEachFrame(actor->runAnime,   "Run", folderName);
-    InstantiateEachFrame(actor->walkAnime,  "Walk", folderName);
-
+    InstantiateEachFrame(actor->death.anime, "Dead", folderName);
+    InstantiateEachFrame(actor->idle.anime,  "Idle", folderName);
+    InstantiateEachFrame(actor->jump.anime,  "Jump", folderName);
+    InstantiateEachFrame(actor->run.anime,   "Run", folderName);
+    InstantiateEachFrame(actor->walk.anime,  "Walk", folderName);
+    actor->jump.fps = 30.0f;
     //actor->idleAnime.reserve(reserveCount);
     //actor->jumpAnime.reserve(reserveCount);
     //actor->runAnime.reserve(reserveCount);
@@ -178,9 +179,6 @@ int main(int argc, char* argv[])
     */
 
     //Sprite Creation
-    //Sprite playerSprite = CreateSprite("Player.png", SDL_BLENDMODE_BLEND);
-    //Sprite playerSprite = CreateSprite("Dino/Idle (1).png", SDL_BLENDMODE_BLEND);
-    Sprite minecraftSprite = CreateSprite("TileMap.png", SDL_BLENDMODE_BLEND);
     Sprite spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
     FontSprite textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
     Sprite background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
@@ -194,45 +192,24 @@ int main(int argc, char* argv[])
     ActorID playerID = CreatePlayer(/*&playerSprite, */{ { 130, 472 - 421 }, { 331, 472 - 33 } }, 32, totalTime); //680 x 472
     Actor* actorPlayer = FindActor(playerID);
     InstatiateActorAnimations(actorPlayer, "Dino");
-    //InstatiateAnimationFrames(actorPlayer->idleAnime,   "Dino/Idle", 10);
-    //InstatiateAnimationFrames(actorPlayer->jumpAnime,   "Dino/Jump", 12);
-    //InstatiateAnimationFrames(actorPlayer->runAnime,    "Dino/Run",  8);
-    //InstatiateAnimationFrames(actorPlayer->walkAnime,   "Dino/Walk", 10);
-    
-    //actorPlayer->idleAnime = new std::vector<Sprite*>;
-    //actorPlayer->idleAnime.reserve(10);
-    //for (int32 i = 1; i <= 10; i++)
-    //{
-    //    std::string combinedName = "Dino/Idle (" + std::to_string(i) + ").png";
-    //    Sprite* sprite = new Sprite;
-    //    sprite = &CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
-    //    actorPlayer->idleAnime.push_back(sprite);
-    //}
-    //actorPlayer->idleAnime->resize(10);
-
-    /*player->idleAnime->reserve(10);
-    for (int32 i = 1; i <= total; i++)
-    {
-        std::string combinedName = name + " (" + std::to_string(i) + ").png";
-        Sprite* sprite = new Sprite;
-        sprite = &CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
-        list->push_back(sprite);
-    }*/
-
 
     //Level instantiations
     currentLevel.filename = "DefaultLevel.PNG";
     
     //add enemies to current level (temporoary,  add to each level's metadata)
     Enemy& enemy = *new Enemy;
-    enemy.idleAnime.push_back(&headMinionSprite);
+    enemy.idle.anime.push_back(&headMinionSprite);
+    enemy.death.anime.push_back(&headMinionSprite);
+    enemy.walk.anime.push_back(&headMinionSprite);
+    enemy.run.anime.push_back(&headMinionSprite);
+    enemy.jump.anime.push_back(&headMinionSprite);
     enemy.position = { 28, 1 };
     enemy.velocity.x = 4;
     enemy.colOffset.x = 0.125f;
     enemy.colOffset.y = 0.25f;
     enemy.colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
     enemy.scaledWidth = (float)enemy.colRect.Width();
-    enemy.damage = 5;
+    enemy.damage = 25;
     enemy.inUse = true;
     enemy.lastAnimationTime = totalTime;
     actorList.push_back(&enemy);
@@ -315,6 +292,7 @@ int main(int argc, char* argv[])
             {
                 player.velocity.y = 20.0f;
                 player.jumpCount -= 1;
+                player.jump.index = 0;
             }
         }
         bool left = keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT];
@@ -447,7 +425,7 @@ int main(int argc, char* argv[])
         //Present Screen
         SDL_RenderPresent(windowInfo.renderer);
         std::erase_if(actorList, [](Actor* p) {
-            if (!p->inUse)
+            if (!p->inUse && (p->GetActorType() != ActorType::player))
             {
                 delete p;
                 return true;

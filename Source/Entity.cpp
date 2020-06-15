@@ -23,6 +23,27 @@ void Player::Update(float deltaTime)
 {
 	UpdateLocation(this, -60.0f, deltaTime);
 	CollisionWithBlocks(this, false);
+	//if (health <= 0)
+	//{
+	//	//death animation
+	//	actorState = ActorState::dead;
+	//}
+	//else if (velocity.x == 0 && velocity.y == 0)
+	//{
+	//	//idle
+	//	actorState = ActorState::idle;
+	//}
+	//else if (velocity.y != 0)
+	//{
+	//	//jumping/in-air, 
+	//	//TODO:  Fix issue with when this wont be true at the top of a jump when velcoity approaches zero
+	//	actorState = ActorState::jump;
+	//}
+	//else if (velocity.x != 0)
+	//{
+	//	//walk
+	//	actorState = ActorState::walk;
+	//}
 }
 
 void Player::Render(double totalTime)
@@ -53,6 +74,7 @@ void Enemy::Update(float deltaTime)
 {
 	UpdateLocation(this, -60.0f, deltaTime);
 	CollisionWithBlocks(this, true);
+	actorState = ActorState::idle;
 }
 
 void Enemy::Render(double totalTime)
@@ -89,6 +111,7 @@ void Projectile::Update(float deltaTime)
 		UpdateAllNeighbors(blockPointer);
 		inUse = false;
 	}
+	actorState = ActorState::idle;
 }
 
 void Projectile::Render(double totalTime)
@@ -98,7 +121,7 @@ void Projectile::Render(double totalTime)
 		PC = Green;
 	else
 		PC = Red;
-	SDL_SetTextureColorMod(idleAnime[0]->texture, PC.r, PC.g, PC.b);
+	SDL_SetTextureColorMod(idle.anime[0]->texture, PC.r, PC.g, PC.b);
 	RenderActor(this, rotation, totalTime);
 }
 
@@ -367,19 +390,19 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	Rectangle yRect = CollisionYOffsetToRectangle(actor);
 
 	float xPercentOffset = 0.2f;
-	float yPercentOffset = 0.3f;
+	float yPercentOffset = 0.2f;
 
-	xRect.bottomLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * yPercentOffset };
-	xRect.topRight		= { actor->position.x + PixelToBlock((int)actor->ScaledWidth()), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - yPercentOffset) };
+	xRect.bottomLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * xPercentOffset };
+	xRect.topRight		= { actor->position.x + PixelToBlock((int)actor->ScaledWidth()), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - xPercentOffset) };
 
-	yRect.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->ScaledWidth()) * xPercentOffset),		actor->position.y };
-	yRect.topRight		= { actor->position.x + (PixelToBlock((int)actor->ScaledWidth()) * (1 - xPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
+	yRect.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->ScaledWidth()) * yPercentOffset),		actor->position.y };
+	yRect.topRight		= { actor->position.x + (PixelToBlock((int)actor->ScaledWidth()) * (1 - yPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
 
 	//if (debugList[DebugOptions::playerCollision])
 	//{
-		SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-		DebugRectRender(xRect, transOrange);
-		DebugRectRender(yRect, transGreen);
+	//	SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
+	//	DebugRectRender(xRect, transOrange);
+	//	DebugRectRender(yRect, transGreen);
 	//}
 
 
@@ -479,6 +502,7 @@ bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime)
 	{//hit enemy, apply damage to enemy
 		enemy.health -= player.damage;
 		player.velocity.y = knockBackAmount;
+		player.invinciblityTime = currentTime + 1.0;
 	}
 	else
 	{
@@ -537,7 +561,7 @@ Actor* CreateBullet(Actor* player, Sprite* sprite, Vector mouseLoc, TileType blo
 
 	bullet.paintType = blockToBeType;
 	bullet.inUse = true;
-	bullet.idleAnime[0] = sprite;
+	bullet.idle.anime[0] = sprite;
 	bullet.terminalVelocity = { 1000, 1000 };
 	Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
 
@@ -577,7 +601,7 @@ void CreateLaser(Actor* player, Sprite* sprite, Vector mouseLoc, TileType paintT
 {
 	laser.paintType = paintType;
 	laser.inUse = true;
-	laser.idleAnime[0] = sprite;
+	laser.run.anime.push_back(sprite);
 	Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block

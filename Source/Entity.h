@@ -23,6 +23,24 @@ enum class ActorType
     projectile,
 };
 
+enum class ActorState
+{
+    none,
+    idle,
+    walk,
+    run,
+    jump,
+    dead
+};
+
+struct Animation
+{
+    std::vector<Sprite*> anime;
+    int32 index = 0;
+    double lastAnimationTime = 0;
+    double fps = 10;
+};
+
 inline int BlockToPixel(float loc)
 {
     return int(loc * blockSize);
@@ -66,25 +84,32 @@ public:
     Rectangle_Int colRect;
     Vector colOffset;
     int32 jumpCount = 2;
-    int32 fps = 10;
     float health = 100;
     float damage;
     double lastAnimationTime;
+    double fps = 10;
     float scaledWidth = 32;
     bool lastInputWasLeft = false;
     bool inUse = true;
     double invinciblityTime = false;
 
-    std::vector<Sprite*> deathAnime;
-    int32 deathIndex = 0;
-    std::vector<Sprite*> idleAnime;
-    int32 idleIndex = 0;
-    std::vector<Sprite*> runAnime;
-    int32 runIndex = 0;
-    std::vector<Sprite*> walkAnime;
-    int32 walkIndex = 0;
-    std::vector<Sprite*> jumpAnime;
-    int32 jumpIndex = 0;
+    ActorState actorState = ActorState::idle;
+
+    Animation death = {};
+    Animation idle = {};
+    Animation run = {};
+    Animation walk = {};
+    Animation jump = {};
+    //std::vector<Sprite*> deathAnime;
+    //int32 deathIndex = 0;
+    //std::vector<Sprite*> idleAnime;
+    //int32 idleIndex = 0;
+    //std::vector<Sprite*> runAnime;
+    //int32 runIndex = 0;
+    //std::vector<Sprite*> walkAnime;
+    //int32 walkIndex = 0;
+    //std::vector<Sprite*> jumpAnime;
+    //int32 jumpIndex = 0;
 
     virtual void Update(float deltaTime) = 0;
     virtual void Render(double totalTime) = 0;

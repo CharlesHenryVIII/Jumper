@@ -55,6 +55,8 @@ struct Camera {
     Vector position;
 };
 
+
+
 Sprite CreateSprite(const char* name, SDL_BlendMode blendMode);
 FontSprite CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 xCharSize, int32 charPerRow);
 SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize);
@@ -74,6 +76,7 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);
 //top left 0,0
 bool DrawButton(FontSprite textSprite, std::string text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC);
 void RenderLaser();
+void IndexIncrimentor(int32& index, std::vector<Sprite*>* list, bool death, Actor* actor, double totalTime);
 void RenderActor(Actor* actor, float rotation, double totalTime);
 void GameSpaceRectRender(Rectangle rect, SDL_Color color);
 

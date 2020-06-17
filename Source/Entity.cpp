@@ -520,7 +520,7 @@ bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime)
 
 	if ((xCollisionFlags || yCollisionFlags) && player.invinciblityTime <= currentTime)
 	{
-		player.health -= enemy.damage;
+		player.health = Max(player.health - enemy.damage, 0.0f);
 	}
 
 	if (result && player.invinciblityTime <= currentTime)
@@ -561,7 +561,13 @@ Actor* CreateBullet(Actor* player, Sprite* sprite, Vector mouseLoc, TileType blo
 
 	bullet.paintType = blockToBeType;
 	bullet.inUse = true;
-	bullet.idle.anime[0] = sprite;
+	bullet.idle.anime.push_back(sprite);
+	bullet.jump.anime.push_back(sprite);
+	bullet.death.anime.push_back(sprite);
+	bullet.run.anime.push_back(sprite);
+	bullet.walk.anime.push_back(sprite);
+	bullet.colRect = { {0,0}, {sprite->width,sprite->height} };
+	bullet.scaledWidth = (float)bullet.run.anime[0]->width;
 	bullet.terminalVelocity = { 1000, 1000 };
 	Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
 
@@ -602,6 +608,12 @@ void CreateLaser(Actor* player, Sprite* sprite, Vector mouseLoc, TileType paintT
 	laser.paintType = paintType;
 	laser.inUse = true;
 	laser.run.anime.push_back(sprite);
+	laser.idle.anime.push_back(sprite);
+	laser.jump.anime.push_back(sprite);
+	laser.walk.anime.push_back(sprite);
+	laser.death.anime.push_back(sprite);
+	laser.colRect = { {0,0}, {sprite->width,sprite->height} };
+	laser.scaledWidth = (float)laser.run.anime[0]->width;
 	Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block

@@ -29,11 +29,14 @@ TODO(choman):
     -moving platforms
     -enemy ai
     -power ups
-    -explosives?
+    -explosives!?
     
     -loading bar at the begining of the game
     -multithread loading
-    -character animation
+    -scaled total time based on incrimenting the delta time
+    -animation shared data seperate and need to be moved off actors
+    -play death animation not based off actor
+    -spawn player
 
     CS20
     -singly linked list
@@ -103,11 +106,6 @@ ActorID CreatePlayer(/*Sprite* playerSprite, */Rectangle_Int rect, float scaledW
     player->damage = 100;
     player->inUse = true;
     player->lastAnimationTime = totalTime;
-    player->death.anime.reserve(20);
-    player->idle.anime.reserve(20);
-    player->run.anime.reserve(20);
-    player->walk.anime.reserve(20);
-    player->jump.anime.reserve(20);
     actorList.push_back(player);
     return player->id;
 }
@@ -130,9 +128,8 @@ void InstantiateEachFrame(std::vector<Sprite*>& list, std::string fileName, std:
     for (int32 i = 1; true; i++)
     {
         std::string combinedName = folderName + "/" + fileName + " (" + std::to_string(i) + ").png";
-        Sprite* sprite = new Sprite;
-        *sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
-        if (sprite->texture == nullptr)
+        Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
+        if (sprite == nullptr)
             break;
         else
             list.push_back(sprite);
@@ -148,10 +145,6 @@ void InstatiateActorAnimations(Actor* actor, std::string folderName)
     InstantiateEachFrame(actor->run.anime,   "Run", folderName);
     InstantiateEachFrame(actor->walk.anime,  "Walk", folderName);
     actor->jump.fps = 30.0f;
-    //actor->idleAnime.reserve(reserveCount);
-    //actor->jumpAnime.reserve(reserveCount);
-    //actor->runAnime.reserve(reserveCount);
-    //actor->walkAnime.reserve(reserveCount);
 }
 
 
@@ -179,11 +172,11 @@ int main(int argc, char* argv[])
     */
 
     //Sprite Creation
-    Sprite spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
-    FontSprite textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
-    Sprite background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
-    Sprite bulletSprite = CreateSprite("Bullet.png", SDL_BLENDMODE_BLEND);
-    Sprite headMinionSprite = CreateSprite("HeadMinion.png", SDL_BLENDMODE_BLEND);
+    Sprite* spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
+    FontSprite* textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
+    Sprite* background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
+    Sprite* bulletSprite = CreateSprite("Bullet.png", SDL_BLENDMODE_BLEND);
+    Sprite* headMinionSprite = CreateSprite("HeadMinion.png", SDL_BLENDMODE_BLEND);
 
     
 
@@ -197,22 +190,22 @@ int main(int argc, char* argv[])
     currentLevel.filename = "DefaultLevel.PNG";
     
     //add enemies to current level (temporoary,  add to each level's metadata)
-    Enemy& enemy = *new Enemy;
-    enemy.idle.anime.push_back(&headMinionSprite);
-    enemy.death.anime.push_back(&headMinionSprite);
-    enemy.walk.anime.push_back(&headMinionSprite);
-    enemy.run.anime.push_back(&headMinionSprite);
-    enemy.jump.anime.push_back(&headMinionSprite);
-    enemy.position = { 28, 1 };
-    enemy.velocity.x = 4;
-    enemy.colOffset.x = 0.125f;
-    enemy.colOffset.y = 0.25f;
-    enemy.colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
-    enemy.scaledWidth = (float)enemy.colRect.Width();
-    enemy.damage = 25;
-    enemy.inUse = true;
-    enemy.lastAnimationTime = totalTime;
-    actorList.push_back(&enemy);
+    Enemy* enemy = new Enemy;
+    enemy->idle.anime.push_back(headMinionSprite);
+    enemy->death.anime.push_back(headMinionSprite);
+    enemy->walk.anime.push_back(headMinionSprite);
+    enemy->run.anime.push_back(headMinionSprite);
+    enemy->jump.anime.push_back(headMinionSprite);
+    enemy->position = { 28, 1 };
+    enemy->velocity.x = 4;
+    enemy->colOffset.x = 0.125f;
+    enemy->colOffset.y = 0.25f;
+    enemy->colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
+    enemy->scaledWidth = (float)enemy->colRect.Width();
+    enemy->damage = 25;
+    enemy->inUse = true;
+    enemy->lastAnimationTime = totalTime;
+    actorList.push_back(enemy);
     //currentLevel.enemyList.push_back(enemy);
     LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
     
@@ -239,9 +232,7 @@ int main(int argc, char* argv[])
         Player &player = *(Player*)FindActor(playerID);
         WindowInfo& windowInfo = GetWindowInfo();
 
-        SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
-        SDL_RenderClear(windowInfo.renderer);
-        BackgroundRender(background, &player);
+
 
         //Event Queing and handling:
         while (SDL_PollEvent(&SDLEvent))
@@ -349,7 +340,7 @@ int main(int argc, char* argv[])
             {
                 if ((mouseButtonState.location.x != previousMouseLocation.x || mouseButtonState.location.y != previousMouseLocation.y))
                 {
-                    CreateLaser(&player, &bulletSprite, mouseLocationTranslated, paintType);
+                    CreateLaser(&player, bulletSprite, mouseLocationTranslated, paintType);
                     blockPointer->tileType = paintType;
                     UpdateAllNeighbors(blockPointer);
                     previousMouseLocation = mouseLocation;
@@ -358,7 +349,7 @@ int main(int argc, char* argv[])
             else if (mouseButtonState.timestamp == totalTime)
             {
                 // TODO: remove the cast
-                actorList.push_back(CreateBullet(&player, &bulletSprite, mouseLocationTranslated, paintType));
+                actorList.push_back(CreateBullet(&player, bulletSprite, mouseLocationTranslated, paintType));
             }
         }
 
@@ -378,7 +369,15 @@ int main(int argc, char* argv[])
                 actorList[i]->UpdateHealth(totalTime);
         }
 
-        //Create Renderer:
+        /*********************
+         *
+         * Renderer
+         *
+         ********/
+
+        SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
+        SDL_RenderClear(windowInfo.renderer);
+        BackgroundRender(background, &camera);
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
 
         camera.position = player.position;

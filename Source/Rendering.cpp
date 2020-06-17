@@ -14,15 +14,26 @@ WindowInfo& GetWindowInfo()
 
 void CreateWindow()
 {
+    //SDL_Init(SDL_INIT_EVERYTHING);
     windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
     windowInfo.renderer = SDL_CreateRenderer(windowInfo.SDLWindow, -1, SDL_RENDERER_ACCELERATED/*| SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE*/);
 }
 
-Sprite CreateSprite(const char* name, SDL_BlendMode blendMode)
+
+
+
+
+Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
 {
+
     int32 textureHeight, textureWidth, colorChannels;
 
     unsigned char* image = stbi_load(name, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
+
+    if (image == nullptr)
+    {
+        return nullptr;
+    }
 
     SDL_Texture* testTexture = SDL_CreateTexture(windowInfo.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, textureWidth, textureHeight);
 
@@ -42,21 +53,25 @@ Sprite CreateSprite(const char* name, SDL_BlendMode blendMode)
     stbi_image_free(image);
     SDL_UnlockTexture(testTexture);
 
-    Sprite result;
-    result.texture = testTexture;
-    result.height = textureHeight;
-    result.width = textureWidth;
+    Sprite* result = new Sprite;
+    result->texture = testTexture;
+    result->height = textureHeight;
+    result->width = textureWidth;
     return result;
 }
 
 
-FontSprite CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 xCharSize, int32 charPerRow)
+FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 xCharSize, int32 charPerRow)
 {
-    FontSprite result = {};
-    result.sprite = CreateSprite(name, blendMode);
-    result.charSize = charSize;
-    result.xCharSize = xCharSize;
-    result.charPerRow = charPerRow;
+    Sprite* SP = CreateSprite(name, blendMode);;
+    if (SP == nullptr)
+        return nullptr;
+
+    FontSprite* result = new FontSprite();
+    result->sprite = SP;
+    result->charSize = charSize;
+    result->xCharSize = xCharSize;
+    result->charPerRow = charPerRow;
     return result;
 }
 
@@ -87,7 +102,7 @@ VectorInt CameraToPixelCoord(VectorInt input)
 }
 
 
-void BackgroundRender(Sprite sprite, Actor* player)
+void BackgroundRender(Sprite* sprite, Camera* camera)
 {
     //HARDCODING FOR NOW UNTIL WINDOW SIZE CHANGES
     assert(windowInfo.width == 1280 && windowInfo.height == 720);
@@ -98,36 +113,36 @@ void BackgroundRender(Sprite sprite, Actor* player)
     spriteRect.w = windowInfo.width / 2;    //360
     spriteRect.h = windowInfo.height / 2;   //640
     spriteRect.x = 0;
-    spriteRect.y = sprite.height - spriteRect.h;
+    spriteRect.y = sprite->height - spriteRect.h;
 
 
     //checking to make sure the sprite doesnt go further left than the actual sprite and go beyond the border on the right;
-    if (player->position.x > 0)
+    if (camera->position.x > 0)
     {
-        int32 spriteRectXOffset = int32(player->position.x * 2);
-        if (spriteRectXOffset < sprite.width - spriteRect.w)
+        int32 spriteRectXOffset = int32(camera->position.x * 2);
+        if (spriteRectXOffset < sprite->width - spriteRect.w)
             spriteRect.x = spriteRectXOffset;
         else
-            spriteRect.x = sprite.width - spriteRect.w;
+            spriteRect.x = sprite->width - spriteRect.w;
     }
 
-    if (player->position.y > 0)
+    if (camera->position.y > 0)
     {
-        int32 spriteRectYOffset = spriteRect.h + int32(player->position.y / 2);
-        if (spriteRectYOffset < sprite.height)
-            spriteRect.y = sprite.height - spriteRectYOffset;
+        int32 spriteRectYOffset = spriteRect.h + int32(camera->position.y / 2);
+        if (spriteRectYOffset < sprite->height)
+            spriteRect.y = sprite->height - spriteRectYOffset;
         else
             spriteRect.y = 0;
     }
 
 
-    SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &spriteRect, NULL, 0, NULL, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, &spriteRect, NULL, 0, NULL, SDL_FLIP_NONE);
 }
 
 
-void SpriteMapRender(Sprite sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc)
+void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc)
 {
-    int32 blocksPerRow = sprite.width / itemSize;
+    int32 blocksPerRow = sprite->width / itemSize;
     int32 x = uint32(i) % blocksPerRow * itemSize + (itemSize - xCharSize) / 2;
     int32 y = uint32(i) / blocksPerRow * itemSize;
 
@@ -136,11 +151,11 @@ void SpriteMapRender(Sprite sprite, int32 i, int32 itemSize, int32 xCharSize, Ve
     float itemSizeTranslatedy = PixelToBlock(itemSize);
     SDL_Rect DestRect = CameraOffset(loc, { itemSizeTranslatedx, itemSizeTranslatedy });
 
-    SDL_RenderCopyEx(windowInfo.renderer, sprite.texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
 }
 
 
-void SpriteMapRender(Sprite sprite, Block block)
+void SpriteMapRender(Sprite* sprite, Block block)
 {
     SpriteMapRender(sprite, block.flags, blockSize, blockSize, block.location);
 }
@@ -156,17 +171,17 @@ void DebugRectRender(Rectangle rect, SDL_Color color)
 }
 
 
-void DrawText(FontSprite fontSprite, SDL_Color c, std::string text, float size, VectorInt loc, UIX XLayout, UIY YLayout)
+void DrawText(FontSprite* fontSprite, SDL_Color c, std::string text, float size, VectorInt loc, UIX XLayout, UIY YLayout)
 {
     //ABC
-    int32 CPR = fontSprite.charPerRow;
+    int32 CPR = fontSprite->charPerRow;
 
     //Upper Left corner and size
     SDL_Rect SRect = {};
     SDL_Rect DRect = {};
 
-    SRect.w = fontSprite.xCharSize;
-    SRect.h = fontSprite.charSize;
+    SRect.w = fontSprite->xCharSize;
+    SRect.h = fontSprite->charSize;
     DRect.w = int(SRect.w * size);
     DRect.h = int(SRect.h * size);
 
@@ -180,8 +195,8 @@ void DrawText(FontSprite fontSprite, SDL_Color c, std::string text, float size, 
         DRect.x = loc.x + i * DRect.w - (int32(XLayout) * DRect.w * int32(text.size())) / 2;
         DRect.y = loc.y - (int32(YLayout) * DRect.h) / 2;
 
-        SDL_SetTextureColorMod(fontSprite.sprite.texture, c.r, c.g, c.b);
-        SDL_RenderCopyEx(windowInfo.renderer, fontSprite.sprite.texture, &SRect, &DRect, 0, NULL, SDL_FLIP_NONE);
+        SDL_SetTextureColorMod(fontSprite->sprite->texture, c.r, c.g, c.b);
+        SDL_RenderCopyEx(windowInfo.renderer, fontSprite->sprite->texture, &SRect, &DRect, 0, NULL, SDL_FLIP_NONE);
     }
 }
 
@@ -218,7 +233,7 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect)
 
 
 //top left 0,0
-bool DrawButton(FontSprite textSprite, std::string text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC)
+bool DrawButton(FontSprite* textSprite, std::string text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC)
 {
     bool result = false;
     //Copied from DrawText()
@@ -228,8 +243,8 @@ bool DrawButton(FontSprite textSprite, std::string text, VectorInt loc, UIX XLay
     int32 widthOffset = 5;
     int32 heightOffset = 5;
 
-    buttonRect.w = textSprite.xCharSize * int32(text.size()) + widthOffset * 2;
-    buttonRect.h = (textSprite.charSize + heightOffset * 2);
+    buttonRect.w = textSprite->xCharSize * int32(text.size()) + widthOffset * 2;
+    buttonRect.h = (textSprite->charSize + heightOffset * 2);
     int32 xOffset = (int32(XLayout) * buttonRect.w) / 2;
     int32 yOffset = (int32(YLayout) * buttonRect.h) / 2; //top, mid, bot
 
@@ -293,12 +308,12 @@ void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, doub
     }
 }
 
-Sprite* SpriteChoice(Animation& anime, ActorState& actorState)
+Sprite* SpriteChoice(Animation& anime, ActorState& actorState, ActorState referenceState)
 {
-    if (actorState != ActorState::dead)
+    if (actorState != referenceState)
     {
         anime.index = 0;
-        actorState = ActorState::dead;
+        actorState = referenceState;
     }
     return anime.anime[anime.index];
 }
@@ -310,24 +325,26 @@ void RenderActor(Actor* actor, float rotation, double totalTime)
     int32 xPos;
     Sprite* sprite = {};
 
-    std::vector<Sprite*>* list = {};
+    ActorType actorType = actor->GetActorType();
+
+    //std::vector<Sprite*>* list = {}; actorType == ActorType::projectile
 
     if (actor->health <= 0)
     {
         //death animation
-        sprite = SpriteChoice(actor->death, actor->actorState);
+        sprite = SpriteChoice(actor->death, actor->actorState, ActorState::dead);
         IndexIncrimentor(actor->death, true, actor, totalTime);
     }
     else if (actor->velocity.x == 0 && actor->velocity.y == 0)
     {
         //idle
-        sprite = SpriteChoice(actor->idle, actor->actorState);
+        sprite = SpriteChoice(actor->idle, actor->actorState, ActorState::idle);
         IndexIncrimentor(actor->idle, false, actor, totalTime);
     }
     else if (actor->velocity.y != 0)
     {
         //jumping/in-air, 
-        sprite = SpriteChoice(actor->jump, actor->actorState);
+        sprite = SpriteChoice(actor->jump, actor->actorState, ActorState::jump);
         IndexIncrimentor(actor->jump, true, actor, totalTime);
 
         //TODO:  Fix issue with when this wont be true at the top of a jump when velcoity approaches zero
@@ -335,13 +352,13 @@ void RenderActor(Actor* actor, float rotation, double totalTime)
     else if (actor->velocity.x != 0)
     {
         //walking
-        sprite = SpriteChoice(actor->run, actor->actorState);
+        sprite = SpriteChoice(actor->run, actor->actorState, ActorState::run);
         IndexIncrimentor(actor->run, false, actor, totalTime);
     }
 
 
 
-    if (actor->lastInputWasLeft)
+    if (actor->lastInputWasLeft && actor->GetActorType() != ActorType::projectile)
     {
         flippage = SDL_FLIP_HORIZONTAL;
         xPos = sprite->width - actor->colRect.topRight.x;

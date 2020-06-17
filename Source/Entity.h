@@ -100,16 +100,6 @@ public:
     Animation run = {};
     Animation walk = {};
     Animation jump = {};
-    //std::vector<Sprite*> deathAnime;
-    //int32 deathIndex = 0;
-    //std::vector<Sprite*> idleAnime;
-    //int32 idleIndex = 0;
-    //std::vector<Sprite*> runAnime;
-    //int32 runIndex = 0;
-    //std::vector<Sprite*> walkAnime;
-    //int32 walkIndex = 0;
-    //std::vector<Sprite*> jumpAnime;
-    //int32 jumpIndex = 0;
 
     virtual void Update(float deltaTime) = 0;
     virtual void Render(double totalTime) = 0;

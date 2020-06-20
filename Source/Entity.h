@@ -95,16 +95,17 @@ public:
 
     ActorState actorState = ActorState::idle;
 
-    Animation death = {};
-    Animation idle = {};
-    Animation run = {};
-    Animation walk = {};
-    Animation jump = {};
+    Animation* death = {};
+    Animation* idle = {};
+    Animation* run = {};
+    Animation* walk = {};
+    Animation* jump = {};
 
     virtual void Update(float deltaTime) = 0;
     virtual void Render(double totalTime) = 0;
     virtual void UpdateHealth(double totalTime) = 0;
     virtual ActorType GetActorType() = 0;
+    virtual std::string GetActorFolderName() = 0;
     float SpriteRatio()
     {
         return scaledWidth / colRect.Width();
@@ -134,6 +135,7 @@ struct Enemy : public Actor
     void Render(double totalTime) override;
     void UpdateHealth(double totalTime) override;
     ActorType GetActorType() override;
+    std::string GetActorFolderName() override;
 };
 
 struct Player : public Actor
@@ -142,6 +144,7 @@ struct Player : public Actor
     void Render(double totalTime) override;
     void UpdateHealth(double totalTime) override;
     ActorType GetActorType() override;
+    std::string GetActorFolderName() override;
 };
 
 enum class TileType {
@@ -163,6 +166,7 @@ struct Projectile : public Actor
 
     }
     ActorType GetActorType() override;
+    std::string GetActorFolderName() override;
 };
 
 
@@ -230,8 +234,9 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy);
 bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime);
 void UpdateActorHealth(Actor* actor, double currentTime);
 void UpdateEnemyHealth(float totalTime);
-Actor* CreateBullet(Actor* player, Sprite* bulletSprite, Vector mouseLoc, TileType blockToBeType);
-void CreateLaser(Actor* player, Sprite* sprite, Vector mouseLoc, TileType paintType);
+void InstatiateActorAnimations(std::string folderName);
+Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
+void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateActors(float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);

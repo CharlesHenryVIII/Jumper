@@ -79,6 +79,8 @@ void RenderLaser();
 void IndexIncrimentor(int32& index, std::vector<Sprite*>* list, bool death, Actor* actor, double totalTime);
 void RenderActor(Actor* actor, float rotation, double totalTime);
 void GameSpaceRectRender(Rectangle rect, SDL_Color color);
+void InstantiateEachFrame(std::string fileName, std::string folderName);
+void AttachAnimation(Actor* actor);
 
 extern Camera camera;
 extern WindowInfo windowInfo;

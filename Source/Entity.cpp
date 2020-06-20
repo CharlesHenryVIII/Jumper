@@ -1,5 +1,6 @@
 #include "Entity.h"
 #include "Rendering.h"
+#include "Math.h"
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
 
@@ -23,27 +24,6 @@ void Player::Update(float deltaTime)
 {
 	UpdateLocation(this, -60.0f, deltaTime);
 	CollisionWithBlocks(this, false);
-	//if (health <= 0)
-	//{
-	//	//death animation
-	//	actorState = ActorState::dead;
-	//}
-	//else if (velocity.x == 0 && velocity.y == 0)
-	//{
-	//	//idle
-	//	actorState = ActorState::idle;
-	//}
-	//else if (velocity.y != 0)
-	//{
-	//	//jumping/in-air, 
-	//	//TODO:  Fix issue with when this wont be true at the top of a jump when velcoity approaches zero
-	//	actorState = ActorState::jump;
-	//}
-	//else if (velocity.x != 0)
-	//{
-	//	//walk
-	//	actorState = ActorState::walk;
-	//}
 }
 
 void Player::Render(double totalTime)
@@ -62,6 +42,10 @@ ActorType Player::GetActorType()
 	return ActorType::player;
 }
 
+std::string Player::GetActorFolderName()
+{
+	return "Dino";
+}
 
 /*********************
  *
@@ -93,6 +77,11 @@ ActorType Enemy::GetActorType()
 	return ActorType::enemy;
 }
 
+std::string Enemy::GetActorFolderName()
+{
+	return "HeadMinion";
+}
+
 
 /*********************
  *
@@ -121,13 +110,18 @@ void Projectile::Render(double totalTime)
 		PC = Green;
 	else
 		PC = Red;
-	SDL_SetTextureColorMod(idle.anime[0]->texture, PC.r, PC.g, PC.b);
+	SDL_SetTextureColorMod(idle->anime[0]->texture, PC.r, PC.g, PC.b);
 	RenderActor(this, rotation, totalTime);
 }
 
 ActorType Projectile::GetActorType()
 {
 	return ActorType::projectile;
+}
+
+std::string Projectile::GetActorFolderName()
+{
+	return "Bullet";
 }
 
 
@@ -553,21 +547,26 @@ void UpdateEnemyHealth(float totalTime)
 	}
 }
 
+void InstatiateActorAnimations(std::string folderName)
+{
+	InstantiateEachFrame("Dead", folderName);
+	InstantiateEachFrame("Idle", folderName);
+	InstantiateEachFrame("Jump", folderName);
+	InstantiateEachFrame("Run", folderName);
+	InstantiateEachFrame("Walk", folderName);
+}
 
-Actor* CreateBullet(Actor* player, Sprite* sprite, Vector mouseLoc, TileType blockToBeType)
+Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 {
 	Projectile* bullet_a = new Projectile();
 	Projectile& bullet = *bullet_a;
 
 	bullet.paintType = blockToBeType;
 	bullet.inUse = true;
-	bullet.idle.anime.push_back(sprite);
-	bullet.jump.anime.push_back(sprite);
-	bullet.death.anime.push_back(sprite);
-	bullet.run.anime.push_back(sprite);
-	bullet.walk.anime.push_back(sprite);
-	bullet.colRect = { {0,0}, {sprite->width,sprite->height} };
-	bullet.scaledWidth = (float)bullet.run.anime[0]->width;
+	AttachAnimation(&bullet);
+
+	bullet.colRect = { {0,0}, {bullet.idle->anime[0]->width,bullet.idle->anime[0]->height} };
+	bullet.scaledWidth = (float)bullet.idle->anime[0]->width;
 	bullet.terminalVelocity = { 1000, 1000 };
 	Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
 
@@ -603,17 +602,14 @@ Actor* CreateBullet(Actor* player, Sprite* sprite, Vector mouseLoc, TileType blo
 }
 
 
-void CreateLaser(Actor* player, Sprite* sprite, Vector mouseLoc, TileType paintType)
+void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType)
 {
 	laser.paintType = paintType;
 	laser.inUse = true;
-	laser.run.anime.push_back(sprite);
-	laser.idle.anime.push_back(sprite);
-	laser.jump.anime.push_back(sprite);
-	laser.walk.anime.push_back(sprite);
-	laser.death.anime.push_back(sprite);
-	laser.colRect = { {0,0}, {sprite->width,sprite->height} };
-	laser.scaledWidth = (float)laser.run.anime[0]->width;
+	AttachAnimation(&laser);
+
+	laser.colRect = { {0,0}, {laser.idle->anime[0]->width, laser.idle->anime[0]->height} };
+	laser.scaledWidth = (float)laser.run->anime[0]->width;
 	Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block

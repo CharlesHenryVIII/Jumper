@@ -37,6 +37,9 @@ TODO(choman):
     -animation shared data seperate and need to be moved off actors
     -play death animation not based off actor
     -spawn player
+    -fix bullet color rendering
+    -fix bullets ending at the end of where you clicked instead of ending immediatly passing where you clicked.  
+        reference is the tail of the sprite not the head
 
     CS20
     -singly linked list
@@ -106,6 +109,7 @@ ActorID CreatePlayer(/*Sprite* playerSprite, */Rectangle_Int rect, float scaledW
     player->damage = 100;
     player->inUse = true;
     player->lastAnimationTime = totalTime;
+    AttachAnimation(player);
     actorList.push_back(player);
     return player->id;
 }
@@ -121,31 +125,10 @@ Actor* FindActor(ActorID actorID)
 }
 
 
-void InstantiateEachFrame(std::vector<Sprite*>& list, std::string fileName, std::string folderName)
-{
-    list.reserve(20);
-
-    for (int32 i = 1; true; i++)
-    {
-        std::string combinedName = folderName + "/" + fileName + " (" + std::to_string(i) + ").png";
-        Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
-        if (sprite == nullptr)
-            break;
-        else
-            list.push_back(sprite);
-    }
-}
 
 
-void InstatiateActorAnimations(Actor* actor, std::string folderName)
-{
-    InstantiateEachFrame(actor->death.anime, "Dead", folderName);
-    InstantiateEachFrame(actor->idle.anime,  "Idle", folderName);
-    InstantiateEachFrame(actor->jump.anime,  "Jump", folderName);
-    InstantiateEachFrame(actor->run.anime,   "Run", folderName);
-    InstantiateEachFrame(actor->walk.anime,  "Walk", folderName);
-    actor->jump.fps = 30.0f;
-}
+
+
 
 
 
@@ -160,6 +143,7 @@ int main(int argc, char* argv[])
     VectorInt previousMouseLocation = {};
     TileType paintType = TileType::invalid;
 
+
     CreateWindow();
 
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
@@ -172,30 +156,27 @@ int main(int argc, char* argv[])
     */
 
     //Sprite Creation
+    InstatiateActorAnimations("Dino");
+    InstatiateActorAnimations("HeadMinion");
+    InstatiateActorAnimations("Bullet");
+
     Sprite* spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
     FontSprite* textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
     Sprite* background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
-    Sprite* bulletSprite = CreateSprite("Bullet.png", SDL_BLENDMODE_BLEND);
-    Sprite* headMinionSprite = CreateSprite("HeadMinion.png", SDL_BLENDMODE_BLEND);
-
     
 
     //Player Creation
     float playerAccelerationAmount = 50;
-    ActorID playerID = CreatePlayer(/*&playerSprite, */{ { 130, 472 - 421 }, { 331, 472 - 33 } }, 32, totalTime); //680 x 472
+    ActorID playerID = CreatePlayer({ { 130, 472 - 421 }, { 331, 472 - 33 } }, 32, totalTime); //680 x 472
     Actor* actorPlayer = FindActor(playerID);
-    InstatiateActorAnimations(actorPlayer, "Dino");
+    actorPlayer->jump->fps = 30.0f;
 
     //Level instantiations
     currentLevel.filename = "DefaultLevel.PNG";
     
     //add enemies to current level (temporoary,  add to each level's metadata)
     Enemy* enemy = new Enemy;
-    enemy->idle.anime.push_back(headMinionSprite);
-    enemy->death.anime.push_back(headMinionSprite);
-    enemy->walk.anime.push_back(headMinionSprite);
-    enemy->run.anime.push_back(headMinionSprite);
-    enemy->jump.anime.push_back(headMinionSprite);
+
     enemy->position = { 28, 1 };
     enemy->velocity.x = 4;
     enemy->colOffset.x = 0.125f;
@@ -205,6 +186,7 @@ int main(int argc, char* argv[])
     enemy->damage = 25;
     enemy->inUse = true;
     enemy->lastAnimationTime = totalTime;
+    AttachAnimation(enemy);
     actorList.push_back(enemy);
     //currentLevel.enemyList.push_back(enemy);
     LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
@@ -283,7 +265,7 @@ int main(int argc, char* argv[])
             {
                 player.velocity.y = 20.0f;
                 player.jumpCount -= 1;
-                player.jump.index = 0;
+                player.jump->index = 0;
             }
         }
         bool left = keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT];
@@ -340,7 +322,7 @@ int main(int argc, char* argv[])
             {
                 if ((mouseButtonState.location.x != previousMouseLocation.x || mouseButtonState.location.y != previousMouseLocation.y))
                 {
-                    CreateLaser(&player, bulletSprite, mouseLocationTranslated, paintType);
+                    CreateLaser(&player, mouseLocationTranslated, paintType);
                     blockPointer->tileType = paintType;
                     UpdateAllNeighbors(blockPointer);
                     previousMouseLocation = mouseLocation;
@@ -349,7 +331,7 @@ int main(int argc, char* argv[])
             else if (mouseButtonState.timestamp == totalTime)
             {
                 // TODO: remove the cast
-                actorList.push_back(CreateBullet(&player, bulletSprite, mouseLocationTranslated, paintType));
+                actorList.push_back(CreateBullet(&player, mouseLocationTranslated, paintType));
             }
         }
 

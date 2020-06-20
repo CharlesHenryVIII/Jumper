@@ -5,6 +5,7 @@
 
 WindowInfo windowInfo = { 200, 200, 1280, 720 };
 Camera camera;
+std::unordered_map<std::string, Animation> animations;
 
 
 WindowInfo& GetWindowInfo()
@@ -285,10 +286,10 @@ void RenderLaser()
             PC = Green;
         else
             PC = Red;
-        SDL_SetTextureColorMod(laser.idle.anime[0]->texture, PC.r, PC.g, PC.b);
-        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(laser.idle.anime[0]->height) });
+        SDL_SetTextureColorMod(laser.idle->anime[0]->texture, PC.r, PC.g, PC.b);
+        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(laser.idle->anime[0]->height) });
         SDL_Point rotationPoint = { 0, rect.h / 2 };
-        SDL_RenderCopyEx(windowInfo.renderer, laser.idle.anime[0]->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(windowInfo.renderer, laser.idle->anime[0]->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
     }
 }
 
@@ -332,28 +333,28 @@ void RenderActor(Actor* actor, float rotation, double totalTime)
     if (actor->health <= 0)
     {
         //death animation
-        sprite = SpriteChoice(actor->death, actor->actorState, ActorState::dead);
-        IndexIncrimentor(actor->death, true, actor, totalTime);
+        sprite = SpriteChoice(*actor->death, actor->actorState, ActorState::dead);
+        IndexIncrimentor(*actor->death, true, actor, totalTime);
     }
     else if (actor->velocity.x == 0 && actor->velocity.y == 0)
     {
         //idle
-        sprite = SpriteChoice(actor->idle, actor->actorState, ActorState::idle);
-        IndexIncrimentor(actor->idle, false, actor, totalTime);
+        sprite = SpriteChoice(*actor->idle, actor->actorState, ActorState::idle);
+        IndexIncrimentor(*actor->idle, false, actor, totalTime);
     }
     else if (actor->velocity.y != 0)
     {
         //jumping/in-air, 
-        sprite = SpriteChoice(actor->jump, actor->actorState, ActorState::jump);
-        IndexIncrimentor(actor->jump, true, actor, totalTime);
+        sprite = SpriteChoice(*actor->jump, actor->actorState, ActorState::jump);
+        IndexIncrimentor(*actor->jump, true, actor, totalTime);
 
         //TODO:  Fix issue with when this wont be true at the top of a jump when velcoity approaches zero
     }
     else if (actor->velocity.x != 0)
     {
         //walking
-        sprite = SpriteChoice(actor->run, actor->actorState, ActorState::run);
-        IndexIncrimentor(actor->run, false, actor, totalTime);
+        sprite = SpriteChoice(*actor->run, actor->actorState, ActorState::run);
+        IndexIncrimentor(*actor->run, false, actor, totalTime);
     }
 
 
@@ -379,4 +380,31 @@ void GameSpaceRectRender(Rectangle rect, SDL_Color color)
     SDL_Rect tempRect = CameraOffset( rect.bottomLeft , PixelToBlock({ int32(BlockToPixel(rect.Width())), int32(rect.Height()) }));
     SDL_SetRenderDrawColor(windowInfo.renderer, color.r, color.g, color.b, color.a);
     SDL_RenderFillRect(windowInfo.renderer, &tempRect);
+}
+
+
+void InstantiateEachFrame(std::string fileName, std::string folderName)
+{
+    animations[folderName + fileName] = *new Animation();
+    Animation* animeP = &animations[folderName + fileName];
+    animeP->anime.reserve(20);
+
+    for (int32 i = 1; true; i++)
+    {
+        std::string combinedName = "Assets/" + folderName + "/" + fileName + " (" + std::to_string(i) + ").png";
+        Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
+        if (sprite == nullptr)
+            break;
+        else
+            animeP->anime.push_back(sprite);
+    }
+}
+
+void AttachAnimation(Actor* actor)
+{
+    actor->idle = &animations[actor->GetActorFolderName() + "Idle"];
+    actor->walk = &animations[actor->GetActorFolderName() + "Walk"];
+    actor->run = &animations[actor->GetActorFolderName() + "Run"];
+    actor->jump = &animations[actor->GetActorFolderName() + "Jump"];
+    actor->death = &animations[actor->GetActorFolderName() + "Dead"];
 }

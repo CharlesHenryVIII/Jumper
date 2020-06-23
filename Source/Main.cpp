@@ -3,6 +3,8 @@
 #include "Math.h"
 #include "Rendering.h"
 #include "Entity.h"
+#include "TiledInterop.h"
+#include "WinUtilities.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -34,10 +36,9 @@ TODO(choman):
     -loading bar at the begining of the game
     -multithread loading
     -scaled total time based on incrimenting the delta time
-    -animation shared data seperate and need to be moved off actors
-    -play death animation not based off actor
-    -spawn player
-    -fix bullet color rendering
+    -game states
+    -portals = green;
+    -levels
     -fix bullets ending at the end of where you clicked instead of ending immediatly passing where you clicked.  
         reference is the tail of the sprite not the head
 
@@ -98,42 +99,28 @@ struct MouseButtonState {
 
 
 //topLeft is origin
-ActorID CreatePlayer(/*Sprite* playerSprite, */Rectangle_Int rect, float scaledWidth, double totalTime)
-{
-    Player* player = new Player();
-    //player->sprite = playerSprite;
-    player->colOffset.x = 0.2f;
-    player->colOffset.y = 0.3f;
-    player->colRect = rect;
-    player->scaledWidth = scaledWidth;
-    player->damage = 100;
-    player->inUse = true;
-    player->lastAnimationTime = totalTime;
-    AttachAnimation(player);
-    actorList.push_back(player);
-    return player->id;
-}
-
-Actor* FindActor(ActorID actorID) 
-{
-    for (auto& actor : actorList)
-    {
-        if (actor->id == actorID)
-            return actor;
-    }
-    return nullptr;
-}
-
-
-
-
-
-
-
+//ActorID CreatePlayer(/*Sprite* playerSprite, */Rectangle_Int rect, float scaledWidth, double totalTime)
+//{
+//    Player* player = new Player();
+//    //player->sprite = playerSprite;
+//    player->colOffset.x = 0.2f;
+//    player->colOffset.y = 0.3f;
+//    player->colRect = rect;
+//    player->scaledWidth = scaledWidth;
+//    player->damage = 100;
+//    player->inUse = true;
+//    player->lastAnimationTime = totalTime;
+//    AttachAnimation(player);
+//    actorList.push_back(player);
+//    return player->id;
+//}
 
 
 int main(int argc, char* argv[])
 {
+
+    DebugPrint("testing please work");
+
     //Window and Program Setups:
     std::unordered_map<SDL_Keycode, double> keyBoardEvents;
     MouseButtonState mouseButtonState = {};
@@ -167,7 +154,7 @@ int main(int argc, char* argv[])
 
     //Player Creation
     float playerAccelerationAmount = 50;
-    ActorID playerID = CreatePlayer({ { 130, 472 - 421 }, { 331, 472 - 33 } }, 32, totalTime); //680 x 472
+    ActorID playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
     Actor* actorPlayer = FindActor(playerID);
     actorPlayer->jump->fps = 30.0f;
 
@@ -175,19 +162,8 @@ int main(int argc, char* argv[])
     currentLevel.filename = "DefaultLevel.PNG";
     
     //add enemies to current level (temporoary,  add to each level's metadata)
-    Enemy* enemy = new Enemy;
+    CreateActor(ActorType::enemy, ActorType::none, totalTime);
 
-    enemy->position = { 28, 1 };
-    enemy->velocity.x = 4;
-    enemy->colOffset.x = 0.125f;
-    enemy->colOffset.y = 0.25f;
-    enemy->colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
-    enemy->scaledWidth = (float)enemy->colRect.Width();
-    enemy->damage = 25;
-    enemy->inUse = true;
-    enemy->lastAnimationTime = totalTime;
-    AttachAnimation(enemy);
-    actorList.push_back(enemy);
     //currentLevel.enemyList.push_back(enemy);
     LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
     
@@ -211,9 +187,17 @@ int main(int argc, char* argv[])
             deltaTime = 1 / 30.0f;
         }
 
-        Player &player = *(Player*)FindActor(playerID);
+        //Player& player = *(Player*)FindActor(playerID);
         WindowInfo& windowInfo = GetWindowInfo();
 
+        //TODO: fix creating a new player makes a new player ID number;
+        if (FindActor(playerID) == nullptr)
+        {
+            playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
+            LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
+        }
+            
+        Player* player = (Player*)FindActor(playerID);
 
 
         //Event Queing and handling:
@@ -258,28 +242,32 @@ int main(int argc, char* argv[])
 
 
         //Keyboard Control:
-        player.acceleration.x = 0;
-        if (keyBoardEvents[SDLK_w] == totalTime || keyBoardEvents[SDLK_SPACE] == totalTime || keyBoardEvents[SDLK_UP] == totalTime)
+        if (&player != nullptr)
         {
-            if (player.jumpCount > 0)
+            player->acceleration.x = 0;
+            if (keyBoardEvents[SDLK_w] == totalTime || keyBoardEvents[SDLK_SPACE] == totalTime || keyBoardEvents[SDLK_UP] == totalTime)
             {
-                player.velocity.y = 20.0f;
-                player.jumpCount -= 1;
-                player.jump->index = 0;
+                if (player->jumpCount > 0)
+                {
+                    player->velocity.y = 20.0f;
+                    player->jumpCount -= 1;
+                    player->jump->index = 0;
+                }
             }
-        }
-        bool left = keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT];
-        bool right = keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT];
-        if (left)
-            player.acceleration.x -= playerAccelerationAmount;
-        if (right)
-            player.acceleration.x += playerAccelerationAmount;
-        if (left == right)
-        {
-            player.velocity.x = 0;
-            player.acceleration.x = 0;
-        }
+            bool left = keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT];
+            bool right = keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT];
+            if (left)
+                player->acceleration.x -= playerAccelerationAmount;
+            if (right)
+                player->acceleration.x += playerAccelerationAmount;
+            if (left == right)
+            {
+                player->velocity.x = 0;
+                player->acceleration.x = 0;
+            }
 
+        }
+        
         if (keyBoardEvents[SDLK_1] == totalTime)
             debugList[DebugOptions::playerCollision] = !debugList[DebugOptions::playerCollision];
         if (keyBoardEvents[SDLK_2] == totalTime)
@@ -291,15 +279,15 @@ int main(int argc, char* argv[])
         if (keyBoardEvents[SDLK_5] == totalTime)
             debugList[DebugOptions::editBlocks] = !debugList[DebugOptions::editBlocks];
         if (keyBoardEvents[SDLK_0] == totalTime)
-            SaveLevel(&cacheLevel, player);
+            SaveLevel(&cacheLevel, *player);
         if (keyBoardEvents[SDLK_9] == totalTime)
-            LoadLevel(&cacheLevel, player);
+            LoadLevel(&cacheLevel, *player);
 
 
         //Mouse Control:
         Rectangle clickRect = {};
         laser.inUse = false;
-        if (debugList[DebugOptions::editBlocks] && mouseButtonState.timestamp)
+        if (debugList[DebugOptions::editBlocks] && mouseButtonState.timestamp && &player != nullptr)
         {
             VectorInt mouseLocation = CameraToPixelCoord({ mouseMotionEvent.x, mouseMotionEvent.y });
             Vector mouseLocationTranslated = PixelToBlock(mouseLocation);
@@ -322,7 +310,7 @@ int main(int argc, char* argv[])
             {
                 if ((mouseButtonState.location.x != previousMouseLocation.x || mouseButtonState.location.y != previousMouseLocation.y))
                 {
-                    CreateLaser(&player, mouseLocationTranslated, paintType);
+                    CreateLaser(player, mouseLocationTranslated, paintType);
                     blockPointer->tileType = paintType;
                     UpdateAllNeighbors(blockPointer);
                     previousMouseLocation = mouseLocation;
@@ -331,25 +319,33 @@ int main(int argc, char* argv[])
             else if (mouseButtonState.timestamp == totalTime)
             {
                 // TODO: remove the cast
-                actorList.push_back(CreateBullet(&player, mouseLocationTranslated, paintType));
+                actorList.push_back(CreateBullet(player, mouseLocationTranslated, paintType));
             }
         }
 
-        UpdateActors(deltaTime);
+        /*********************
+         *
+         * Updates
+         *
+         ********/
+
+        for (int32 i = 0; i < actorList.size(); i++)
+            actorList[i]->Update(deltaTime);
 
         bool screenFlash = false;
-        for (int i = 0; i < actorList.size(); i++)
+        if (player != nullptr)
         {
-            if (actorList[i]->GetActorType() == ActorType::enemy)
-                screenFlash = CollisionWithEnemy(player, *actorList[i], float(totalTime));
+            for (int i = 0; i < actorList.size(); i++)
+            {
+                if (actorList[i]->GetActorType() == ActorType::enemy)
+                    screenFlash = CollisionWithEnemy(*player, *actorList[i], float(totalTime));
+            }
         }
 
         for (int i = 0; i < actorList.size(); i++)
-        {
-            ActorType actorType = actorList[i]->GetActorType();
-            if (actorType == ActorType::player || actorType == ActorType::enemy)
-                actorList[i]->UpdateHealth(totalTime);
-        }
+            actorList[i]->UpdateHealth(totalTime);
+
+
 
         /*********************
          *
@@ -357,12 +353,13 @@ int main(int argc, char* argv[])
          *
          ********/
 
+
         SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
         SDL_RenderClear(windowInfo.renderer);
         BackgroundRender(background, &camera);
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-
-        camera.position = player.position;
+        if (&player != nullptr)
+            camera.position = player->position;
 
         for (auto& block : *tileMap.blockList())
         {
@@ -388,10 +385,14 @@ int main(int argc, char* argv[])
         RenderLaser();
         
         DrawText(textSheet, Green, std::to_string(1 / deltaTime), 1.0f, { 0, 0 }, UIX::left, UIY::top);
-        DrawText(textSheet, Green, "{ " + std::to_string(player.position.x) + ", " + std::to_string(player.position.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
-        DrawText(textSheet, Green, "{ " + std::to_string(player.velocity.x) + ", " + std::to_string(player.velocity.y) + " }", 0.75f, { 0, windowInfo.height - 20 }, UIX::left, UIY::bot);
-        DrawText(textSheet, Green, "{ " + std::to_string(player.acceleration.x) + ", " + std::to_string(player.acceleration.y) + " }", 0.75f, { 0, windowInfo.height }, UIX::left, UIY::bot);
+        if (&player != nullptr)
+        {
+            DrawText(textSheet, Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
+            DrawText(textSheet, Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, windowInfo.height - 20 }, UIX::left, UIY::bot);
+            DrawText(textSheet, Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, windowInfo.height }, UIX::left, UIY::bot);
 
+        }
+        
         if (screenFlash)
         {
             SDL_SetRenderDrawColor(windowInfo.renderer, lightWhite.r, lightWhite.g, lightWhite.b, lightWhite.a);
@@ -406,7 +407,7 @@ int main(int argc, char* argv[])
         //Present Screen
         SDL_RenderPresent(windowInfo.renderer);
         std::erase_if(actorList, [](Actor* p) {
-            if (!p->inUse && (p->GetActorType() != ActorType::player))
+            if (!p->inUse/* && (p->GetActorType() != ActorType::player)*/)
             {
                 delete p;
                 return true;

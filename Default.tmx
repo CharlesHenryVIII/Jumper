@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.4" tiledversion="1.4.0" orientation="orthogonal" renderorder="right-down" width="100" height="100" tilewidth="32" tileheight="32" infinite="1" nextlayerid="3" nextobjectid="1">
+ <tileset firstgid="1" source="Main.tsx"/>
+ <layer id="1" name="Tile Layer 1" width="100" height="100">
+  <data encoding="base64" compression="zstd">
+   <chunk x="-16" y="-16" width="16" height="16">
+   KLUv/WAAA20AACAAACAAAgADEt5dASw=
+  </chunk>
+   <chunk x="0" y="-16" width="16" height="16">
+   KLUv/WAAA40AAEAAAAMAIAAAAAIAwMbbK4AF
+  </chunk>
+   <chunk x="-16" y="0" width="16" height="16">
+   KLUv/WAAAz0CANAnACcAHwAAAAUAAAAQACQPICUhIgAAACMmKBOg0FprzbACm7EHvbAyaj5LX1vzszcbLAdaSdMH7WaOUBv+WIP0KIriSdMG
+  </chunk>
+   <chunk x="0" y="0" width="16" height="16">
+   KLUv/WAAA9UBAPAAACcDACcAICEAAAAiAAAAIwAAACQAAAAlAAAAJigKAL1wFRiK3D+dwQrY5YZghQEJjzNxZsd+gjY=
+  </chunk>
+  </data>
+ </layer>
+</map>

@@ -42,11 +42,6 @@ ActorType Player::GetActorType()
 	return ActorType::player;
 }
 
-std::string Player::GetActorFolderName()
-{
-	return "Dino";
-}
-
 /*********************
  *
  * Enemy
@@ -77,11 +72,6 @@ ActorType Enemy::GetActorType()
 	return ActorType::enemy;
 }
 
-std::string Enemy::GetActorFolderName()
-{
-	return "HeadMinion";
-}
-
 
 /*********************
  *
@@ -105,12 +95,10 @@ void Projectile::Update(float deltaTime)
 
 void Projectile::Render(double totalTime)
 {
-	SDL_Color PC = {};
 	if (paintType == TileType::filled)
-		PC = Green;
+		colorMod = Green;
 	else
-		PC = Red;
-	SDL_SetTextureColorMod(idle->anime[0]->texture, PC.r, PC.g, PC.b);
+		colorMod = Red;
 	RenderActor(this, rotation, totalTime);
 }
 
@@ -119,9 +107,33 @@ ActorType Projectile::GetActorType()
 	return ActorType::projectile;
 }
 
-std::string Projectile::GetActorFolderName()
+
+/*********************
+ *
+ * Dummy
+ *
+ ********/
+
+
+void Dummy::Update(float deltaTime)
 {
-	return "Bullet";
+	UpdateLocation(this, -60.0f, deltaTime);
+	CollisionWithBlocks(this, false);
+}
+
+void Dummy::Render(double totalTime)
+{
+	RenderActor(this, 0, totalTime);
+}
+
+void Dummy::UpdateHealth(double totalTime)
+{
+
+}
+
+ActorType Dummy::GetActorType()
+{
+	return ActorType::dummy;
 }
 
 
@@ -523,30 +535,6 @@ bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime)
 }
 
 
-void UpdateActorHealth(Actor* actor, double currentTime)
-{
-	if (actor->inUse)
-	{
-		if (actor->invinciblityTime <= currentTime)
-		{
-			if (actor->health <= 0)
-				actor->health = 0;
-		}
-		if (!actor->health)
-		{
-		    actor->inUse = false;
-		}
-	}
-}
-void UpdateEnemyHealth(float totalTime)
-{
-	for (int32 i = 0; i < currentLevel.enemyList.size(); i++)
-	{
-		Enemy* enemy = &currentLevel.enemyList[i];
-		UpdateActorHealth(enemy, totalTime);
-	}
-}
-
 void InstatiateActorAnimations(std::string folderName)
 {
 	InstantiateEachFrame("Dead", folderName);
@@ -554,6 +542,90 @@ void InstatiateActorAnimations(std::string folderName)
 	InstantiateEachFrame("Jump", folderName);
 	InstantiateEachFrame("Run", folderName);
 	InstantiateEachFrame("Walk", folderName);
+}
+
+ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime)
+{
+	if (dummyType == ActorType::none)
+	{
+		switch (actorType)
+		{
+		case ActorType::player:
+		{
+			Player* player = new Player();
+			player->colOffset.x = 0.2f;
+			player->colOffset.y = 0.3f;
+			player->colRect = { { 130, 472 - 421 }, { 331, 472 - 33 } };//680 x 472
+			player->scaledWidth = 32;
+			player->damage = 100;
+			player->inUse = true;
+			player->lastAnimationTime = totalTime;
+			AttachAnimation(player);
+			actorList.push_back(player);
+			return player->id;
+		}
+		case ActorType::enemy:
+		{
+			Enemy* enemy = new Enemy();
+
+			enemy->position = { 28, 1 };
+			enemy->velocity.x = 4;
+			enemy->colOffset.x = 0.125f;
+			enemy->colOffset.y = 0.25f;
+			enemy->colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
+			enemy->scaledWidth = (float)enemy->colRect.Width();
+			enemy->damage = 25;
+			enemy->inUse = true;
+			enemy->lastAnimationTime = totalTime;
+			AttachAnimation(enemy);
+			actorList.push_back(enemy);
+			return enemy->id;
+		}
+		//case ActorType::projectile:
+		//{
+		//    Projectile* bullet_a = new Projectile();
+		//    Projectile& bullet = *bullet_a;
+
+		//    bullet.paintType = blockToBeType;
+		//    bullet.inUse = true;
+		//    AttachAnimation(&bullet);
+
+		//    bullet.colRect = { {0,0}, {bullet.idle->anime[0]->width,bullet.idle->anime[0]->height} };
+		//    bullet.scaledWidth = (float)bullet.idle->anime[0]->width;
+		//    bullet.terminalVelocity = { 1000, 1000 };
+		//    Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
+
+		//    float playerBulletRadius = 0.5f; //half a block
+		//    bullet.destination = mouseLoc;
+		//    bullet.rotation = Atan2fToDegreeDiff(atan2f(bullet.destination.y - adjustedPlayerPosition.y, bullet.destination.x - adjustedPlayerPosition.x));
+
+		//    float speed = 50.0f;
+
+		//    Vector ToDest = bullet.destination - adjustedPlayerPosition;
+
+		//    ToDest = Normalize(ToDest);
+		//    bullet.velocity = ToDest * speed;
+
+		//    bullet.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
+
+		//    return bullet_a;
+		//}
+		default:
+			return 0;
+
+		}
+	}
+	else
+	{
+		Dummy* dummy = new Dummy();
+
+		dummy->inUse = true;
+		dummy->lastAnimationTime = totalTime;
+		dummy->health = 0;
+		AttachAnimation(dummy, actorType);
+		actorList.push_back(dummy);
+		return dummy->id;
+	}
 }
 
 Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
@@ -584,21 +656,6 @@ Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 	bullet.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
 
 	return bullet_a;
-
-#if 0
-	bool notCached = true;
-	for (int32 i = 0; i < bulletList.size(); i++)
-	{
-		if (!bulletList[i].inUse)
-		{
-			notCached = false;
-			bulletList[i] = bullet;
-			break;
-		}
-	}
-	if (notCached)
-		bulletList.push_back(bullet);
-#endif
 }
 
 
@@ -621,6 +678,40 @@ void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType)
 	laser.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
 }
 
+Actor* FindActor(ActorID actorID)
+{
+	for (auto& actor : actorList)
+	{
+		if (actor->id == actorID)
+			return actor;
+	}
+	return nullptr;
+}
+
+void UpdateActorHealth(Actor* actor, double currentTime)
+{
+	if (actor->inUse)
+	{
+		if (actor->invinciblityTime <= currentTime)
+		{
+			if (actor->health <= 0)
+				actor->health = 0;
+		}
+		if (!actor->health)
+		{
+			ActorID ID = CreateActor(actor->GetActorType(), actor->GetActorType(), currentTime);
+			Actor* dummy = FindActor(ID);
+			
+			dummy->position			= actor->position;
+			dummy->colOffset		= actor->colOffset;
+			dummy->colRect			= actor->colRect;
+			dummy->scaledWidth		= actor->scaledWidth;
+			dummy->lastInputWasLeft = actor->lastInputWasLeft;
+
+			actor->inUse = false;
+		}
+	}
+}
 
 void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 {
@@ -642,16 +733,6 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 }
 
 
-
-
-void UpdateActors(float deltaTime)
-{
-	for (int32 i = 0; i < actorList.size(); i++)
-	{
-		Actor* actor = actorList[i];
-		actor->Update(deltaTime);
-	}
-}
 
 void UpdateEnemiesPosition(float gravity, float deltaTime)
 {

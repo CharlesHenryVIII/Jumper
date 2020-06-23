@@ -21,6 +21,7 @@ enum class ActorType
     player,
     enemy,
     projectile,
+    dummy,
 };
 
 enum class ActorState
@@ -84,6 +85,7 @@ public:
     Rectangle_Int colRect;
     Vector colOffset;
     int32 jumpCount = 2;
+    SDL_Color colorMod = White;
     float health = 100;
     float damage;
     double lastAnimationTime;
@@ -105,7 +107,6 @@ public:
     virtual void Render(double totalTime) = 0;
     virtual void UpdateHealth(double totalTime) = 0;
     virtual ActorType GetActorType() = 0;
-    virtual std::string GetActorFolderName() = 0;
     float SpriteRatio()
     {
         return scaledWidth / colRect.Width();
@@ -135,7 +136,6 @@ struct Enemy : public Actor
     void Render(double totalTime) override;
     void UpdateHealth(double totalTime) override;
     ActorType GetActorType() override;
-    std::string GetActorFolderName() override;
 };
 
 struct Player : public Actor
@@ -144,7 +144,6 @@ struct Player : public Actor
     void Render(double totalTime) override;
     void UpdateHealth(double totalTime) override;
     ActorType GetActorType() override;
-    std::string GetActorFolderName() override;
 };
 
 enum class TileType {
@@ -166,9 +165,15 @@ struct Projectile : public Actor
 
     }
     ActorType GetActorType() override;
-    std::string GetActorFolderName() override;
 };
 
+struct Dummy : public Actor
+{
+    void Update(float deltaTime) override;
+    void Render(double totalTime) override;
+    void UpdateHealth(double totalTime) override;
+    ActorType GetActorType() override;
+};
 
 struct Block {
     Vector location = {};
@@ -232,13 +237,14 @@ Rectangle CollisionYOffsetToRectangle(Actor* actor);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
 bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime);
+ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime);
+Actor* FindActor(ActorID actorID);
 void UpdateActorHealth(Actor* actor, double currentTime);
 void UpdateEnemyHealth(float totalTime);
 void InstatiateActorAnimations(std::string folderName);
 Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
 void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
-void UpdateActors(float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);
 void RenderActors(double totalTime);
 void RenderEnemies();

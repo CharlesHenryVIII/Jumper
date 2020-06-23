@@ -295,12 +295,12 @@ void RenderLaser()
 
 void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, double totalTime)
 {
-    bool shouldIncriment = ((actor->lastAnimationTime + (1.0 / anime.fps)) <= totalTime);
+    bool itsTimeToIncriment = ((actor->lastAnimationTime + (1.0 / anime.fps)) <= totalTime);
     
     if (stayOnLastFrame)
-        shouldIncriment = (shouldIncriment && (anime.index + 1 < (int32)anime.anime.size()));
+        itsTimeToIncriment = (itsTimeToIncriment && (anime.index + 1 < (int32)anime.anime.size()));
 
-    if (shouldIncriment)
+    if (itsTimeToIncriment)
     {
         anime.index++;
         actor->lastAnimationTime = totalTime;
@@ -356,7 +356,7 @@ void RenderActor(Actor* actor, float rotation, double totalTime)
         sprite = SpriteChoice(*actor->run, actor->actorState, ActorState::run);
         IndexIncrimentor(*actor->run, false, actor, totalTime);
     }
-
+    SDL_SetTextureColorMod(sprite->texture, actor->colorMod.r, actor->colorMod.g, actor->colorMod.b);
 
 
     if (actor->lastInputWasLeft && actor->GetActorType() != ActorType::projectile)
@@ -385,7 +385,9 @@ void GameSpaceRectRender(Rectangle rect, SDL_Color color)
 
 void InstantiateEachFrame(std::string fileName, std::string folderName)
 {
-    animations[folderName + fileName] = *new Animation();
+    if (animations.find(folderName + fileName) != animations.end())
+        return;
+
     Animation* animeP = &animations[folderName + fileName];
     animeP->anime.reserve(20);
 
@@ -400,11 +402,42 @@ void InstantiateEachFrame(std::string fileName, std::string folderName)
     }
 }
 
-void AttachAnimation(Actor* actor)
+
+void AttachAnimation(Actor* actor, ActorType overrideType)
 {
-    actor->idle = &animations[actor->GetActorFolderName() + "Idle"];
-    actor->walk = &animations[actor->GetActorFolderName() + "Walk"];
-    actor->run = &animations[actor->GetActorFolderName() + "Run"];
-    actor->jump = &animations[actor->GetActorFolderName() + "Jump"];
-    actor->death = &animations[actor->GetActorFolderName() + "Dead"];
+    std::string folderName;
+    ActorType actorReferenceType;
+
+    if (overrideType != ActorType::none)
+        actorReferenceType = overrideType;
+    else
+        actorReferenceType = actor->GetActorType();
+
+    switch (actorReferenceType)
+    {
+        case ActorType::player:
+        {
+            folderName = "Dino";
+            break;
+        }
+        case ActorType::enemy:
+        {
+            folderName = "HeadMinion";
+            break;
+        }
+        case ActorType::projectile:
+        {
+            folderName = "Bullet";
+            break;
+        }
+        default:
+            folderName = "error";
+            break;
+    }
+        
+    actor->idle = &animations[folderName + "Idle"];
+    actor->walk = &animations[folderName + "Walk"];
+    actor->run = &animations[folderName + "Run"];
+    actor->jump = &animations[folderName + "Jump"];
+    actor->death = &animations[folderName + "Dead"];
 }

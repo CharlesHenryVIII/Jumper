@@ -7,10 +7,11 @@
 
 ActorID Actor::lastID = 0;
 
-TileMap tileMap;
+//TileMap tileMap;
 Projectile laser = {};
-std::vector<Actor*> actorList= {};
-Level currentLevel;
+//std::vector<Actor*> actorList= {};
+std::unordered_map<std::string, Level*> levels;
+Level* currentLevel = nullptr;
 //static const Vector terminalVelocity = { 10 , 300 };
 
 /*********************
@@ -18,6 +19,19 @@ Level currentLevel;
  * Player
  *
  ********/
+
+Player::Player(double totalTime, ActorID* playerID)
+{
+	colOffset.x = 0.2f;
+	colOffset.y = 0.3f;
+	colRect = { { 130, 472 - 421 }, { 331, 472 - 33 } };//680 x 472
+	scaledWidth = 32;
+	damage = 100;
+	inUse = true;
+	lastAnimationTime = totalTime;
+	AttachAnimation(this);
+	*playerID = id;
+}
 
 
 void Player::Update(float deltaTime)
@@ -48,6 +62,22 @@ ActorType Player::GetActorType()
  *
  ********/
 
+
+Enemy::Enemy(double totalTime, EnemyType type, ActorID* enemyID)
+{
+	position = { 28, 1 };
+	velocity.x = 4;
+	colOffset.x = 0.125f;
+	colOffset.y = 0.25f;
+	colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
+	scaledWidth = (float)colRect.Width();
+	damage = 25;
+	inUse = true;
+	lastAnimationTime = totalTime;
+	enemyType = type;
+	AttachAnimation(this);
+	*enemyID = id;
+}
 
 void Enemy::Update(float deltaTime)
 {
@@ -85,7 +115,7 @@ void Projectile::Update(float deltaTime)
 	if (DotProduct(velocity, destination - position) < 0)
 	{
 		//paint block and remove bullet
-		Block* blockPointer = &tileMap.GetBlock(destination);
+		Block* blockPointer = &currentLevel->blocks.GetBlock(destination);
 		blockPointer->tileType = paintType;
 		UpdateAllNeighbors(blockPointer);
 		inUse = false;
@@ -259,7 +289,7 @@ void SaveLevel(Level* level, Player &player)
 {
 	//Setup
 	stbi_flip_vertically_on_write(true);
-	tileMap.CleanBlocks();
+	currentLevel->blocks.CleanBlocks();
 
 	//Finding the edges of the "picture"/level
 	int32 left = int32(player.position.x);
@@ -267,7 +297,7 @@ void SaveLevel(Level* level, Player &player)
 	int32 top = int32(player.position.y);
 	int32 bot = int32(player.position.y);
 
-	for (auto& block : *tileMap.blockList())
+	for (auto& block : *currentLevel->blocks.blockList())
 	{
 		if (block.second.location.x < left)
 			left = int32(block.second.location.x);
@@ -289,7 +319,7 @@ void SaveLevel(Level* level, Player &player)
 
 	//writing to memory
 	SDL_Color tileColor = {};
-	for (auto& block : *tileMap.blockList())
+	for (auto& block : *currentLevel->blocks.blockList())
 	{
 		if (block.second.tileType == TileType::invalid)
 			continue;
@@ -311,7 +341,7 @@ void SaveLevel(Level* level, Player &player)
 
 void LoadLevel(Level* level, Player& player)
 {
-	tileMap.ClearBlocks();
+	currentLevel->blocks.ClearBlocks();
 
 	stbi_set_flip_vertically_on_load(true);
 
@@ -328,10 +358,10 @@ void LoadLevel(Level* level, Player& player)
 			if (image[index].r == Blue.r && image[index].g == Blue.g && image[index].b == Blue.b && image[index].a == Blue.a)
 				player.position = { float(x + 0.5f), float(y + 0.5f) };
 			else if (tileColor != TileType::invalid)
-				tileMap.AddBlock({ float(x), float(y) }, tileColor);
+				currentLevel->blocks.AddBlock({ float(x), float(y) }, tileColor);
 		}
 	}
-	tileMap.UpdateAllBlocks();
+	currentLevel->blocks.UpdateAllBlocks();
 	stbi_image_free(image);
 }
 
@@ -342,8 +372,8 @@ void UpdateAllNeighbors(Block* block)
 	{
 		for (int32 x = -1; x <= 1; x++)
 		{
-			if (tileMap.TryGetBlock({ float(block->location.x + x), float(block->location.y + y) }) != nullptr)
-				tileMap.UpdateBlock(&tileMap.GetBlock({ float(block->location.x + x), float(block->location.y + y) }));
+			if (currentLevel->blocks.TryGetBlock({ float(block->location.x + x), float(block->location.y + y) }) != nullptr)
+				currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ float(block->location.x + x), float(block->location.y + y) }));
 		}
 	}
 }
@@ -352,22 +382,22 @@ void UpdateAllNeighbors(Block* block)
 void SurroundBlockUpdate(Block* block, bool updateTop)
 {
 	//update block below
-	if (tileMap.CheckForBlock({ block->location.x, block->location.y - 1 }))
-		tileMap.UpdateBlock(&tileMap.GetBlock({ block->location.x, block->location.y - 1 }));
+	if (currentLevel->blocks.CheckForBlock({ block->location.x, block->location.y - 1 }))
+		currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ block->location.x, block->location.y - 1 }));
 	//update block to the left
-	if (tileMap.CheckForBlock({ block->location.x - 1, block->location.y }))
-		tileMap.UpdateBlock(&tileMap.GetBlock({ block->location.x - 1, block->location.y }));
+	if (currentLevel->blocks.CheckForBlock({ block->location.x - 1, block->location.y }))
+		currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ block->location.x - 1, block->location.y }));
 	//update block to the right
-	if (tileMap.CheckForBlock({ block->location.x + 1, block->location.y }))
-		tileMap.UpdateBlock(&tileMap.GetBlock({ block->location.x + 1, block->location.y }));
-	if (updateTop && tileMap.CheckForBlock({ block->location.x, block->location.y - 1 }))
-		tileMap.UpdateBlock(&tileMap.GetBlock({ block->location.x, block->location.y + 1 }));
+	if (currentLevel->blocks.CheckForBlock({ block->location.x + 1, block->location.y }))
+		currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ block->location.x + 1, block->location.y }));
+	if (updateTop && currentLevel->blocks.CheckForBlock({ block->location.x, block->location.y - 1 }))
+		currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ block->location.x, block->location.y + 1 }));
 }
 
 
 void ClickUpdate(Block* block, bool updateTop)
 {
-	tileMap.UpdateBlock(block);
+	currentLevel->blocks.UpdateBlock(block);
 	SurroundBlockUpdate(block, updateTop);
 }
 
@@ -439,7 +469,7 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 
 void CollisionWithBlocks(Actor* actor, bool isEnemy)
 {
-	for (auto& block : *tileMap.blockList())
+	for (auto& block : *currentLevel->blocks.blockList())
 	{
 		if (block.second.tileType == TileType::invalid)
 			continue;
@@ -544,7 +574,7 @@ void InstatiateActorAnimations(std::string folderName)
 	InstantiateEachFrame("Walk", folderName);
 }
 
-ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime)
+ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime, std::vector<Actor*>* actors)
 {
 	if (dummyType == ActorType::none)
 	{
@@ -552,64 +582,20 @@ ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime)
 		{
 		case ActorType::player:
 		{
-			Player* player = new Player();
-			player->colOffset.x = 0.2f;
-			player->colOffset.y = 0.3f;
-			player->colRect = { { 130, 472 - 421 }, { 331, 472 - 33 } };//680 x 472
-			player->scaledWidth = 32;
-			player->damage = 100;
-			player->inUse = true;
-			player->lastAnimationTime = totalTime;
-			AttachAnimation(player);
-			actorList.push_back(player);
-			return player->id;
+			ActorID playerID = {};
+			Player* player = new Player(totalTime, &playerID);
+			if (actors != nullptr)
+				actors->push_back(player);
+			return playerID;
 		}
 		case ActorType::enemy:
 		{
-			Enemy* enemy = new Enemy();
-
-			enemy->position = { 28, 1 };
-			enemy->velocity.x = 4;
-			enemy->colOffset.x = 0.125f;
-			enemy->colOffset.y = 0.25f;
-			enemy->colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
-			enemy->scaledWidth = (float)enemy->colRect.Width();
-			enemy->damage = 25;
-			enemy->inUse = true;
-			enemy->lastAnimationTime = totalTime;
-			AttachAnimation(enemy);
-			actorList.push_back(enemy);
+			ActorID enemyID = {};
+			Enemy* enemy = new Enemy(totalTime, EnemyType::head, &enemyID);
+			if (actors != nullptr)
+				actors->push_back(enemy);
 			return enemy->id;
 		}
-		//case ActorType::projectile:
-		//{
-		//    Projectile* bullet_a = new Projectile();
-		//    Projectile& bullet = *bullet_a;
-
-		//    bullet.paintType = blockToBeType;
-		//    bullet.inUse = true;
-		//    AttachAnimation(&bullet);
-
-		//    bullet.colRect = { {0,0}, {bullet.idle->anime[0]->width,bullet.idle->anime[0]->height} };
-		//    bullet.scaledWidth = (float)bullet.idle->anime[0]->width;
-		//    bullet.terminalVelocity = { 1000, 1000 };
-		//    Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
-
-		//    float playerBulletRadius = 0.5f; //half a block
-		//    bullet.destination = mouseLoc;
-		//    bullet.rotation = Atan2fToDegreeDiff(atan2f(bullet.destination.y - adjustedPlayerPosition.y, bullet.destination.x - adjustedPlayerPosition.x));
-
-		//    float speed = 50.0f;
-
-		//    Vector ToDest = bullet.destination - adjustedPlayerPosition;
-
-		//    ToDest = Normalize(ToDest);
-		//    bullet.velocity = ToDest * speed;
-
-		//    bullet.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
-
-		//    return bullet_a;
-		//}
 		default:
 			return 0;
 
@@ -623,7 +609,8 @@ ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime)
 		dummy->lastAnimationTime = totalTime;
 		dummy->health = 0;
 		AttachAnimation(dummy, actorType);
-		actorList.push_back(dummy);
+		if (actors != nullptr)
+			actors->push_back(dummy);
 		return dummy->id;
 	}
 }
@@ -678,15 +665,27 @@ void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType)
 	laser.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
 }
 
-Actor* FindActor(ActorID actorID)
+Actor* FindActor(ActorID actorID, std::vector<Actor*>* actors)
 {
-	for (auto& actor : actorList)
+	for (auto& actor : *actors)
 	{
 		if (actor->id == actorID)
 			return actor;
 	}
 	return nullptr;
 }
+
+//returns first find of that type
+Actor* FindActor(ActorType type, std::vector<Actor*>* actors)
+{
+	for (auto& actor : *actors)
+	{
+		if (actor->GetActorType() == type)
+			return actor;
+	}
+	return nullptr;
+}
+
 
 void UpdateActorHealth(Actor* actor, double currentTime)
 {
@@ -736,20 +735,22 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 
 void UpdateEnemiesPosition(float gravity, float deltaTime)
 {
-	for (int32 i = 0; i < currentLevel.enemyList.size(); i++)
+	for (int32 i = 0; i < currentLevel->actors.size(); i++)
 	{
-		Enemy* enemyPointer = &currentLevel.enemyList[i];
-
-		UpdateLocation(enemyPointer, gravity, deltaTime);
-		CollisionWithBlocks(enemyPointer, true);
+		Actor* actor = currentLevel->actors[i];
+		if (actor->GetActorType() == ActorType::enemy)
+		{
+			UpdateLocation(actor, gravity, deltaTime);
+			CollisionWithBlocks(actor, true);
+		}
 	}
 }
 
 void RenderActors(double totalTime)
 {
-	for (int32 i = 0; i < actorList.size(); i++)
+	for (int32 i = 0; i < currentLevel->actors.size(); i++)
 	{
-		actorList[i]->Render(totalTime);
+		currentLevel->actors[i]->Render(totalTime);
 	}
 }
 

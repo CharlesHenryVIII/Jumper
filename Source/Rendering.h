@@ -63,7 +63,7 @@ SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize);
 //difference between the player and the center of the screen
 VectorInt CameraToPixelCoord(VectorInt input);
 void BackgroundRender(Sprite* sprite, Camera* camera);
-void SpriteMapRender(Sprite sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc);
+void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc);
 void SpriteMapRender(Sprite* sprite, Block block);
 void DebugRectRender(Rectangle rect, SDL_Color color);
 void DrawText(FontSprite* fontSprite, SDL_Color c, std::string text, float size, VectorInt loc, UIX XLayout, UIY YLayout);
@@ -76,7 +76,7 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);
 //top left 0,0
 bool DrawButton(FontSprite* textSprite, std::string text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC);
 void RenderLaser();
-void IndexIncrimentor(int32& index, std::vector<Sprite*>* list, bool death, Actor* actor, double totalTime);
+void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, double totalTime);
 void RenderActor(Actor* actor, float rotation, double totalTime);
 void GameSpaceRectRender(Rectangle rect, SDL_Color color);
 void InstantiateEachFrame(std::string fileName, std::string folderName);

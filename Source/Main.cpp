@@ -19,6 +19,29 @@
 #include <cmath>
 
 
+//void foo(std::vector<int>* a)
+//{
+//    a[4]; // == std::vector<int>
+//    (*a)[4]; // == int
+//}
+//
+//void bar(std::vector<int>& a)
+//{
+//    a[4];
+//}
+//
+//
+//std::string test(const std::string& a)
+//{
+//}
+//
+//void foo2()
+//{
+//    test("a");
+//
+//    const std::string& a = test("a");
+//}
+
 /*
 TODO(choman):
     -camera zoom
@@ -154,23 +177,28 @@ int main(int argc, char* argv[])
 
     //Player Creation
     float playerAccelerationAmount = 50;
-    ActorID playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
-    Actor* actorPlayer = FindActor(playerID);
-    actorPlayer->jump->fps = 30.0f;
+    //ActorID playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
+    //Actor* actorPlayer = FindActor(playerID);
+    //actorPlayer->jump->fps = 30.0f;
 
     //Level instantiations
-    currentLevel.filename = "DefaultLevel.PNG";
-    
+    JsonStruct(totalTime, nullptr);//.filename = "DefaultLevel.PNG";
+    currentLevel = levels["Default"];
+
+    //ActorID playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
+    Actor* actorPlayer = FindActor(ActorType::player, &currentLevel->actors);
+    actorPlayer->jump->fps = 30.0f;
+
     //add enemies to current level (temporoary,  add to each level's metadata)
-    CreateActor(ActorType::enemy, ActorType::none, totalTime);
+    //actorList.push_back(FindActor(CreateActor(ActorType::enemy, ActorType::none, totalTime)));
 
     //currentLevel.enemyList.push_back(enemy);
-    LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
+    //LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
     
     Level cacheLevel = {};
     cacheLevel.filename = "Level.PNG";
 
-    tileMap.UpdateAllBlocks();
+    currentLevel->blocks.UpdateAllBlocks();
 
     //Start Of Running Program
     while (running)
@@ -191,13 +219,15 @@ int main(int argc, char* argv[])
         WindowInfo& windowInfo = GetWindowInfo();
 
         //TODO: fix creating a new player makes a new player ID number;
-        if (FindActor(playerID) == nullptr)
+        if (FindActor(ActorType::player, &currentLevel->actors) == nullptr)
         {
-            playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
-            LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
+            DebugPrint("player not found");
+            //running = false;
+            //playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
+            //LoadLevel(currentLevel, *(Player*)FindActor(playerID));
         }
             
-        Player* player = (Player*)FindActor(playerID);
+        Player* player = (Player*)FindActor(ActorType::player, &currentLevel->actors);
 
 
         //Event Queing and handling:
@@ -242,7 +272,7 @@ int main(int argc, char* argv[])
 
 
         //Keyboard Control:
-        if (&player != nullptr)
+        if (player != nullptr)
         {
             player->acceleration.x = 0;
             if (keyBoardEvents[SDLK_w] == totalTime || keyBoardEvents[SDLK_SPACE] == totalTime || keyBoardEvents[SDLK_UP] == totalTime)
@@ -294,7 +324,7 @@ int main(int argc, char* argv[])
             
             clickRect.bottomLeft = { mouseLocationTranslated.x - 0.5f, mouseLocationTranslated.y - 0.5f };
             clickRect.topRight = { mouseLocationTranslated.x + 0.5f, mouseLocationTranslated.y + 0.5f };
-            Block* blockPointer = &tileMap.GetBlock(mouseLocationTranslated);
+            Block* blockPointer = &currentLevel->blocks.GetBlock(mouseLocationTranslated);
             blockPointer->location = mouseLocationTranslated;
             blockPointer->location.x = floorf(blockPointer->location.x);
             blockPointer->location.y = floorf(blockPointer->location.y);
@@ -319,7 +349,7 @@ int main(int argc, char* argv[])
             else if (mouseButtonState.timestamp == totalTime)
             {
                 // TODO: remove the cast
-                actorList.push_back(CreateBullet(player, mouseLocationTranslated, paintType));
+                currentLevel->actors.push_back(CreateBullet(player, mouseLocationTranslated, paintType));
             }
         }
 
@@ -329,21 +359,21 @@ int main(int argc, char* argv[])
          *
          ********/
 
-        for (int32 i = 0; i < actorList.size(); i++)
-            actorList[i]->Update(deltaTime);
+        for (int32 i = 0; i < currentLevel->actors.size(); i++)
+            currentLevel->actors[i]->Update(deltaTime);
 
         bool screenFlash = false;
         if (player != nullptr)
         {
-            for (int i = 0; i < actorList.size(); i++)
+            for (int i = 0; i < currentLevel->actors.size(); i++)
             {
-                if (actorList[i]->GetActorType() == ActorType::enemy)
-                    screenFlash = CollisionWithEnemy(*player, *actorList[i], float(totalTime));
+                if (currentLevel->actors[i]->GetActorType() == ActorType::enemy)
+                    screenFlash = CollisionWithEnemy(*player, *currentLevel->actors[i], float(totalTime));
             }
         }
 
-        for (int i = 0; i < actorList.size(); i++)
-            actorList[i]->UpdateHealth(totalTime);
+        for (int i = 0; i < currentLevel->actors.size(); i++)
+            currentLevel->actors[i]->UpdateHealth(totalTime);
 
 
 
@@ -358,10 +388,10 @@ int main(int argc, char* argv[])
         SDL_RenderClear(windowInfo.renderer);
         BackgroundRender(background, &camera);
         SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-        if (&player != nullptr)
+        if (player != nullptr)
             camera.position = player->position;
 
-        for (auto& block : *tileMap.blockList())
+        for (auto& block : *currentLevel->blocks.blockList())
         {
             if (block.second.tileType != TileType::invalid)
             {
@@ -385,7 +415,7 @@ int main(int argc, char* argv[])
         RenderLaser();
         
         DrawText(textSheet, Green, std::to_string(1 / deltaTime), 1.0f, { 0, 0 }, UIX::left, UIY::top);
-        if (&player != nullptr)
+        if (player != nullptr)
         {
             DrawText(textSheet, Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
             DrawText(textSheet, Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, windowInfo.height - 20 }, UIX::left, UIY::bot);
@@ -406,7 +436,7 @@ int main(int argc, char* argv[])
 
         //Present Screen
         SDL_RenderPresent(windowInfo.renderer);
-        std::erase_if(actorList, [](Actor* p) {
+        std::erase_if(currentLevel->actors, [](Actor* p) {
             if (!p->inUse/* && (p->GetActorType() != ActorType::player)*/)
             {
                 delete p;

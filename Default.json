@@ -55,7 +55,7 @@
         {
          "draworder":"topdown",
          "id":3,
-         "name":"Object Layer 1",
+         "name":"ActorObjects",
          "objects":[
                 {
                  "height":32,
@@ -78,6 +78,12 @@
                  "height":32,
                  "id":19,
                  "name":"",
+                 "properties":[
+                        {
+                         "name":"Damage",
+                         "type":"float",
+                         "value":25
+                        }],
                  "rotation":0,
                  "type":"EnemyType",
                  "visible":true,
@@ -91,9 +97,9 @@
                  "name":"",
                  "properties":[
                         {
-                         "name":"terminalVelocity.y",
-                         "type":"float",
-                         "value":300
+                         "name":"ActorType",
+                         "type":"int",
+                         "value":1
                         }],
                  "rotation":0,
                  "type":"DummyType",
@@ -109,7 +115,7 @@
          "y":0
         }],
  "nextlayerid":7,
- "nextobjectid":21,
+ "nextobjectid":22,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.4.0",

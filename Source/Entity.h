@@ -1,6 +1,6 @@
 #pragma once
 #include "Math.h"
-
+//#include "Rendering.h"
 #include <unordered_map>
 #include <vector>
 
@@ -131,6 +131,7 @@ public:
 
 struct Enemy : public Actor
 {
+    Enemy(double totalTime, EnemyType type, ActorID* enemyID = nullptr);
     EnemyType enemyType;
     void Update(float deltaTime) override;
     void Render(double totalTime) override;
@@ -140,6 +141,7 @@ struct Enemy : public Actor
 
 struct Player : public Actor
 {
+    Player(double totalTime, ActorID* playerID = nullptr);
     void Update(float deltaTime) override;
     void Render(double totalTime) override;
     void UpdateHealth(double totalTime) override;
@@ -186,15 +188,6 @@ struct Block {
     }
 };
 
-struct Level
-{
-    std::vector<Enemy> enemyList;
-
-    const char* filename;  //DefaultLevel.PNG;
-    Block entrance;
-    Block exit;
-};
-
 
 class TileMap
 {
@@ -217,6 +210,16 @@ public:
     void CleanBlocks();
 };
 
+struct Level
+{
+    std::vector<Actor*> actors;
+    TileMap blocks;
+    std::string name;
+    const char* filename;  //DefaultLevel.PNG;
+    Block entrance;
+    Block exit;
+};
+
 
 enum class CollisionDirection {
     right,
@@ -224,6 +227,14 @@ enum class CollisionDirection {
     top,
     bottom
 };
+
+
+//extern TileMap tileMap;
+extern Projectile laser;
+//extern std::vector<Actor*> actorList;
+extern Level* currentLevel;
+extern std::unordered_map<std::string, Level*> levels;
+
 
 TileType CheckColor(SDL_Color color);
 SDL_Color GetTileMapColor(const Block& block);
@@ -237,8 +248,10 @@ Rectangle CollisionYOffsetToRectangle(Actor* actor);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
 bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime);
-ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime);
-Actor* FindActor(ActorID actorID);
+ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime, std::vector<Actor*>* actors = &currentLevel->actors);
+Actor* FindActor(ActorID actorID, std::vector<Actor*>* actors = &currentLevel->actors);
+//returns first find of that type
+Actor* FindActor(ActorType type, std::vector<Actor*>* actors);
 void UpdateActorHealth(Actor* actor, double currentTime);
 void UpdateEnemyHealth(float totalTime);
 void InstatiateActorAnimations(std::string folderName);
@@ -250,9 +263,3 @@ void RenderActors(double totalTime);
 void RenderEnemies();
 void RenderActorHealthBars(Actor& actor);
 
-
-
-extern TileMap tileMap;
-extern Projectile laser;
-extern std::vector<Actor*> actorList;
-extern Level currentLevel;

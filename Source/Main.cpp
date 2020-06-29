@@ -61,9 +61,17 @@ TODO(choman):
     -scaled total time based on incrimenting the delta time
     -game states
     -portals = green;
-    -levels
+    -Player spawning
     -fix bullets ending at the end of where you clicked instead of ending immediatly passing where you clicked.  
         reference is the tail of the sprite not the head
+    -pass all strings by reference/const reference
+    -fix player death animation not cycling through, faulty logic.
+
+    *Animations
+    *Render actor and setting state
+    *load both levels into the unordered map
+    *GetLevel(std::string name)
+
 
     CS20
     -singly linked list
@@ -169,7 +177,7 @@ int main(int argc, char* argv[])
     InstatiateActorAnimations("Dino");
     InstatiateActorAnimations("HeadMinion");
     InstatiateActorAnimations("Bullet");
-
+  
     Sprite* spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
     FontSprite* textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
     Sprite* background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
@@ -182,12 +190,12 @@ int main(int argc, char* argv[])
     //actorPlayer->jump->fps = 30.0f;
 
     //Level instantiations
-    JsonStruct(totalTime, nullptr);//.filename = "DefaultLevel.PNG";
-    currentLevel = levels["Default"];
+    currentLevel = GetLevel("Default");
 
     //ActorID playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
     Actor* actorPlayer = FindActor(ActorType::player, &currentLevel->actors);
-    actorPlayer->jump->fps = 30.0f;
+    actorPlayer->animations[(int32)ActorState::jump]->fps = 30.0f;
+    actorPlayer->animations[(int32)ActorState::run]->fps = 30.0f;
 
     //add enemies to current level (temporoary,  add to each level's metadata)
     //actorList.push_back(FindActor(CreateActor(ActorType::enemy, ActorType::none, totalTime)));
@@ -281,7 +289,7 @@ int main(int argc, char* argv[])
                 {
                     player->velocity.y = 20.0f;
                     player->jumpCount -= 1;
-                    player->jump->index = 0;
+                    PlayAnimation(player, ActorState::jump, deltaTime);
                 }
             }
             bool left = keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT];
@@ -340,7 +348,7 @@ int main(int argc, char* argv[])
             {
                 if ((mouseButtonState.location.x != previousMouseLocation.x || mouseButtonState.location.y != previousMouseLocation.y))
                 {
-                    CreateLaser(player, mouseLocationTranslated, paintType);
+                    CreateLaser(player, mouseLocationTranslated, paintType, deltaTime);
                     blockPointer->tileType = paintType;
                     UpdateAllNeighbors(blockPointer);
                     previousMouseLocation = mouseLocation;
@@ -358,6 +366,12 @@ int main(int argc, char* argv[])
          * Updates
          *
          ********/
+        //testing to type something in/
+        //this is also a test of how fast I can edit shit
+        //test again
+
+
+
 
         for (int32 i = 0; i < currentLevel->actors.size(); i++)
             currentLevel->actors[i]->Update(deltaTime);
@@ -372,8 +386,8 @@ int main(int argc, char* argv[])
             }
         }
 
-        for (int i = 0; i < currentLevel->actors.size(); i++)
-            currentLevel->actors[i]->UpdateHealth(totalTime);
+        //for (int i = 0; i < currentLevel->actors.size(); i++)
+        //    currentLevel->actors[i]->UpdateHealth(totalTime);
 
 
 

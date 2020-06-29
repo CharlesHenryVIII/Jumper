@@ -10,6 +10,6 @@ void DebugPrint(const char* fmt, ...)
     va_start(list, fmt);
     char buffer[4096];
     vsnprintf(buffer, sizeof(buffer), fmt, list);
-    OutputDebugString(buffer);
+    OutputDebugStringA(buffer);
     va_end(list);
 }

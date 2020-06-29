@@ -1,7 +1,7 @@
 #pragma once
 #include "Math.h"
 #include "SDL.h"
-#include "Entity.h"
+//#include "Entity.h"
 #include <string>
 
 struct SDL_Texture;
@@ -56,6 +56,10 @@ struct Camera {
 };
 
 
+struct Animation;
+struct Actor;
+struct Block;
+
 
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode);
 FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 xCharSize, int32 charPerRow);
@@ -64,7 +68,7 @@ SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize);
 VectorInt CameraToPixelCoord(VectorInt input);
 void BackgroundRender(Sprite* sprite, Camera* camera);
 void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc);
-void SpriteMapRender(Sprite* sprite, Block block);
+void SpriteMapRender(Sprite* sprite, const Block& block);
 void DebugRectRender(Rectangle rect, SDL_Color color);
 void DrawText(FontSprite* fontSprite, SDL_Color c, std::string text, float size, VectorInt loc, UIX XLayout, UIY YLayout);
 SDL_Rect RectangleToSDL(Rectangle rect);
@@ -75,12 +79,11 @@ bool pointRectangleCollision(VectorInt point, Rectangle rect);
 bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);
 //top left 0,0
 bool DrawButton(FontSprite* textSprite, std::string text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC);
+Sprite* GetSpriteFromAnimation(Actor* actor);
 void RenderLaser();
 void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, double totalTime);
 void RenderActor(Actor* actor, float rotation, double totalTime);
 void GameSpaceRectRender(Rectangle rect, SDL_Color color);
-void InstantiateEachFrame(std::string fileName, std::string folderName);
-void AttachAnimation(Actor* actor, ActorType overrideType = ActorType::none);
 
 extern Camera camera;
 extern WindowInfo windowInfo;

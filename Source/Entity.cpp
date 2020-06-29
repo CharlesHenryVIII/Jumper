@@ -10,8 +10,9 @@ ActorID Actor::lastID = 0;
 //TileMap tileMap;
 Projectile laser = {};
 //std::vector<Actor*> actorList= {};
-std::unordered_map<std::string, Level*> levels;
+std::unordered_map<std::string, Level> levels;
 Level* currentLevel = nullptr;
+std::unordered_map<std::string, Animation> animations;
 //static const Vector terminalVelocity = { 10 , 300 };
 
 /*********************
@@ -20,7 +21,7 @@ Level* currentLevel = nullptr;
  *
  ********/
 
-Player::Player(double totalTime, ActorID* playerID)
+Player::Player(ActorID* playerID)
 {
 	colOffset.x = 0.2f;
 	colOffset.y = 0.3f;
@@ -28,7 +29,6 @@ Player::Player(double totalTime, ActorID* playerID)
 	scaledWidth = 32;
 	damage = 100;
 	inUse = true;
-	lastAnimationTime = totalTime;
 	AttachAnimation(this);
 	*playerID = id;
 }
@@ -38,6 +38,8 @@ void Player::Update(float deltaTime)
 {
 	UpdateLocation(this, -60.0f, deltaTime);
 	CollisionWithBlocks(this, false);
+	SetActorState(this, deltaTime);
+	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
 }
 
 void Player::Render(double totalTime)
@@ -46,9 +48,9 @@ void Player::Render(double totalTime)
 	RenderActorHealthBars(*this);
 }
 
-void Player::UpdateHealth(double totalTime)
+void Player::UpdateHealth(float deltaHealth, float deltaTime)
 {
-	UpdateActorHealth(this, totalTime);
+	UpdateActorHealth(this, deltaHealth, deltaTime);
 }
 
 ActorType Player::GetActorType()
@@ -63,7 +65,7 @@ ActorType Player::GetActorType()
  ********/
 
 
-Enemy::Enemy(double totalTime, EnemyType type, ActorID* enemyID)
+Enemy::Enemy(EnemyType type, ActorID* enemyID)
 {
 	position = { 28, 1 };
 	velocity.x = 4;
@@ -73,7 +75,6 @@ Enemy::Enemy(double totalTime, EnemyType type, ActorID* enemyID)
 	scaledWidth = (float)colRect.Width();
 	damage = 25;
 	inUse = true;
-	lastAnimationTime = totalTime;
 	enemyType = type;
 	AttachAnimation(this);
 	*enemyID = id;
@@ -83,7 +84,9 @@ void Enemy::Update(float deltaTime)
 {
 	UpdateLocation(this, -60.0f, deltaTime);
 	CollisionWithBlocks(this, true);
-	actorState = ActorState::idle;
+	SetActorState(this, deltaTime);
+	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
+	//actorState = ActorState::idle;
 }
 
 void Enemy::Render(double totalTime)
@@ -92,9 +95,9 @@ void Enemy::Render(double totalTime)
 	RenderActorHealthBars(*this);
 }
 
-void Enemy::UpdateHealth(double totalTime)
+void Enemy::UpdateHealth(float deltaHealth, float deltaTime)
 {
-	UpdateActorHealth(this, totalTime);
+	UpdateActorHealth(this, deltaHealth, deltaTime);
 }
 
 ActorType Enemy::GetActorType()
@@ -154,11 +157,6 @@ void Dummy::Update(float deltaTime)
 void Dummy::Render(double totalTime)
 {
 	RenderActor(this, 0, totalTime);
-}
-
-void Dummy::UpdateHealth(double totalTime)
-{
-
 }
 
 ActorType Dummy::GetActorType()
@@ -404,15 +402,15 @@ void ClickUpdate(Block* block, bool updateTop)
 Rectangle CollisionXOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->ScaledWidth())) / 2, actor->position.y + actor->colOffset.x * PixelToBlock(int32(actor->ScaledHeight())) };
-	result.topRight = { actor->position.x + (1 - actor->colOffset.x) * PixelToBlock(int32(actor->ScaledWidth())), actor->position.y + (1 - actor->colOffset.x) * PixelToBlock(int32(actor->ScaledHeight())) };
+	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->scaledWidth)) / 2, actor->position.y + actor->colOffset.x * PixelToBlock(int32(actor->ScaledHeight())) };
+	result.topRight = { actor->position.x + (1 - actor->colOffset.x) * PixelToBlock(int32(actor->scaledWidth)), actor->position.y + (1 - actor->colOffset.x) * PixelToBlock(int32(actor->ScaledHeight())) };
 	return result;
 }
 Rectangle CollisionYOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->ScaledWidth())) / 2, actor->position.y };
-	result.topRight = { actor->position.x + (1 - actor->colOffset.y) * PixelToBlock(int32(actor->ScaledWidth())), actor->position.y + PixelToBlock(int32(actor->ScaledHeight())) };
+	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->scaledWidth)) / 2, actor->position.y };
+	result.topRight = { actor->position.x + (1 - actor->colOffset.y) * PixelToBlock(int32(actor->scaledWidth)), actor->position.y + PixelToBlock(int32(actor->ScaledHeight())) };
 	return result;
 }
 
@@ -429,10 +427,10 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	float yPercentOffset = 0.2f;
 
 	xRect.bottomLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * xPercentOffset };
-	xRect.topRight		= { actor->position.x + PixelToBlock((int)actor->ScaledWidth()), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - xPercentOffset) };
+	xRect.topRight		= { actor->position.x + PixelToBlock((int)actor->scaledWidth), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - xPercentOffset) };
 
-	yRect.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->ScaledWidth()) * yPercentOffset),		actor->position.y };
-	yRect.topRight		= { actor->position.x + (PixelToBlock((int)actor->ScaledWidth()) * (1 - yPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
+	yRect.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->scaledWidth) * yPercentOffset),		actor->position.y };
+	yRect.topRight		= { actor->position.x + (PixelToBlock((int)actor->scaledWidth) * (1 - yPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
 
 	//if (debugList[DebugOptions::playerCollision])
 	//{
@@ -475,10 +473,12 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			continue;
 
 		uint32 collisionFlags = CollisionWithRect(actor, { block.second.location, { block.second.location + Vector({ 1, 1 }) } });
+		if (!collisionFlags)
+			continue;
 
 		SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
 		//DebugRectRender({ block.second.location, { block.second.location + Vector({ 1, 1 }) } }, transRed);
-
+		ActorType actorType = actor->GetActorType();
 		if (collisionFlags & CollisionRight)
 		{
 			actor->position.x = block.second.location.x - actor->GameWidth();// PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
@@ -511,7 +511,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	}
 }
 
-bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime)
+bool CollisionWithEnemy(Player& player, Actor& enemy, float deltaTime)
 {
 	bool result = false;
 
@@ -536,9 +536,8 @@ bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime)
 
 	if (yCollisionFlags & CollisionBot)
 	{//hit enemy, apply damage to enemy
-		enemy.health -= player.damage;
+		enemy.UpdateHealth(-player.damage, deltaTime);
 		player.velocity.y = knockBackAmount;
-		player.invinciblityTime = currentTime + 1.0;
 	}
 	else
 	{
@@ -554,18 +553,32 @@ bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime)
 		}
 	}
 
-	if ((xCollisionFlags || yCollisionFlags) && player.invinciblityTime <= currentTime)
+	if ((xCollisionFlags || yCollisionFlags))
 	{
-		player.health = Max(player.health - enemy.damage, 0.0f);
+		player.UpdateHealth(-enemy.damage, deltaTime);
 	}
 
-	if (result && player.invinciblityTime <= currentTime)
-		player.invinciblityTime = currentTime + 1.0;
 	return result;
 }
 
+void SetActorState(Actor* actor, float deltaTime)
+{
+	ActorType actorType = actor->GetActorType();
+	if (actor->velocity.x == 0 && actor->velocity.y == 0)
+	{//Idle
+		PlayAnimation(actor, ActorState::idle, deltaTime);
+	}
+	else if (actor->velocity.y != 0)
+	{//Jumping
+		PlayAnimation(actor, ActorState::jump, deltaTime);
+	}
+	else if (actor->velocity.x != 0)
+	{//running/walking
+		PlayAnimation(actor, ActorState::run, deltaTime);
+	}
+}
 
-void InstatiateActorAnimations(std::string folderName)
+void InstatiateActorAnimations(const std::string& folderName)
 {
 	InstantiateEachFrame("Dead", folderName);
 	InstantiateEachFrame("Idle", folderName);
@@ -574,8 +587,9 @@ void InstatiateActorAnimations(std::string folderName)
 	InstantiateEachFrame("Walk", folderName);
 }
 
-ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime, std::vector<Actor*>* actors)
+ActorID CreateActor(ActorType actorType, ActorType dummyType, std::vector<Actor*>* actors)
 {
+	//TODO:: Add dummy like the rest of the actors
 	if (dummyType == ActorType::none)
 	{
 		switch (actorType)
@@ -583,7 +597,7 @@ ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime, 
 		case ActorType::player:
 		{
 			ActorID playerID = {};
-			Player* player = new Player(totalTime, &playerID);
+			Player* player = new Player(&playerID);
 			if (actors != nullptr)
 				actors->push_back(player);
 			return playerID;
@@ -591,7 +605,7 @@ ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime, 
 		case ActorType::enemy:
 		{
 			ActorID enemyID = {};
-			Enemy* enemy = new Enemy(totalTime, EnemyType::head, &enemyID);
+			Enemy* enemy = new Enemy(EnemyType::head, &enemyID);
 			if (actors != nullptr)
 				actors->push_back(enemy);
 			return enemy->id;
@@ -606,8 +620,12 @@ ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime, 
 		Dummy* dummy = new Dummy();
 
 		dummy->inUse = true;
-		dummy->lastAnimationTime = totalTime;
 		dummy->health = 0;
+		dummy->colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
+		dummy->scaledWidth = (float)dummy->colRect.Width();
+
+		//dummy->colOffset.x = 0.125f;
+		//dummy->colOffset.y = 0.25f;
 		AttachAnimation(dummy, actorType);
 		if (actors != nullptr)
 			actors->push_back(dummy);
@@ -623,9 +641,10 @@ Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 	bullet.paintType = blockToBeType;
 	bullet.inUse = true;
 	AttachAnimation(&bullet);
-
-	bullet.colRect = { {0,0}, {bullet.idle->anime[0]->width,bullet.idle->anime[0]->height} };
-	bullet.scaledWidth = (float)bullet.idle->anime[0]->width;
+	
+	Sprite* sprite = GetSpriteFromAnimation(&bullet);
+	bullet.colRect = { {0,0}, {sprite->width,sprite->height} };
+	bullet.scaledWidth = (float)sprite->width;
 	bullet.terminalVelocity = { 1000, 1000 };
 	Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
 
@@ -646,14 +665,14 @@ Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 }
 
 
-void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType)
+void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime)
 {
 	laser.paintType = paintType;
 	laser.inUse = true;
 	AttachAnimation(&laser);
-
-	laser.colRect = { {0,0}, {laser.idle->anime[0]->width, laser.idle->anime[0]->height} };
-	laser.scaledWidth = (float)laser.run->anime[0]->width;
+	Sprite* sprite = GetSpriteFromAnimation(&laser);
+	laser.colRect = { {0,0}, {sprite->width, sprite->height} };
+	laser.scaledWidth = (float)sprite->width;
 	Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block
@@ -663,6 +682,7 @@ void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType)
 	Vector ToDest = Normalize(laser.destination - adjustedPlayerPosition);
 
 	laser.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
+	PlayAnimation(&laser, ActorState::idle, deltaTime);
 }
 
 Actor* FindActor(ActorID actorID, std::vector<Actor*>* actors)
@@ -687,18 +707,54 @@ Actor* FindActor(ActorType type, std::vector<Actor*>* actors)
 }
 
 
-void UpdateActorHealth(Actor* actor, double currentTime)
+
+void PlayAnimation(Actor* actor, ActorState state, float deltaTime)
 {
+	if (actor->actorState != state)
+	{
+		actor->actorState = state;
+		actor->index = 0;
+		actor->animationCountdown =	(1.0f / actor->animations[(int32)state]->fps);
+	}
+
+	bool ignoringStates = state == ActorState::dead || state == ActorState::jump;
+	if (actor->animationCountdown <= 0)
+	{
+		actor->index++;
+		actor->animationCountdown = 1.0f / actor->animations[(int32)state]->fps;
+		if (actor->index >= actor->animations[(int32)state]->anime.size())
+		{
+			if (ignoringStates)
+				actor->index = (int32)actor->animations[(int32)state]->anime.size() - 1;
+			else
+				actor->index = 0;
+		}
+	}
+	//TODO:: Fix animationCountdown going far negative when index == anime.size()	
+	actor->animationCountdown -= deltaTime;
+}
+
+void UpdateActorHealth(Actor* actor, float deltaHealth, float deltaTime)
+{
+	ActorType actorType = actor->GetActorType();
 	if (actor->inUse)
 	{
-		if (actor->invinciblityTime <= currentTime)
+		if (actor->invinciblityTime <= 0)
 		{
-			if (actor->health <= 0)
-				actor->health = 0;
+			actor->health += deltaHealth;
+			if (deltaHealth < 0)
+				actor->invinciblityTime = 1;
 		}
-		if (!actor->health)
+		else
 		{
-			ActorID ID = CreateActor(actor->GetActorType(), actor->GetActorType(), currentTime);
+			if (deltaHealth > 0)
+				actor->health += deltaHealth;
+		}
+
+		actor->health = Max(actor->health, 0.0f);
+		if (actor->health == 0)
+		{
+			ActorID ID = CreateActor(actor->GetActorType(), actor->GetActorType());
 			Actor* dummy = FindActor(ID);
 			
 			dummy->position			= actor->position;
@@ -706,7 +762,7 @@ void UpdateActorHealth(Actor* actor, double currentTime)
 			dummy->colRect			= actor->colRect;
 			dummy->scaledWidth		= actor->scaledWidth;
 			dummy->lastInputWasLeft = actor->lastInputWasLeft;
-
+			PlayAnimation(dummy, ActorState::dead, deltaTime);
 			actor->inUse = false;
 		}
 	}
@@ -761,7 +817,7 @@ void RenderActorHealthBars(Actor& actor)
 	Rectangle actual = {};
 	full.bottomLeft.x = actor.position.x;
 	full.bottomLeft.y = actor.position.y + PixelToBlock(int(actor.ScaledHeight() + healthHeight));
-	full.topRight.x = full.bottomLeft.x + PixelToBlock(int(actor.ScaledWidth()));
+	full.topRight.x = full.bottomLeft.x + PixelToBlock(int(actor.scaledWidth));
 	full.topRight.y = full.bottomLeft.y + healthHeight;
 
 	actual.bottomLeft.x = full.topRight.x - (actor.health / 100) * full.Width();
@@ -770,4 +826,63 @@ void RenderActorHealthBars(Actor& actor)
 
 	GameSpaceRectRender(full, HealthBarBackground);
 	GameSpaceRectRender(actual, Green);
+}
+
+
+void InstantiateEachFrame(const std::string& fileName, const std::string& folderName)
+{
+	if (animations.find(folderName + fileName) != animations.end())
+		return;
+
+	Animation* animeP = &animations[folderName + fileName];
+	animeP->anime.reserve(20);
+
+	for (int32 i = 1; true; i++)
+	{
+		std::string combinedName = "Assets/" + folderName + "/" + fileName + " (" + std::to_string(i) + ").png";
+		Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
+		if (sprite == nullptr)
+			break;
+		else
+			animeP->anime.push_back(sprite);
+	}
+}
+
+
+void AttachAnimation(Actor* actor, ActorType overrideType)
+{
+	std::string folderName;
+	ActorType actorReferenceType;
+
+	if (overrideType != ActorType::none)
+		actorReferenceType = overrideType;
+	else
+		actorReferenceType = actor->GetActorType();
+
+	switch (actorReferenceType)
+	{
+	case ActorType::player:
+	{
+		folderName = "Dino";
+		break;
+	}
+	case ActorType::enemy:
+	{
+		folderName = "HeadMinion";
+		break;
+	}
+	case ActorType::projectile:
+	{
+		folderName = "Bullet";
+		break;
+	}
+	default:
+		folderName = "error";
+		break;
+	}
+	actor->animations[(int32)ActorState::idle] = &animations[folderName + "Idle"];
+	actor->animations[(int32)ActorState::walk] = &animations[folderName + "Walk"];
+	actor->animations[(int32)ActorState::run]  = &animations[folderName + "Run"];
+	actor->animations[(int32)ActorState::jump] = &animations[folderName + "Jump"];
+	actor->animations[(int32)ActorState::dead] = &animations[folderName + "Dead"];
 }

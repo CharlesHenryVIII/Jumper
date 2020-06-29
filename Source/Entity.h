@@ -3,6 +3,7 @@
 //#include "Rendering.h"
 #include <unordered_map>
 #include <vector>
+#include <cassert>
 
 struct Sprite;
 
@@ -31,15 +32,14 @@ enum class ActorState
     walk,
     run,
     jump,
-    dead
+    dead,
+    count
 };
 
 struct Animation
 {
     std::vector<Sprite*> anime;
-    int32 index = 0;
-    double lastAnimationTime = 0;
-    double fps = 10;
+    float fps = 10;
 };
 
 inline int BlockToPixel(float loc)
@@ -88,40 +88,43 @@ public:
     SDL_Color colorMod = White;
     float health = 100;
     float damage;
-    double lastAnimationTime;
     double fps = 10;
     float scaledWidth = 32;
     bool lastInputWasLeft = false;
     bool inUse = true;
-    double invinciblityTime = false;
+    float invinciblityTime = false;
 
     ActorState actorState = ActorState::idle;
 
-    Animation* death = {};
-    Animation* idle = {};
-    Animation* run = {};
-    Animation* walk = {};
-    Animation* jump = {};
+    Animation* animations[(int)ActorState::count];
+    int32 index = 0;
+    float animationCountdown = 0;
+    //Animation* death = {};
+    //Animation* idle = {};
+    //Animation* run = {};
+    //Animation* walk = {};
+    //Animation* jump = {};
 
     virtual void Update(float deltaTime) = 0;
     virtual void Render(double totalTime) = 0;
-    virtual void UpdateHealth(double totalTime) = 0;
+    virtual void UpdateHealth(float deltaHealth, float deltaTime) = 0;
     virtual ActorType GetActorType() = 0;
     float SpriteRatio()
     {
+        assert(colRect.Width());
         return scaledWidth / colRect.Width();
     }
-    float ScaledWidth()
-    {
-        return scaledWidth;// colRect.Width()* GoldenRatio();
-    }
+    //float ScaledWidth()
+    //{
+    //    return scaledWidth;// colRect.Width()* GoldenRatio();
+    //}
     float ScaledHeight()
     {
         return colRect.Height() * SpriteRatio();
     }
     float GameWidth()
     {
-        return PixelToBlock((int)ScaledWidth());// colRect.Width()* GoldenRatio();
+        return PixelToBlock((int)scaledWidth);// colRect.Width()* GoldenRatio();
     }
     float GameHeight()
     {
@@ -131,20 +134,20 @@ public:
 
 struct Enemy : public Actor
 {
-    Enemy(double totalTime, EnemyType type, ActorID* enemyID = nullptr);
+    Enemy(EnemyType type, ActorID* enemyID = nullptr);
     EnemyType enemyType;
     void Update(float deltaTime) override;
     void Render(double totalTime) override;
-    void UpdateHealth(double totalTime) override;
+    void UpdateHealth(float deltaHealth, float deltaTime) override;
     ActorType GetActorType() override;
 };
 
 struct Player : public Actor
 {
-    Player(double totalTime, ActorID* playerID = nullptr);
+    Player(ActorID* playerID = nullptr);
     void Update(float deltaTime) override;
     void Render(double totalTime) override;
-    void UpdateHealth(double totalTime) override;
+    void UpdateHealth(float deltaHealth, float deltaTime) override;
     ActorType GetActorType() override;
 };
 
@@ -162,7 +165,7 @@ struct Projectile : public Actor
 
     void Update(float deltaTime) override;
     void Render(double totalTime) override;
-    void UpdateHealth(double totalTime) override
+    void UpdateHealth(float deltaHealth, float deltaTime) override
     {
 
     }
@@ -173,7 +176,10 @@ struct Dummy : public Actor
 {
     void Update(float deltaTime) override;
     void Render(double totalTime) override;
-    void UpdateHealth(double totalTime) override;
+    void UpdateHealth(float deltaHealth, float deltaTime) override
+    {
+
+    };
     ActorType GetActorType() override;
 };
 
@@ -233,7 +239,8 @@ enum class CollisionDirection {
 extern Projectile laser;
 //extern std::vector<Actor*> actorList;
 extern Level* currentLevel;
-extern std::unordered_map<std::string, Level*> levels;
+extern std::unordered_map<std::string, Level> levels;
+extern std::unordered_map<std::string, Animation> animations;
 
 
 TileType CheckColor(SDL_Color color);
@@ -247,19 +254,22 @@ Rectangle CollisionXOffsetToRectangle(Actor* actor);
 Rectangle CollisionYOffsetToRectangle(Actor* actor);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
-bool CollisionWithEnemy(Player& player, Actor& enemy, float currentTime);
-ActorID CreateActor(ActorType actorType, ActorType dummyType, double totalTime, std::vector<Actor*>* actors = &currentLevel->actors);
+bool CollisionWithEnemy(Player& player, Actor& enemy, float deltaTime);
+ActorID CreateActor(ActorType actorType, ActorType dummyType, std::vector<Actor*>* actors = &currentLevel->actors);
 Actor* FindActor(ActorID actorID, std::vector<Actor*>* actors = &currentLevel->actors);
 //returns first find of that type
 Actor* FindActor(ActorType type, std::vector<Actor*>* actors);
-void UpdateActorHealth(Actor* actor, double currentTime);
+void PlayAnimation(Actor* actor, ActorState state, float deltaTime);
+void UpdateActorHealth(Actor* actor, float deltaHealth, float deltaTime);
 void UpdateEnemyHealth(float totalTime);
-void InstatiateActorAnimations(std::string folderName);
+void SetActorState(Actor* actor, float deltaTime);
+void InstatiateActorAnimations(const std::string& folderName);
 Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
-void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType);
+void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);
 void RenderActors(double totalTime);
 void RenderEnemies();
 void RenderActorHealthBars(Actor& actor);
-
+void InstantiateEachFrame(const std::string& fileName, const std::string& folderName);
+void AttachAnimation(Actor* actor, ActorType overrideType = ActorType::none);

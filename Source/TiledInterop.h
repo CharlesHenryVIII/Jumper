@@ -1,3 +1,4 @@
 #pragma once
 
-void JsonStruct(double totalTime, Actor* player = nullptr);
+Level* GetLevel(const std::string& name);
+Level* LoadLevel(const std::string& name);

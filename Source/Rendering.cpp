@@ -1,11 +1,11 @@
 #include "Rendering.h"
+#include "Entity.h"
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
 #include <cassert>
 
 WindowInfo windowInfo = { 200, 200, 1280, 720 };
 Camera camera;
-std::unordered_map<std::string, Animation> animations;
 
 
 WindowInfo& GetWindowInfo()
@@ -156,7 +156,7 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
 }
 
 
-void SpriteMapRender(Sprite* sprite, Block block)
+void SpriteMapRender(Sprite* sprite, const Block& block)
 {
     SpriteMapRender(sprite, block.flags, blockSize, blockSize, block.location);
 }
@@ -277,6 +277,11 @@ bool DrawButton(FontSprite* textSprite, std::string text, VectorInt loc, UIX XLa
     return result;
 }
 
+Sprite* GetSpriteFromAnimation(Actor* actor)
+{
+    return actor->animations[(int32)actor->actorState]->anime[actor->index];
+}
+
 void RenderLaser()
 {
     if (laser.inUse)
@@ -286,76 +291,55 @@ void RenderLaser()
             PC = Green;
         else
             PC = Red;
-        SDL_SetTextureColorMod(laser.idle->anime[0]->texture, PC.r, PC.g, PC.b);
-        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(laser.idle->anime[0]->height) });
+        Sprite* sprite = GetSpriteFromAnimation(&laser);
+
+        SDL_SetTextureColorMod(sprite->texture, PC.r, PC.g, PC.b);
+        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(sprite->height) });
         SDL_Point rotationPoint = { 0, rect.h / 2 };
-        SDL_RenderCopyEx(windowInfo.renderer, laser.idle->anime[0]->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
     }
 }
 
-void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, double totalTime)
-{
-    bool itsTimeToIncriment = ((actor->lastAnimationTime + (1.0 / anime.fps)) <= totalTime);
-    
-    if (stayOnLastFrame)
-        itsTimeToIncriment = (itsTimeToIncriment && (anime.index + 1 < (int32)anime.anime.size()));
+//void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, double totalTime)
+//{
+//    bool itsTimeToIncriment = ((actor->lastAnimationTime + (1.0 / anime.fps)) <= totalTime);
+//    
+//    if (stayOnLastFrame)
+//        itsTimeToIncriment = (itsTimeToIncriment && (anime.index + 1 < (int32)anime.anime.size()));
+//
+//    if (itsTimeToIncriment)
+//    {
+//        anime.index++;
+//        actor->lastAnimationTime = totalTime;
+//        if (anime.index >= anime.anime.size())
+//            anime.index = 0;
+//    }
+//}
 
-    if (itsTimeToIncriment)
-    {
-        anime.index++;
-        actor->lastAnimationTime = totalTime;
-        if (anime.index >= anime.anime.size())
-            anime.index = 0;
-    }
-}
+//Sprite* SpriteChoice(Animation& anime, ActorState& actorState, ActorState referenceState)
+//{
+//    if (actorState != referenceState)
+//    {
+//        anime.index = 0;
+//        actorState = referenceState;
+//    }
+//    return anime.anime[anime.index];
+//}
 
-Sprite* SpriteChoice(Animation& anime, ActorState& actorState, ActorState referenceState)
-{
-    if (actorState != referenceState)
-    {
-        anime.index = 0;
-        actorState = referenceState;
-    }
-    return anime.anime[anime.index];
-}
+
 
 void RenderActor(Actor* actor, float rotation, double totalTime)
 {
     SDL_Rect destRect = {};
     SDL_RendererFlip flippage = SDL_FLIP_NONE;
     int32 xPos;
-    Sprite* sprite = {};
+    //Sprite* sprite = {};
 
     ActorType actorType = actor->GetActorType();
 
     //std::vector<Sprite*>* list = {}; actorType == ActorType::projectile
+    Sprite* sprite = GetSpriteFromAnimation(actor);
 
-    if (actor->health <= 0)
-    {
-        //death animation
-        sprite = SpriteChoice(*actor->death, actor->actorState, ActorState::dead);
-        IndexIncrimentor(*actor->death, true, actor, totalTime);
-    }
-    else if (actor->velocity.x == 0 && actor->velocity.y == 0)
-    {
-        //idle
-        sprite = SpriteChoice(*actor->idle, actor->actorState, ActorState::idle);
-        IndexIncrimentor(*actor->idle, false, actor, totalTime);
-    }
-    else if (actor->velocity.y != 0)
-    {
-        //jumping/in-air, 
-        sprite = SpriteChoice(*actor->jump, actor->actorState, ActorState::jump);
-        IndexIncrimentor(*actor->jump, true, actor, totalTime);
-
-        //TODO:  Fix issue with when this wont be true at the top of a jump when velcoity approaches zero
-    }
-    else if (actor->velocity.x != 0)
-    {
-        //walking
-        sprite = SpriteChoice(*actor->run, actor->actorState, ActorState::run);
-        IndexIncrimentor(*actor->run, false, actor, totalTime);
-    }
     SDL_SetTextureColorMod(sprite->texture, actor->colorMod.r, actor->colorMod.g, actor->colorMod.b);
 
 
@@ -380,64 +364,4 @@ void GameSpaceRectRender(Rectangle rect, SDL_Color color)
     SDL_Rect tempRect = CameraOffset( rect.bottomLeft , PixelToBlock({ int32(BlockToPixel(rect.Width())), int32(rect.Height()) }));
     SDL_SetRenderDrawColor(windowInfo.renderer, color.r, color.g, color.b, color.a);
     SDL_RenderFillRect(windowInfo.renderer, &tempRect);
-}
-
-
-void InstantiateEachFrame(std::string fileName, std::string folderName)
-{
-    if (animations.find(folderName + fileName) != animations.end())
-        return;
-
-    Animation* animeP = &animations[folderName + fileName];
-    animeP->anime.reserve(20);
-
-    for (int32 i = 1; true; i++)
-    {
-        std::string combinedName = "Assets/" + folderName + "/" + fileName + " (" + std::to_string(i) + ").png";
-        Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
-        if (sprite == nullptr)
-            break;
-        else
-            animeP->anime.push_back(sprite);
-    }
-}
-
-
-void AttachAnimation(Actor* actor, ActorType overrideType)
-{
-    std::string folderName;
-    ActorType actorReferenceType;
-
-    if (overrideType != ActorType::none)
-        actorReferenceType = overrideType;
-    else
-        actorReferenceType = actor->GetActorType();
-
-    switch (actorReferenceType)
-    {
-        case ActorType::player:
-        {
-            folderName = "Dino";
-            break;
-        }
-        case ActorType::enemy:
-        {
-            folderName = "HeadMinion";
-            break;
-        }
-        case ActorType::projectile:
-        {
-            folderName = "Bullet";
-            break;
-        }
-        default:
-            folderName = "error";
-            break;
-    }
-        
-    actor->idle = &animations[folderName + "Idle"];
-    actor->walk = &animations[folderName + "Walk"];
-    actor->run = &animations[folderName + "Run"];
-    actor->jump = &animations[folderName + "Jump"];
-    actor->death = &animations[folderName + "Dead"];
 }

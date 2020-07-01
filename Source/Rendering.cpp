@@ -172,7 +172,7 @@ void DebugRectRender(Rectangle rect, SDL_Color color)
 }
 
 
-void DrawText(FontSprite* fontSprite, SDL_Color c, std::string text, float size, VectorInt loc, UIX XLayout, UIY YLayout)
+void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, float size, VectorInt loc, UIX XLayout, UIY YLayout)
 {
     //ABC
     int32 CPR = fontSprite->charPerRow;
@@ -234,7 +234,7 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect)
 
 
 //top left 0,0
-bool DrawButton(FontSprite* textSprite, std::string text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC)
+bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC)
 {
     bool result = false;
     //Copied from DrawText()
@@ -279,7 +279,7 @@ bool DrawButton(FontSprite* textSprite, std::string text, VectorInt loc, UIX XLa
 
 Sprite* GetSpriteFromAnimation(Actor* actor)
 {
-    return actor->animations[(int32)actor->actorState]->anime[actor->index];
+    return actor->currentSprite;
 }
 
 void RenderLaser()
@@ -300,35 +300,8 @@ void RenderLaser()
     }
 }
 
-//void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, double totalTime)
-//{
-//    bool itsTimeToIncriment = ((actor->lastAnimationTime + (1.0 / anime.fps)) <= totalTime);
-//    
-//    if (stayOnLastFrame)
-//        itsTimeToIncriment = (itsTimeToIncriment && (anime.index + 1 < (int32)anime.anime.size()));
-//
-//    if (itsTimeToIncriment)
-//    {
-//        anime.index++;
-//        actor->lastAnimationTime = totalTime;
-//        if (anime.index >= anime.anime.size())
-//            anime.index = 0;
-//    }
-//}
 
-//Sprite* SpriteChoice(Animation& anime, ActorState& actorState, ActorState referenceState)
-//{
-//    if (actorState != referenceState)
-//    {
-//        anime.index = 0;
-//        actorState = referenceState;
-//    }
-//    return anime.anime[anime.index];
-//}
-
-
-
-void RenderActor(Actor* actor, float rotation, double totalTime)
+void RenderActor(Actor* actor, float rotation)
 {
     SDL_Rect destRect = {};
     SDL_RendererFlip flippage = SDL_FLIP_NONE;

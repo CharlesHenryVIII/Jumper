@@ -28,7 +28,6 @@ const char* ReadEntireFileAsString(const char* fileName)
 	return buffer;
 }
 
-
 std::string ReadEntireFileAsString(const std::string &fileName)
 {
 	FILE* file;
@@ -48,115 +47,6 @@ std::string ReadEntireFileAsString(const std::string &fileName)
 		return "";
 }
 
-int depth = 0;
-
-//void Recurse(const picojson::value& value)
-//{
-//
-//	if (value.is<picojson::null>())
-//		return;
-//	std::string tabs;
-//	for (int i = 0; i < depth; i++)
-//		tabs += "\t";
-//
-//	if (value.is<bool>())
-//		value.get<bool>() ? DebugPrint("true \n") : DebugPrint("false \n");
-//	else if (value.is<double>())
-//		DebugPrint("%s \n", std::to_string(value.get<double>()).c_str());
-//	else if (value.is<std::string>())
-//		DebugPrint("%s \n", value.get<std::string>().c_str());
-//	else if (value.is<picojson::array>())
-//	{
-//		for (int i = 0; i < value.get<picojson::array>().size(); i++)
-//		{
-//			depth++;
-//			Recurse(value.get<picojson::array>()[i]);
-//			depth--;
-//		}
-//	}
-//	else if (value.is<picojson::object>())
-//	{
-//		for (auto& item : value.get<picojson::object>())
-//		{
-//			if (item.first == "chunks") //chunks
-//			{
-//				for (int i = 0; i < item.second.get<picojson::array>().size(); i++) //array
-//				{
-//					int32 size = 0;
-//					VectorInt loc = {};
-//					std::vector<uint32> data;
-//					for (auto& info : item.second.get<picojson::array>()[i].get<picojson::object>()) //objects
-//					{
-//						if (info.first == "height")
-//							size = (int)info.second.get<double>();
-//						else if (info.first == "x")
-//							loc.x = info.second.get<double>();
-//						else if (info.first == "y")
-//							loc.y = info.second.get<double>();
-//						else if (info.first == "data")
-//						{
-//							for (int32 j = 0; j < info.second.get<picojson::array>().size(); j++)  //array
-//							{
-//								data.push_back(uint32(info.second.get<picojson::array>()[j].get<double>()));
-//							}
-//						}
-//					}								
-//					Chunk* chunk = new Chunk(size);
-//					chunk->loc = loc;
-//					assert((int32)data.size() == (size * size));
-//
-//					chunk->data = data.data();
-//					chunks.push_back(chunk);
-//				}
-//			}
-//			depth++;
-//			Recurse(item.second);
-//			depth--;
-//		}
-//	}
-//}
-
-
-//void Recurse(const picojson::value &value)
-//{
-//
-//	if (value.is<picojson::null>())
-//		return;
-//	std::string tabs;
-//	for (int i = 0; i < depth; i++)
-//		tabs += "\t";
-//
-//	if (value.is<bool>())
-//		value.get<bool>() ? DebugPrint("true \n") : DebugPrint("false \n");
-//	else if (value.is<double>())
-//		DebugPrint("%s \n", std::to_string(value.get<double>()).c_str());
-//	else if (value.is<std::string>())
-//		DebugPrint("%s \n",  value.get<std::string>().c_str());
-//	else if (value.is<picojson::array>())
-//	{
-//		for (int i = 0; i < value.get<picojson::array>().size(); i++)
-//		{
-//			DebugPrint("\n");
-//			depth++;
-//			Recurse(value.get<picojson::array>()[i]);
-//			depth--;
-//		}
-//	}
-//	else if (value.is<picojson::object>())
-//	{
-//		for (auto& item : value.get<picojson::object>())
-//		{
-//			//DebugPrint()
-//			DebugPrint("%s%s: ", tabs.c_str(), item.first.c_str());
-//			depth++;
-//			Recurse(item.second);
-//			depth--;
-//		}
-//	}
-//}
-
-//"objects", "objectGroup", layers);
-
 picojson::value JsonStruct(const std::string& name)
 {
 	std::string data = ReadEntireFileAsString(name + ".json");
@@ -170,7 +60,7 @@ picojson::value JsonStruct(const std::string& name)
 	return v;
 }
 
-const picojson::value& FindChildObject(std::string name, std::string type, const picojson::value& parent)
+const picojson::value& FindChildObject(const std::string& name, const std::string& type, const picojson::value& parent)
 {
 	for (int i = 0; i < parent.get<picojson::array>().size(); i++)
 	{
@@ -187,7 +77,7 @@ const picojson::value& FindChildObject(std::string name, std::string type, const
 	return result;
 }
 
-double GetActorPropertyValue(const picojson::value& props, std::string propertyName)
+double GetActorPropertyValue(const picojson::value& props, const std::string& propertyName)
 {
 	ActorType mimic = ActorType::none;
 	for (int32 j = 0; j < props.get<picojson::array>().size(); j++)
@@ -260,7 +150,7 @@ Level* LoadLevel(const std::string& name)
 			// Do Dummy Stuff
 			const picojson::value& props = actorProperties.get("properties");
 			ActorType mimic = (ActorType)GetActorPropertyValue(props, "ActorType");
-			Actor* dummy = FindActor(CreateActor(ActorType::enemy, mimic, &level->actors), &level->actors);
+			Actor* dummy = FindActor(CreateActor(ActorType::dummy, mimic, &level->actors), &level->actors);
 			dummy->position = loc;
 			int32 a = 0;
 		}

@@ -40,7 +40,26 @@ struct Animation
 {
     std::vector<Sprite*> anime;
     float fps = 10;
+    //float scaledWidth = 32;
+    //Rectangle_Int colRect;
+    ActorState type = ActorState::none;
+    Animation* fallBack = nullptr;
 };
+
+struct AnimationList
+{
+    std::vector<Animation*> animations;
+    Animation* GetAnimation(ActorState state)
+    {
+        for (int32 i = 0; i < animations.size(); i++)
+        {
+            if (animations[i]->type == state)
+                return animations[i];
+		}
+        return nullptr;
+    }
+};
+//actor->animationList.GetAnimation();
 
 inline int BlockToPixel(float loc)
 {
@@ -92,21 +111,18 @@ public:
     float scaledWidth = 32;
     bool lastInputWasLeft = false;
     bool inUse = true;
+    bool grounded = true;
     float invinciblityTime = false;
 
-    ActorState actorState = ActorState::idle;
-
-    Animation* animations[(int)ActorState::count];
+    ActorState actorState = ActorState::none;
+    
+    Sprite* currentSprite = nullptr;
+    AnimationList* animationList = {};
     int32 index = 0;
     float animationCountdown = 0;
-    //Animation* death = {};
-    //Animation* idle = {};
-    //Animation* run = {};
-    //Animation* walk = {};
-    //Animation* jump = {};
 
     virtual void Update(float deltaTime) = 0;
-    virtual void Render(double totalTime) = 0;
+    virtual void Render() = 0;
     virtual void UpdateHealth(float deltaHealth, float deltaTime) = 0;
     virtual ActorType GetActorType() = 0;
     float SpriteRatio()
@@ -137,7 +153,7 @@ struct Enemy : public Actor
     Enemy(EnemyType type, ActorID* enemyID = nullptr);
     EnemyType enemyType;
     void Update(float deltaTime) override;
-    void Render(double totalTime) override;
+    void Render() override;
     void UpdateHealth(float deltaHealth, float deltaTime) override;
     ActorType GetActorType() override;
 };
@@ -146,7 +162,7 @@ struct Player : public Actor
 {
     Player(ActorID* playerID = nullptr);
     void Update(float deltaTime) override;
-    void Render(double totalTime) override;
+    void Render() override;
     void UpdateHealth(float deltaHealth, float deltaTime) override;
     ActorType GetActorType() override;
 };
@@ -164,7 +180,7 @@ struct Projectile : public Actor
     float rotation = 0;
 
     void Update(float deltaTime) override;
-    void Render(double totalTime) override;
+    void Render() override;
     void UpdateHealth(float deltaHealth, float deltaTime) override
     {
 
@@ -174,8 +190,9 @@ struct Projectile : public Actor
 
 struct Dummy : public Actor
 {
+    Dummy(ActorID* dummyID = nullptr);
     void Update(float deltaTime) override;
-    void Render(double totalTime) override;
+    void Render() override;
     void UpdateHealth(float deltaHealth, float deltaTime) override
     {
 
@@ -240,7 +257,7 @@ extern Projectile laser;
 //extern std::vector<Actor*> actorList;
 extern Level* currentLevel;
 extern std::unordered_map<std::string, Level> levels;
-extern std::unordered_map<std::string, Animation> animations;
+extern std::unordered_map<std::string, AnimationList> animations;
 
 
 TileType CheckColor(SDL_Color color);
@@ -259,17 +276,17 @@ ActorID CreateActor(ActorType actorType, ActorType dummyType, std::vector<Actor*
 Actor* FindActor(ActorID actorID, std::vector<Actor*>* actors = &currentLevel->actors);
 //returns first find of that type
 Actor* FindActor(ActorType type, std::vector<Actor*>* actors);
-void PlayAnimation(Actor* actor, ActorState state, float deltaTime);
+void UpdateAnimationIndex(Actor* actor, float deltaTime);
+void PlayAnimation(Actor* actor, ActorState state);
 void UpdateActorHealth(Actor* actor, float deltaHealth, float deltaTime);
-void UpdateEnemyHealth(float totalTime);
-void SetActorState(Actor* actor, float deltaTime);
+void SetActorState(Actor* actor);
 void InstatiateActorAnimations(const std::string& folderName);
 Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
 void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);
-void RenderActors(double totalTime);
-void RenderEnemies();
+void RenderActors();
 void RenderActorHealthBars(Actor& actor);
-void InstantiateEachFrame(const std::string& fileName, const std::string& folderName);
+//void InstantiateEachFrame(const std::string& fileName, const std::string& folderName);
+void LoadAllAnimationStates(const std::string& entity);
 void AttachAnimation(Actor* actor, ActorType overrideType = ActorType::none);

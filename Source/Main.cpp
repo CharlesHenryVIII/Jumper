@@ -64,14 +64,11 @@ TODO(choman):
     -Player spawning
     -fix bullets ending at the end of where you clicked instead of ending immediatly passing where you clicked.  
         reference is the tail of the sprite not the head
-    -pass all strings by reference/const reference
-    -fix player death animation not cycling through, faulty logic.
 
-    *Animations
-    *Render actor and setting state
-    *load both levels into the unordered map
-    *GetLevel(std::string name)
-
+    CURRENT:
+    -need to have animations store the collision rect and offsets.
+    -creating a new player on player death
+    
 
     CS20
     -singly linked list
@@ -83,19 +80,19 @@ TODO(choman):
     -hashmap
 
 
-    -game design:
-        *jump_on_head>melee>ranged>magic
-        *Levels:
-            1.  Just jumping to get use to the mechanics;
-            2.  jump on top of enemies to kill them;
-            3.  boss fight, jump on head 3 times and boss flees;
-            4.  learn how to melee and use it on enemies, continue platforming;
-            5.  boss fight with same boss but looks different since its the next phase, try to kill him with melees and timing, he flees;
-            6.  learn ranged and continue platforming;
-            7.  boss fight with same boss but looks different since its the next phase, try to kill him with ranged and timing, he flees;
-            8.  learn magic and continue platforming;
-            9.  with same boss but looks different since its the next phase, try to kill him with magic but he flees;
-            10. final fight with the boss where you have to do all the phases at once but different arena and what not. fin;
+	-game design:
+		*jump_on_head>melee>ranged>magic
+		*Levels:
+			1.  Just jumping to get use to the mechanics;
+			2.  jump on top of enemies to kill them;
+			3.  boss fight, jump on head 3 times and boss flees;
+			4.  learn how to melee and use it on enemies, continue platforming;
+			5.  boss fight with same boss but looks different since its the next phase, try to kill him with melees and timing, he flees;
+			6.  learn ranged and continue platforming;
+			7.  boss fight with same boss but looks different since its the next phase, try to kill him with ranged and timing, he flees;
+			8.  learn magic and continue platforming;
+			9.  with same boss but looks different since its the next phase, try to kill him with magic but he flees;
+			10. final fight with the boss where you have to do all the phases at once but different arena and what not. fin;
 
 Core Gameplay
     -get to the /end/ of the level
@@ -174,9 +171,12 @@ int main(int argc, char* argv[])
     */
 
     //Sprite Creation
-    InstatiateActorAnimations("Dino");
-    InstatiateActorAnimations("HeadMinion");
-    InstatiateActorAnimations("Bullet");
+    LoadAllAnimationStates("Dino");
+    LoadAllAnimationStates("HeadMinion");
+    LoadAllAnimationStates("Bullet");
+    //InstatiateActorAnimations("Dino");
+    //InstatiateActorAnimations("HeadMinion");
+    //InstatiateActorAnimations("Bullet");
   
     Sprite* spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
     FontSprite* textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
@@ -185,23 +185,14 @@ int main(int argc, char* argv[])
 
     //Player Creation
     float playerAccelerationAmount = 50;
-    //ActorID playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
-    //Actor* actorPlayer = FindActor(playerID);
-    //actorPlayer->jump->fps = 30.0f;
 
     //Level instantiations
     currentLevel = GetLevel("Default");
 
-    //ActorID playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
     Actor* actorPlayer = FindActor(ActorType::player, &currentLevel->actors);
-    actorPlayer->animations[(int32)ActorState::jump]->fps = 30.0f;
-    actorPlayer->animations[(int32)ActorState::run]->fps = 30.0f;
+    actorPlayer->animationList->GetAnimation(ActorState::jump)->fps = 30.0f;
+	actorPlayer->animationList->GetAnimation(ActorState::jump)->fps = 15.0f;
 
-    //add enemies to current level (temporoary,  add to each level's metadata)
-    //actorList.push_back(FindActor(CreateActor(ActorType::enemy, ActorType::none, totalTime)));
-
-    //currentLevel.enemyList.push_back(enemy);
-    //LoadLevel(&currentLevel, *(Player*)FindActor(playerID));
     
     Level cacheLevel = {};
     cacheLevel.filename = "Level.PNG";
@@ -289,7 +280,7 @@ int main(int argc, char* argv[])
                 {
                     player->velocity.y = 20.0f;
                     player->jumpCount -= 1;
-                    PlayAnimation(player, ActorState::jump, deltaTime);
+                    PlayAnimation(player, ActorState::jump);
                 }
             }
             bool left = keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT];
@@ -425,7 +416,7 @@ int main(int argc, char* argv[])
         {
             DebugRectRender(clickRect, transGreen);
         }
-        RenderActors(totalTime);
+        RenderActors();
         RenderLaser();
         
         DrawText(textSheet, Green, std::to_string(1 / deltaTime), 1.0f, { 0, 0 }, UIX::left, UIY::top);

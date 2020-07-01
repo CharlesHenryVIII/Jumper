@@ -70,7 +70,7 @@ void BackgroundRender(Sprite* sprite, Camera* camera);
 void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc);
 void SpriteMapRender(Sprite* sprite, const Block& block);
 void DebugRectRender(Rectangle rect, SDL_Color color);
-void DrawText(FontSprite* fontSprite, SDL_Color c, std::string text, float size, VectorInt loc, UIX XLayout, UIY YLayout);
+void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, float size, VectorInt loc, UIX XLayout, UIY YLayout);
 SDL_Rect RectangleToSDL(Rectangle rect);
 //bottom left and top right
 Rectangle SDLToRectangle(SDL_Rect rect);
@@ -78,11 +78,11 @@ Rectangle SDLToRectangle(SDL_Rect rect);
 bool pointRectangleCollision(VectorInt point, Rectangle rect);
 bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);
 //top left 0,0
-bool DrawButton(FontSprite* textSprite, std::string text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC);
+bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC);
 Sprite* GetSpriteFromAnimation(Actor* actor);
 void RenderLaser();
 void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, double totalTime);
-void RenderActor(Actor* actor, float rotation, double totalTime);
+void RenderActor(Actor* actor, float rotation);
 void GameSpaceRectRender(Rectangle rect, SDL_Color color);
 
 extern Camera camera;

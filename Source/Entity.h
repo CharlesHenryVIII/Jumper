@@ -40,8 +40,6 @@ struct Animation
 {
     std::vector<Sprite*> anime;
     float fps = 10;
-    //float scaledWidth = 32;
-    //Rectangle_Int colRect;
     ActorState type = ActorState::none;
     Animation* fallBack = nullptr;
 };
@@ -49,6 +47,10 @@ struct Animation
 struct AnimationList
 {
     std::vector<Animation*> animations;
+    float scaledWidth = 32;
+    Rectangle_Int colRect = {};
+    Vector colOffset = {};
+
     Animation* GetAnimation(ActorState state)
     {
         for (int32 i = 0; i < animations.size(); i++)
@@ -101,14 +103,14 @@ public:
     Vector velocity = {};
     Vector terminalVelocity = { 10 , 300 };
     Vector acceleration;
-    Rectangle_Int colRect;
-    Vector colOffset;
+    //Rectangle_Int colRect;
+    //Vector colOffset;
     int32 jumpCount = 2;
     SDL_Color colorMod = White;
     float health = 100;
     float damage;
     double fps = 10;
-    float scaledWidth = 32;
+    //float scaledWidth = 32;
     bool lastInputWasLeft = false;
     bool inUse = true;
     bool grounded = true;
@@ -127,8 +129,8 @@ public:
     virtual ActorType GetActorType() = 0;
     float SpriteRatio()
     {
-        assert(colRect.Width());
-        return scaledWidth / colRect.Width();
+        assert(animationList->colRect.Width());
+        return animationList->scaledWidth / animationList->colRect.Width();
     }
     //float ScaledWidth()
     //{
@@ -136,11 +138,11 @@ public:
     //}
     float ScaledHeight()
     {
-        return colRect.Height() * SpriteRatio();
+        return animationList->colRect.Height() * SpriteRatio();
     }
     float GameWidth()
     {
-        return PixelToBlock((int)scaledWidth);// colRect.Width()* GoldenRatio();
+        return PixelToBlock((int)animationList->scaledWidth);// colRect.Width()* GoldenRatio();
     }
     float GameHeight()
     {
@@ -279,8 +281,6 @@ Actor* FindActor(ActorType type, std::vector<Actor*>* actors);
 void UpdateAnimationIndex(Actor* actor, float deltaTime);
 void PlayAnimation(Actor* actor, ActorState state);
 void UpdateActorHealth(Actor* actor, float deltaHealth, float deltaTime);
-void SetActorState(Actor* actor);
-void InstatiateActorAnimations(const std::string& folderName);
 Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
 void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);

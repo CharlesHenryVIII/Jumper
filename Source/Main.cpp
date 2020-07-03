@@ -160,7 +160,6 @@ int main(int argc, char* argv[])
 
 
     CreateWindow();
-
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
     double totalTime = SDL_GetPerformanceCounter() / freq; //sec
     double previousTime = totalTime;
@@ -174,30 +173,33 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates("Dino");
     LoadAllAnimationStates("HeadMinion");
     LoadAllAnimationStates("Bullet");
-    //InstatiateActorAnimations("Dino");
-    //InstatiateActorAnimations("HeadMinion");
-    //InstatiateActorAnimations("Bullet");
+    animations["Dino"].GetAnimation(ActorState::jump)->fps = 30.0f;
+    animations["Dino"].GetAnimation(ActorState::run)->fps = 15.0f;
   
+	animations["Dino"].colOffset.x = 0.2f;
+	animations["Dino"].colOffset.y = 0.3f;
+	animations["Dino"].colRect = { { 130, 472 - 421 }, { 331, 472 - 33 } };//680 x 472
+	animations["Dino"].scaledWidth = 32;
+
+	animations["HeadMinion"].colOffset.x = 0.125f;
+	animations["HeadMinion"].colOffset.y = 0.25f;
+	animations["HeadMinion"].colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
+	animations["HeadMinion"].scaledWidth = (float)animations["HeadMinion"].colRect.Width();
+
     Sprite* spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
     FontSprite* textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
     Sprite* background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
     
+    //Level instantiations
+    currentLevel = GetLevel("Default");
+    Level cacheLevel = {};
+    cacheLevel.filename = "Level.PNG";
+    currentLevel->blocks.UpdateAllBlocks();
 
     //Player Creation
     float playerAccelerationAmount = 50;
-
-    //Level instantiations
-    currentLevel = GetLevel("Default");
-
     Actor* actorPlayer = FindActor(ActorType::player, &currentLevel->actors);
-    actorPlayer->animationList->GetAnimation(ActorState::jump)->fps = 30.0f;
-	actorPlayer->animationList->GetAnimation(ActorState::jump)->fps = 15.0f;
 
-    
-    Level cacheLevel = {};
-    cacheLevel.filename = "Level.PNG";
-
-    currentLevel->blocks.UpdateAllBlocks();
 
     //Start Of Running Program
     while (running)
@@ -357,10 +359,6 @@ int main(int argc, char* argv[])
          * Updates
          *
          ********/
-        //testing to type something in/
-        //this is also a test of how fast I can edit shit
-        //test again
-
 
 
 
@@ -376,9 +374,6 @@ int main(int argc, char* argv[])
                     screenFlash = CollisionWithEnemy(*player, *currentLevel->actors[i], float(totalTime));
             }
         }
-
-        //for (int i = 0; i < currentLevel->actors.size(); i++)
-        //    currentLevel->actors[i]->UpdateHealth(totalTime);
 
 
 
@@ -442,7 +437,7 @@ int main(int argc, char* argv[])
         //Present Screen
         SDL_RenderPresent(windowInfo.renderer);
         std::erase_if(currentLevel->actors, [](Actor* p) {
-            if (!p->inUse/* && (p->GetActorType() != ActorType::player)*/)
+            if (!p->inUse)
             {
                 delete p;
                 return true;

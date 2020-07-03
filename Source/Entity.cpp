@@ -24,10 +24,6 @@ std::unordered_map<std::string, AnimationList> animations;
 
 Player::Player(ActorID* playerID)
 {
-	colOffset.x = 0.2f;
-	colOffset.y = 0.3f;
-	colRect = { { 130, 472 - 421 }, { 331, 472 - 33 } };//680 x 472
-	scaledWidth = 32;
 	damage = 100;
 	inUse = true;
 	AttachAnimation(this);
@@ -39,8 +35,14 @@ void Player::Update(float deltaTime)
 {
 	UpdateLocation(this, -60.0f, deltaTime);
 	CollisionWithBlocks(this, false);
-	SetActorState(this);
 	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
+	if (grounded == true)
+	{
+		if (velocity.x != 0)
+			PlayAnimation(this, ActorState::run);
+		else
+			PlayAnimation(this, ActorState::idle);
+	}
 	UpdateAnimationIndex(this, deltaTime);
 }
 
@@ -71,10 +73,6 @@ Enemy::Enemy(EnemyType type, ActorID* enemyID)
 {
 	position = { 28, 1 };
 	velocity.x = 4;
-	colOffset.x = 0.125f;
-	colOffset.y = 0.25f;
-	colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
-	scaledWidth = (float)colRect.Width();
 	damage = 25;
 	inUse = true;
 	enemyType = type;
@@ -86,8 +84,14 @@ void Enemy::Update(float deltaTime)
 {
 	UpdateLocation(this, -60.0f, deltaTime);
 	CollisionWithBlocks(this, true);
-	SetActorState(this);
 	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
+	if (grounded == true)
+	{
+		if (velocity.x != 0)
+			PlayAnimation(this, ActorState::walk);
+		else
+			PlayAnimation(this, ActorState::idle);
+	}
 	UpdateAnimationIndex(this, deltaTime);
 	//actorState = ActorState::idle;
 }
@@ -156,8 +160,8 @@ Dummy::Dummy(ActorID* dummyID)
 	*dummyID = id;
 	inUse = true;
 	health = 0;
-	colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
-	scaledWidth = (float)colRect.Width();
+//	colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
+//	scaledWidth = (float)colRect.Width();
 
 }
 
@@ -257,6 +261,7 @@ void TileMap::UpdateAllBlocks()
 		UpdateBlock(&GetBlock(block.second.location));
 	}
 }
+
 //returns &blocks
 const std::unordered_map<uint64, Block>* TileMap::blockList()
 {
@@ -354,7 +359,6 @@ void SaveLevel(Level* level, Player &player)
 void LoadLevel(Level* level, Player& player)
 {
 	currentLevel->blocks.ClearBlocks();
-
 	stbi_set_flip_vertically_on_load(true);
 
 	int32 textureHeight, textureWidth, colorChannels;
@@ -416,15 +420,16 @@ void ClickUpdate(Block* block, bool updateTop)
 Rectangle CollisionXOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->scaledWidth)) / 2, actor->position.y + actor->colOffset.x * PixelToBlock(int32(actor->ScaledHeight())) };
-	result.topRight = { actor->position.x + (1 - actor->colOffset.x) * PixelToBlock(int32(actor->scaledWidth)), actor->position.y + (1 - actor->colOffset.x) * PixelToBlock(int32(actor->ScaledHeight())) };
+	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->animationList->scaledWidth)) / 2, actor->position.y + actor->animationList->colOffset.x * PixelToBlock(int32(actor->ScaledHeight())) };
+	result.topRight = { actor->position.x + (1 - actor->animationList->colOffset.x) * PixelToBlock(int32(actor->animationList->scaledWidth)), actor->position.y + (1 - actor->animationList->colOffset.x) * PixelToBlock(int32(actor->ScaledHeight())) };
 	return result;
 }
+
 Rectangle CollisionYOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->scaledWidth)) / 2, actor->position.y };
-	result.topRight = { actor->position.x + (1 - actor->colOffset.y) * PixelToBlock(int32(actor->scaledWidth)), actor->position.y + PixelToBlock(int32(actor->ScaledHeight())) };
+	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->animationList->scaledWidth)) / 2, actor->position.y };
+	result.topRight = { actor->position.x + (1 - actor->animationList->colOffset.y) * PixelToBlock(int32(actor->animationList->scaledWidth)), actor->position.y + PixelToBlock(int32(actor->ScaledHeight())) };
 	return result;
 }
 
@@ -436,15 +441,12 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 
 	Rectangle xRect = CollisionXOffsetToRectangle(actor);
 	Rectangle yRect = CollisionYOffsetToRectangle(actor);
-
 	float xPercentOffset = 0.2f;
 	float yPercentOffset = 0.2f;
-
 	xRect.bottomLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * xPercentOffset };
-	xRect.topRight		= { actor->position.x + PixelToBlock((int)actor->scaledWidth), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - xPercentOffset) };
-
-	yRect.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->scaledWidth) * yPercentOffset),		actor->position.y };
-	yRect.topRight		= { actor->position.x + (PixelToBlock((int)actor->scaledWidth) * (1 - yPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
+	xRect.topRight		= { actor->position.x + PixelToBlock((int)actor->animationList->scaledWidth), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - xPercentOffset) };
+	yRect.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * yPercentOffset),		actor->position.y };
+	yRect.topRight		= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * (1 - yPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
 
 	//if (debugList[DebugOptions::playerCollision])
 	//{
@@ -502,6 +504,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			else
 				actor->velocity.x = 0;
 		}
+
 		if (collisionFlags & CollisionLeft)
 		{
 			actor->position.x = (block.second.location.x + 1);// - actor->colOffset.x * PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
@@ -510,12 +513,14 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			else
 				actor->velocity.x = 0;
 		}
+
 		if (collisionFlags & CollisionTop)
 		{
 			actor->position.y = block.second.location.y - actor->GameHeight();//PixelToBlock(int32(actor->colRect.Height() * actor->GoldenRatio()));
 			if (actor->velocity.y > 0)
 				actor->velocity.y = 0;
 		}
+
 		if (collisionFlags & CollisionBot)
 		{
 			actor->position.y = block.second.location.y + 1;
@@ -525,11 +530,10 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			grounded = true;
 		}
 	}
+
 	if (actor->grounded != grounded) 
 	{
-		if (grounded == true)
-			PlayAnimation(actor, ActorState::walk);
-		else
+		if (!grounded)
 			PlayAnimation(actor, ActorState::jump);
 	}
 	actor->grounded = grounded;
@@ -541,23 +545,18 @@ bool CollisionWithEnemy(Player& player, Actor& enemy, float deltaTime)
 
 	Rectangle xRect = CollisionXOffsetToRectangle(&enemy);
 	Rectangle yRect = CollisionYOffsetToRectangle(&enemy);
-
 	float xPercentOffset = 0.2f;
 	float yPercentOffset = 0.3f;
 
-	xRect.bottomLeft	= { enemy.position.x - PixelToBlock((int)enemy.scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * xPercentOffset };
-	xRect.topRight		= { enemy.position.x + PixelToBlock((int)enemy.scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * (1 - xPercentOffset) };
-
-	yRect.bottomLeft	= { enemy.position.x - PixelToBlock((int)enemy.scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * yPercentOffset };
-	yRect.topRight		= { enemy.position.x + PixelToBlock((int)enemy.scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * (1 - yPercentOffset) };
+	xRect.bottomLeft	= { enemy.position.x - PixelToBlock((int)enemy.animationList->scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * xPercentOffset };
+	xRect.topRight		= { enemy.position.x + PixelToBlock((int)enemy.animationList->scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * (1 - xPercentOffset) };
+	yRect.bottomLeft	= { enemy.position.x - PixelToBlock((int)enemy.animationList->scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * yPercentOffset };
+	yRect.topRight		= { enemy.position.x + PixelToBlock((int)enemy.animationList->scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * (1 - yPercentOffset) };
 
 	uint32 xCollisionFlags = CollisionWithRect(&player, xRect);
 	uint32 yCollisionFlags = CollisionWithRect(&player, yRect);
 	float knockBackAmount = 15;
-
 	result = bool(xCollisionFlags | yCollisionFlags);
-
-
 	if (yCollisionFlags & CollisionBot)
 	{//hit enemy, apply damage to enemy
 		enemy.UpdateHealth(-player.damage, deltaTime);
@@ -565,6 +564,7 @@ bool CollisionWithEnemy(Player& player, Actor& enemy, float deltaTime)
 	}
 	else
 	{
+
 		if (xCollisionFlags & CollisionRight)
 		{//hit by enemy, knockback, take damage, screen flash
 			player.velocity.x = -50 * knockBackAmount;
@@ -585,56 +585,6 @@ bool CollisionWithEnemy(Player& player, Actor& enemy, float deltaTime)
 	return result;
 }
 
-void SetActorState(Actor* actor)
-{
-	ActorType actorType = actor->GetActorType();
-	ActorState stateToUse = ActorState::none;
-	if (actor->velocity.x == 0 && actor->velocity.y == 0)
-	{//Idle
-		stateToUse = ActorState::idle;
-	}
-	else if (actor->velocity.y != 0)
-	{//Jumping
-		stateToUse = ActorState::jump;
-	}
-	else if (actor->velocity.x != 0)
-	{//running/walking
-		stateToUse = ActorState::run;
-	}
-	if (actorType == ActorType::dummy)
-		stateToUse = ActorState::dead;
-
-	if (actor->animationList->GetAnimation(stateToUse) == nullptr)
-	{
-		ActorState holdingState = ActorState::none;
-		for (int32 i = 1; i < (int32)ActorState::count; i++)
-		{
-			if (actor->animationList->GetAnimation((ActorState)i) != nullptr)
-			{
-				holdingState = (ActorState)i;
-				break;
-			}
-		}
-		if (holdingState == ActorState::none)
-		{
-			//no valid animation to use
-			DebugPrint("No valid animation for %s \n", std::to_string((int)actor->GetActorType()).c_str());
-			return;
-		}
-		stateToUse = holdingState;
-	}
-	PlayAnimation(actor, stateToUse);
-}
-
-//void InstatiateActorAnimations(const std::string& folderName)
-//{
-//	InstantiateEachFrame("Dead", folderName);
-//	InstantiateEachFrame("Idle", folderName);
-//	InstantiateEachFrame("Jump", folderName);
-//	InstantiateEachFrame("Run", folderName);
-//	InstantiateEachFrame("Walk", folderName);
-//}
-
 ActorID CreateActor(ActorType actorType, ActorType mimicType, std::vector<Actor*>* actors)
 {
 	//TODO:: Add dummy like the rest of the actors
@@ -654,6 +604,7 @@ ActorID CreateActor(ActorType actorType, ActorType mimicType, std::vector<Actor*
 		
 		ActorID enemyID = {};
 		Enemy* enemy = new Enemy(EnemyType::head, &enemyID);
+		PlayAnimation(enemy, ActorState::walk);
 		if (actors != nullptr)
 			actors->push_back(enemy);
 		return enemy->id;
@@ -686,8 +637,8 @@ Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 	AttachAnimation(&bullet);
 	PlayAnimation(&bullet, ActorState::idle);
 	Sprite* sprite = GetSpriteFromAnimation(&bullet);
-	bullet.colRect = { {0,0}, {sprite->width,sprite->height} };
-	bullet.scaledWidth = (float)sprite->width;
+	bullet.animationList->colRect = { {0,0}, {sprite->width,sprite->height} };
+	bullet.animationList->scaledWidth = (float)sprite->width;
 	bullet.terminalVelocity = { 1000, 1000 };
 	Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
 
@@ -696,14 +647,10 @@ Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 	bullet.rotation = Atan2fToDegreeDiff(atan2f(bullet.destination.y - adjustedPlayerPosition.y, bullet.destination.x - adjustedPlayerPosition.x));
 
 	float speed = 50.0f;
-
 	Vector ToDest = bullet.destination - adjustedPlayerPosition;
-
 	ToDest = Normalize(ToDest);
 	bullet.velocity = ToDest * speed;
-
 	bullet.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
-
 	return bullet_a;
 }
 
@@ -715,8 +662,8 @@ void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 	AttachAnimation(&laser);
 	PlayAnimation(&laser, ActorState::idle);
 	Sprite* sprite = GetSpriteFromAnimation(&laser);
-	laser.colRect = { {0,0}, {sprite->width, sprite->height} };
-	laser.scaledWidth = (float)sprite->width;
+	laser.animationList->colRect = { {0,0}, {sprite->width, sprite->height} };
+	laser.animationList->scaledWidth = (float)sprite->width;
 	Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block
@@ -724,7 +671,6 @@ void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 	laser.rotation = Atan2fToDegreeDiff(atan2f(laser.destination.y - adjustedPlayerPosition.y, laser.destination.x - adjustedPlayerPosition.x));
 
 	Vector ToDest = Normalize(laser.destination - adjustedPlayerPosition);
-
 	laser.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
 	PlayAnimation(&laser, ActorState::idle);
 }
@@ -830,13 +776,12 @@ void UpdateActorHealth(Actor* actor, float deltaHealth, float deltaTime)
 			ActorID ID = CreateActor(ActorType::dummy, actor->GetActorType());
 			Actor* dummy = FindActor(ID);
 			
-			dummy->position			= actor->position;
-			dummy->colOffset		= actor->colOffset;
-			dummy->colRect			= actor->colRect;
-			dummy->scaledWidth		= actor->scaledWidth;
-			dummy->lastInputWasLeft = actor->lastInputWasLeft;
+			dummy->position						= actor->position;
+			dummy->animationList->colOffset		= actor->animationList->colOffset;
+			dummy->animationList->colRect		= actor->animationList->colRect;
+			dummy->animationList->scaledWidth	= actor->animationList->scaledWidth;
+			dummy->lastInputWasLeft				= actor->lastInputWasLeft;
 			PlayAnimation(dummy, ActorState::dead);
-//			SetActorState(dummy);
 			actor->inUse = false;
 		}
 	}
@@ -848,10 +793,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 	actor->velocity.y = Clamp(actor->velocity.y, -actor->terminalVelocity.y, actor->terminalVelocity.y);
 
 	actor->velocity.x += actor->acceleration.x * deltaTime;
-
-
 	actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
-
 	actor->position += actor->velocity * deltaTime;
 
 	if (actor->velocity.x == 0 && actor->velocity.y == 0)
@@ -892,7 +834,7 @@ void RenderActorHealthBars(Actor& actor)
 	Rectangle actual = {};
 	full.bottomLeft.x = actor.position.x;
 	full.bottomLeft.y = actor.position.y + PixelToBlock(int(actor.ScaledHeight() + healthHeight));
-	full.topRight.x = full.bottomLeft.x + PixelToBlock(int(actor.scaledWidth));
+	full.topRight.x = full.bottomLeft.x + PixelToBlock(int(actor.animationList->scaledWidth));
 	full.topRight.y = full.bottomLeft.y + healthHeight;
 
 	actual.bottomLeft.x = full.topRight.x - (actor.health / 100) * full.Width();
@@ -902,26 +844,6 @@ void RenderActorHealthBars(Actor& actor)
 	GameSpaceRectRender(full, HealthBarBackground);
 	GameSpaceRectRender(actual, Green);
 }
-
-
-//void InstantiateEachFrame(const std::string& fileName, const std::string& folderName)//animationName and Actor
-//{
-//	if (animations.find(folderName + fileName) != animations.end())
-//		return;
-//
-//	Animation* animeP = animations[folderName].GetAnimation();
-//	animeP->anime.reserve(20);
-//
-//	for (int32 i = 1; true; i++)
-//	{
-//		std::string combinedName = "Assets/" + folderName + "/" + fileName + " (" + std::to_string(i) + ").png";
-//		Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
-//		if (sprite == nullptr)
-//			break;
-//		else
-//			animeP->anime.push_back(sprite);
-//	}
-//}
 
 void LoadAllAnimationStates(const std::string& entity)
 {

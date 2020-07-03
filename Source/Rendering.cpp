@@ -306,7 +306,6 @@ void RenderActor(Actor* actor, float rotation)
     SDL_Rect destRect = {};
     SDL_RendererFlip flippage = SDL_FLIP_NONE;
     int32 xPos;
-    //Sprite* sprite = {};
 
     ActorType actorType = actor->GetActorType();
 
@@ -319,14 +318,14 @@ void RenderActor(Actor* actor, float rotation)
     if (actor->lastInputWasLeft && actor->GetActorType() != ActorType::projectile)
     {
         flippage = SDL_FLIP_HORIZONTAL;
-        xPos = sprite->width - actor->colRect.topRight.x;
+        xPos = sprite->width - actor->animationList->colRect.topRight.x;
     }
     else
     {
-        xPos = actor->colRect.bottomLeft.x;
+        xPos = actor->animationList->colRect.bottomLeft.x;
     }
     destRect = CameraOffset({ actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio()))), 
-                              actor->position.y - PixelToBlock((int(actor->colRect.bottomLeft.y * actor->SpriteRatio()))) },
+                              actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio()))) },
         PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
                        (int)(actor->SpriteRatio() * sprite->height) }));
     SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, NULL, &destRect, rotation, NULL, flippage);

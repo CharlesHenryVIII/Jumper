@@ -307,7 +307,7 @@ void RenderActor(Actor* actor, float rotation)
     SDL_RendererFlip flippage = SDL_FLIP_NONE;
     int32 xPos;
 
-    ActorType actorType = actor->GetActorType();
+    ActorType actorType = actor->actorType;
 
     //std::vector<Sprite*>* list = {}; actorType == ActorType::projectile
     Sprite* sprite = GetSpriteFromAnimation(actor);
@@ -315,7 +315,7 @@ void RenderActor(Actor* actor, float rotation)
     SDL_SetTextureColorMod(sprite->texture, actor->colorMod.r, actor->colorMod.g, actor->colorMod.b);
 
 
-    if (actor->lastInputWasLeft && actor->GetActorType() != ActorType::projectile)
+    if (actor->lastInputWasLeft && actor->actorType != ActorType::projectile)
     {
         flippage = SDL_FLIP_HORIZONTAL;
         xPos = sprite->width - actor->animationList->colRect.topRight.x;

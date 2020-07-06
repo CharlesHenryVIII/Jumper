@@ -6,7 +6,7 @@
 #include <cassert>
 
 struct Sprite;
-
+struct Level;
 
 enum class EnemyType
 {
@@ -23,6 +23,8 @@ enum class ActorType
     enemy,
     projectile,
     dummy,
+    portal,
+    count
 };
 
 enum class ActorState
@@ -60,8 +62,16 @@ struct AnimationList
 		}
         return nullptr;
     }
+    Animation* GetAnyValidAnimation()
+    {
+        for (int32 i = 0; i < animations.size(); i++)
+        {
+            if (animations[i]->anime.size() > 0)
+                return animations[i];
+		}
+        return nullptr;
+    }
 };
-//actor->animationList.GetAnimation();
 
 inline int BlockToPixel(float loc)
 {
@@ -98,24 +108,19 @@ public:
     }
 
     const ActorID id;
-    //Sprite* sprite;
     Vector position;
     Vector velocity = {};
     Vector terminalVelocity = { 10 , 300 };
     Vector acceleration;
-    //Rectangle_Int colRect;
-    //Vector colOffset;
     int32 jumpCount = 2;
     SDL_Color colorMod = White;
     float health = 100;
     float damage;
-    double fps = 10;
-    //float scaledWidth = 32;
     bool lastInputWasLeft = false;
     bool inUse = true;
     bool grounded = true;
     float invinciblityTime = false;
-
+    ActorType actorType = ActorType::none;
     ActorState actorState = ActorState::none;
     
     Sprite* currentSprite = nullptr;
@@ -125,8 +130,7 @@ public:
 
     virtual void Update(float deltaTime) = 0;
     virtual void Render() = 0;
-    virtual void UpdateHealth(float deltaHealth, float deltaTime) = 0;
-    virtual ActorType GetActorType() = 0;
+    virtual void UpdateHealth(Level& level, float deltaHealth) = 0;
     float SpriteRatio()
     {
         assert(animationList->colRect.Width());
@@ -156,8 +160,7 @@ struct Enemy : public Actor
     EnemyType enemyType;
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(float deltaHealth, float deltaTime) override;
-    ActorType GetActorType() override;
+    void UpdateHealth(Level& level, float deltaHealth) override;
 };
 
 struct Player : public Actor
@@ -165,8 +168,7 @@ struct Player : public Actor
     Player(ActorID* playerID = nullptr);
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(float deltaHealth, float deltaTime) override;
-    ActorType GetActorType() override;
+    void UpdateHealth(Level& level, float deltaHealth) override;
 };
 
 enum class TileType {
@@ -183,11 +185,10 @@ struct Projectile : public Actor
 
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(float deltaHealth, float deltaTime) override
+    void UpdateHealth(Level& level, float deltaHealth) override
     {
 
     }
-    ActorType GetActorType() override;
 };
 
 struct Dummy : public Actor
@@ -195,12 +196,27 @@ struct Dummy : public Actor
     Dummy(ActorID* dummyID = nullptr);
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(float deltaHealth, float deltaTime) override
+    void UpdateHealth(Level& level, float deltaHealth) override
     {
 
     };
-    ActorType GetActorType() override;
 };
+
+struct Portal : public Actor
+{
+    Portal(int32 PID, const std::string& LP, int32 LPID);
+    std::string levelPointer;
+    int32 portalPointerID = 0;
+    int32 portalID = 0;
+
+    void Update(float deltaTime) override;
+    void Render() override;
+    void UpdateHealth(Level& level, float deltaHealth) override
+    {
+
+    };
+};
+
 
 struct Block {
     Vector location = {};
@@ -273,14 +289,16 @@ Rectangle CollisionXOffsetToRectangle(Actor* actor);
 Rectangle CollisionYOffsetToRectangle(Actor* actor);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
-bool CollisionWithEnemy(Player& player, Actor& enemy, float deltaTime);
-ActorID CreateActor(ActorType actorType, ActorType dummyType, std::vector<Actor*>* actors = &currentLevel->actors);
-Actor* FindActor(ActorID actorID, std::vector<Actor*>* actors = &currentLevel->actors);
+bool CollisionWithActor(Player& player, Actor& enemy, Level& level, float deltaTime);
+ActorID CreateActor(ActorType actorType, ActorType dummyType, Level& level);
+Actor* FindActor(ActorID actorID, Level& level);
 //returns first find of that type
-Actor* FindActor(ActorType type, std::vector<Actor*>* actors);
+Player* FindPlayer(Level& level);
 void UpdateAnimationIndex(Actor* actor, float deltaTime);
 void PlayAnimation(Actor* actor, ActorState state);
-void UpdateActorHealth(Actor* actor, float deltaHealth, float deltaTime);
+void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth);
+Portal* CreatePortal(int32 PortalID, const std::string& levelPointer, int32 levelPortalID, Level& level);
+Portal* GetPortalsPointer(Portal* basePortal);
 Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
 void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);

@@ -60,8 +60,11 @@ TODO(choman):
     -multithread loading
     -scaled total time based on incrimenting the delta time
     -game states
-    -portals = green;
     -Player spawning
+    -store player ID on levels
+    -use more IDs 
+    -virtual function for actor types
+    -edit rendering/list selection of physics and collision to only be a slmall amount of tiles
     -fix bullets ending at the end of where you clicked instead of ending immediatly passing where you clicked.  
         reference is the tail of the sprite not the head
 
@@ -98,6 +101,35 @@ Core Gameplay
     -get to the /end/ of the level
     -use the tools you have to get there with the least amount of blocks added/changed
     -tools include block place and block modifier?
+
+
+
+    Casey questions:
+
+    original:
+    int val;
+    if (somthing is true)
+    {
+        val = 5;
+    }
+
+    solution:
+    int val;
+    if (somthing is true)
+    {
+        val = 5;
+    }
+    else
+    {
+        val = 0;
+    }
+
+    my solution:
+    int val = 0;
+    if (somthing is true)
+    {
+        val = 5;
+    }
 */
 
 
@@ -126,24 +158,6 @@ struct MouseButtonState {
 };
 
 
-//topLeft is origin
-//ActorID CreatePlayer(/*Sprite* playerSprite, */Rectangle_Int rect, float scaledWidth, double totalTime)
-//{
-//    Player* player = new Player();
-//    //player->sprite = playerSprite;
-//    player->colOffset.x = 0.2f;
-//    player->colOffset.y = 0.3f;
-//    player->colRect = rect;
-//    player->scaledWidth = scaledWidth;
-//    player->damage = 100;
-//    player->inUse = true;
-//    player->lastAnimationTime = totalTime;
-//    AttachAnimation(player);
-//    actorList.push_back(player);
-//    return player->id;
-//}
-
-
 int main(int argc, char* argv[])
 {
 
@@ -154,16 +168,16 @@ int main(int argc, char* argv[])
     MouseButtonState mouseButtonState = {};
     SDL_MouseMotionEvent mouseMotionEvent = {};
     bool running = true;
+    Portal* levelChangePortal = nullptr;
     SDL_Event SDLEvent;
     VectorInt previousMouseLocation = {};
     TileType paintType = TileType::invalid;
-
 
     CreateWindow();
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
     double totalTime = SDL_GetPerformanceCounter() / freq; //sec
     double previousTime = totalTime;
-    
+
     /*
     SDL_Surface iconSurface = {};
     iconSurface.
@@ -173,24 +187,40 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates("Dino");
     LoadAllAnimationStates("HeadMinion");
     LoadAllAnimationStates("Bullet");
-    animations["Dino"].GetAnimation(ActorState::jump)->fps = 30.0f;
-    animations["Dino"].GetAnimation(ActorState::run)->fps = 15.0f;
-  
-	animations["Dino"].colOffset.x = 0.2f;
-	animations["Dino"].colOffset.y = 0.3f;
-	animations["Dino"].colRect = { { 130, 472 - 421 }, { 331, 472 - 33 } };//680 x 472
-	animations["Dino"].scaledWidth = 32;
+    LoadAllAnimationStates("Portal");
+    {
+		AnimationList& dino = animations["Dino"];
+		dino.GetAnimation(ActorState::jump)->fps = 30.0f;
+		dino.GetAnimation(ActorState::run)->fps = 15.0f;
+		int spriteHeight = dino.GetAnyValidAnimation()->anime[0]->height;
+		dino.colOffset.x = 0.2f;
+		dino.colOffset.y = 0.3f;
+		dino.colRect = { { 130, spriteHeight - 421 }, { 331, spriteHeight - 33 } };//680 x 472
+		dino.scaledWidth = 32;
 
-	animations["HeadMinion"].colOffset.x = 0.125f;
-	animations["HeadMinion"].colOffset.y = 0.25f;
-	animations["HeadMinion"].colRect = { { 4, 32 - 32 }, { 27, 32 - 9 } };
-	animations["HeadMinion"].scaledWidth = (float)animations["HeadMinion"].colRect.Width();
+		AnimationList& headMinion = animations["HeadMinion"];
+		spriteHeight = headMinion.GetAnyValidAnimation()->anime[0]->height;
+		headMinion.colOffset.x = 0.125f;
+		headMinion.colOffset.y = 0.25f;
+		headMinion.colRect = { { 4, spriteHeight - 32 }, { 27, spriteHeight - 9 } };
+		headMinion.scaledWidth = (float)headMinion.colRect.Width();
+
+		AnimationList& portal = animations["Portal"];
+		spriteHeight = portal.GetAnyValidAnimation()->anime[0]->height;
+		portal.GetAnimation(ActorState::idle)->fps = 30.0f;
+		portal.colOffset.x = 0.125f;
+		portal.colOffset.y = 0.25f;
+		portal.colRect = { { 85, spriteHeight - 299 }, { 229, spriteHeight - 19 } };
+		portal.scaledWidth = 32;
+    }
 
     Sprite* spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
     FontSprite* textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
     Sprite* background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
     
     //Level instantiations
+    LoadLevel("Level 1");
+    LoadLevel("Default");
     currentLevel = GetLevel("Default");
     Level cacheLevel = {};
     cacheLevel.filename = "Level.PNG";
@@ -198,7 +228,7 @@ int main(int argc, char* argv[])
 
     //Player Creation
     float playerAccelerationAmount = 50;
-    Actor* actorPlayer = FindActor(ActorType::player, &currentLevel->actors);
+    Actor* actorPlayer = FindPlayer(*currentLevel);
 
 
     //Start Of Running Program
@@ -220,7 +250,7 @@ int main(int argc, char* argv[])
         WindowInfo& windowInfo = GetWindowInfo();
 
         //TODO: fix creating a new player makes a new player ID number;
-        if (FindActor(ActorType::player, &currentLevel->actors) == nullptr)
+        if (FindPlayer(*currentLevel) == nullptr)
         {
             DebugPrint("player not found");
             //running = false;
@@ -228,7 +258,9 @@ int main(int argc, char* argv[])
             //LoadLevel(currentLevel, *(Player*)FindActor(playerID));
         }
             
-        Player* player = (Player*)FindActor(ActorType::player, &currentLevel->actors);
+        Player* player = FindPlayer(*currentLevel);
+
+
 
 
         //Event Queing and handling:
@@ -314,6 +346,31 @@ int main(int argc, char* argv[])
         if (keyBoardEvents[SDLK_9] == totalTime)
             LoadLevel(&cacheLevel, *player);
 
+		if (levelChangePortal != nullptr && keyBoardEvents[SDLK_w] == totalTime)
+		{
+			//remove player from new level, load player from old level, delete player from old level.
+			Level* oldLevel = currentLevel;
+			currentLevel = GetLevel(levelChangePortal->levelPointer);
+
+			std::erase_if(currentLevel->actors, [](Actor* actor)
+			{
+				if (actor->actorType == ActorType::player)
+				{
+					delete actor;
+					return true;
+				}
+				else
+					return false;
+			});
+
+			currentLevel->actors.push_back(player);
+			std::erase_if(oldLevel->actors, [](Actor* actor)
+			{
+				return actor->actorType == ActorType::player;
+			});
+			player->position = GetPortalsPointer(levelChangePortal)->position;
+		}
+		levelChangePortal = nullptr;
 
         //Mouse Control:
         Rectangle clickRect = {};
@@ -370,8 +427,15 @@ int main(int argc, char* argv[])
         {
             for (int i = 0; i < currentLevel->actors.size(); i++)
             {
-                if (currentLevel->actors[i]->GetActorType() == ActorType::enemy)
-                    screenFlash = CollisionWithEnemy(*player, *currentLevel->actors[i], float(totalTime));
+                if (currentLevel->actors[i]->actorType == ActorType::enemy)
+                {
+                    screenFlash = CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel, float(totalTime));
+                }
+                else if (currentLevel->actors[i]->actorType == ActorType::portal)
+                {
+                    if (CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel, float(totalTime)))
+                        levelChangePortal = (Portal*)currentLevel->actors[i];
+                }
             }
         }
 
@@ -391,21 +455,27 @@ int main(int argc, char* argv[])
         if (player != nullptr)
             camera.position = player->position;
 
-        for (auto& block : *currentLevel->blocks.blockList())
+        Vector offset = { 25, 15 };
+        for (float y = camera.position.y - offset.y; y < (camera.position.y + offset.y); y++)
         {
-            if (block.second.tileType != TileType::invalid)
+            for (float x = camera.position.x - offset.x; x < (camera.position.x + offset.x); x++)
             {
-                SpriteMapRender(spriteMap, block.second);
+                Block* block = currentLevel->blocks.TryGetBlock({ x, y });
+				if (block != nullptr && block->tileType != TileType::invalid)
+				{
+					SpriteMapRender(spriteMap, *block);
 
-                if (debugList[DebugOptions::blockCollision] && block.second.tileType != TileType::invalid)
-                {
-                    Rectangle blockRect;
-                    blockRect.bottomLeft = block.second.location;
-                    blockRect.topRight = { block.second.location.x + 1 , block.second.location.y + 1 };
+					if (debugList[DebugOptions::blockCollision] && block->tileType != TileType::invalid)
+					{
+						Rectangle blockRect;
+						blockRect.bottomLeft = block->location;
+						blockRect.topRight = { block->location.x + 1 , block->location.y + 1 };
 
-                    DebugRectRender(blockRect, lightRed);
-                }
-            }
+						DebugRectRender(blockRect, lightRed);
+					}
+				}
+
+			}
         }
         if (debugList[DebugOptions::clickLocation])
         {

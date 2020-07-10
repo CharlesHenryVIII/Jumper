@@ -3,6 +3,7 @@
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
 #include <cassert>
+#include <algorithm>
 
 WindowInfo windowInfo = { 200, 200, 1280, 720 };
 Camera camera;
@@ -20,14 +21,53 @@ void CreateWindow()
     windowInfo.renderer = SDL_CreateRenderer(windowInfo.SDLWindow, -1, SDL_RENDERER_ACCELERATED/*| SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE*/);
 }
 
+static std::vector<RenderInformation> drawCalls;
 
+void AddRectToRender(RectRenderType type, Rectangle rect, SDL_Color color, RenderPrio prio)
+{
+    RenderInformation renderInformation;
+    renderInformation.renderType = type;
+    renderInformation.rect = CameraOffset(rect.bottomLeft, { rect.Width(), rect.Height() });
+    renderInformation.color = color;
+    renderInformation.prio = prio;
+    drawCalls.push_back(renderInformation);
+}
 
+void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio)
+{
+    AddRectToRender(RectRenderType::Outline, rect, color, prio);
+    AddRectToRender(RectRenderType::Fill, rect, color, prio);
+}
 
+void RenderDrawCalls()
+{
+    std::stable_sort(drawCalls.begin(), drawCalls.end(), [](const RenderInformation &a, const RenderInformation &b) {
+        return a.prio < b.prio;
+    });
+    for (auto& item : drawCalls)
+    {
+
+        SDL_SetRenderDrawColor(windowInfo.renderer, item.color.r, item.color.g, item.color.b, item.color.a);
+        switch (item.renderType)
+        {
+            case RectRenderType::Outline:
+            {
+                SDL_RenderDrawRect(windowInfo.renderer, &item.rect);
+                break;
+            }
+            case RectRenderType::Fill:
+            {
+                SDL_RenderFillRect(windowInfo.renderer, &item.rect);
+                break;
+            }
+        }
+    }
+    drawCalls.clear();
+}
 
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
 {
-
-    int32 textureHeight, textureWidth, colorChannels;
+ int32 textureHeight, textureWidth, colorChannels;
 
     unsigned char* image = stbi_load(name, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
 
@@ -161,15 +201,6 @@ void SpriteMapRender(Sprite* sprite, const Block& block)
     SpriteMapRender(sprite, block.flags, blockSize, blockSize, block.location);
 }
 
-
-void DebugRectRender(Rectangle rect, SDL_Color color)
-{
-    SDL_SetRenderDrawColor(windowInfo.renderer, color.r, color.g, color.b, color.a);
-    SDL_Rect rect2 = CameraOffset(rect.bottomLeft, { rect.Width(), rect.Height() });
-
-    SDL_RenderDrawRect(windowInfo.renderer, &rect2);
-    SDL_RenderFillRect(windowInfo.renderer, &rect2);
-}
 
 
 void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, float size, VectorInt loc, UIX XLayout, UIY YLayout)
@@ -307,7 +338,7 @@ void RenderActor(Actor* actor, float rotation)
     SDL_RendererFlip flippage = SDL_FLIP_NONE;
     int32 xPos;
 
-    ActorType actorType = actor->actorType;
+    ActorType actorType = actor->GetActorType();
 
     //std::vector<Sprite*>* list = {}; actorType == ActorType::projectile
     Sprite* sprite = GetSpriteFromAnimation(actor);
@@ -315,7 +346,7 @@ void RenderActor(Actor* actor, float rotation)
     SDL_SetTextureColorMod(sprite->texture, actor->colorMod.r, actor->colorMod.g, actor->colorMod.b);
 
 
-    if (actor->lastInputWasLeft && actor->actorType != ActorType::projectile)
+    if (actor->lastInputWasLeft && actor->GetActorType() != ActorType::projectile)
     {
         flippage = SDL_FLIP_HORIZONTAL;
         xPos = sprite->width - actor->animationList->colRect.topRight.x;
@@ -324,7 +355,7 @@ void RenderActor(Actor* actor, float rotation)
     {
         xPos = actor->animationList->colRect.bottomLeft.x;
     }
-    destRect = CameraOffset({ actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio()))), 
+    destRect = CameraOffset({ actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio()))),
                               actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio()))) },
         PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
                        (int)(actor->SpriteRatio() * sprite->height) }));

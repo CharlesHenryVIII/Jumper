@@ -235,7 +235,7 @@ Level* LoadLevel(const std::string& name)
 			const picojson::value& props = actorProperties.get("properties");
 			Portal* portal = CreatePortal((int32)GetActorProperty<double>(props, "PortalID"), 
 												 GetActorProperty<std::string>(props, "PortalPointerLevel"), 
-										  (int32)GetActorProperty<double>(props, "PortalID"),
+										  (int32)GetActorProperty<double>(props, "PortalPointerID"),
 												*level);
 			portal->position = loc;
 

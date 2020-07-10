@@ -28,7 +28,6 @@ Player::Player(ActorID* playerID)
 {
 	damage = 100;
 	inUse = true;
-	actorType = ActorType::player;
 	AttachAnimation(this);
 	*playerID = id;
 }
@@ -60,10 +59,6 @@ void Player::UpdateHealth(Level& level, float deltaHealth)
 	UpdateActorHealth(level, this, deltaHealth);
 }
 
-//ActorType Player::GetActorType()
-//{
-//	return ActorType::player;
-//}
 
 /*********************
  *
@@ -79,7 +74,6 @@ Enemy::Enemy(EnemyType type, ActorID* enemyID)
 	damage = 25;
 	inUse = true;
 	enemyType = type;
-	actorType = ActorType::enemy;
 	AttachAnimation(this);
 	*enemyID = id;
 }
@@ -92,7 +86,7 @@ void Enemy::Update(float deltaTime)
 	if (grounded == true)
 	{
 		if (velocity.x != 0)
-			PlayAnimation(this, ActorState::walk);
+			PlayAnimation(this, ActorState::run);
 		else
 			PlayAnimation(this, ActorState::idle);
 	}
@@ -164,7 +158,6 @@ Dummy::Dummy(ActorID* dummyID)
 	*dummyID = id;
 	inUse = true;
 	health = 0;
-	actorType = ActorType::dummy;
 }
 
 void Dummy::Update(float deltaTime)
@@ -189,7 +182,6 @@ void Dummy::Render()
 Portal::Portal(int32 PID, const std::string& LP, int32 LPID)
 {
 	inUse = true;
-	actorType = ActorType::portal;
     levelPointer = LP;
     portalPointerID = LPID;
     portalID = PID;
@@ -470,12 +462,12 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	yRect.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * yPercentOffset),		actor->position.y };
 	yRect.topRight		= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * (1 - yPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
 
-	//if (debugList[DebugOptions::playerCollision])
-	//{
-	//	SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-	//	DebugRectRender(xRect, transOrange);
-	//	DebugRectRender(yRect, transGreen);
-	//}
+	if (true)//(debugList[DebugOptions::playerCollision])
+	{
+		SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
+        AddRectToRender(xRect, transOrange, RenderPrio::Debug);
+		AddRectToRender(yRect, transGreen, RenderPrio::Debug);
+	}
 
 
 	if ((rect.topRight.y) > xRect.bottomLeft.y && rect.bottomLeft.y < xRect.topRight.y)
@@ -522,8 +514,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 				continue;
 
 			SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-			//DebugRectRender({ block->location, { block->location + Vector({ 1, 1 }) } }, transRed);
-			ActorType actorType = actor->actorType;
+			ActorType actorType = actor->GetActorType();
 			if (collisionFlags & CollisionRight)
 			{
 				actor->position.x = block->location.x - actor->GameWidth();// PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
@@ -560,7 +551,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 		}
 	}
 
-	if (actor->grounded != grounded) 
+	if (actor->grounded != grounded)
 	{
 		if (!grounded)
 			PlayAnimation(actor, ActorState::jump);
@@ -586,7 +577,7 @@ bool CollisionWithActor(Player& player, Actor& enemy, Level& level, float deltaT
 	uint32 yCollisionFlags = CollisionWithRect(&player, yRect);
 	float knockBackAmount = 15;
 	result = bool(xCollisionFlags | yCollisionFlags);
-	if (enemy.actorType == ActorType::enemy)
+	if (enemy.GetActorType() == ActorType::enemy)
 	{
 		if (yCollisionFlags & CollisionBot)
 		{//hit enemy, apply damage to enemy
@@ -617,6 +608,35 @@ bool CollisionWithActor(Player& player, Actor& enemy, Level& level, float deltaT
 	return result;
 }
 
+//ActorID CreatePlayer(Level& level)
+//{
+//	ActorID playerID = {};
+//	Player* player = new Player(&playerID);
+//	level.actors.push_back(player);
+//	return playerID;
+//}
+
+//ActorID CreateEnemy(Level& level)
+//{
+	//ActorID enemyID = {};
+	//Enemy* enemy = new Enemy(EnemyType::head, &enemyID);
+	//PlayAnimation(enemy, ActorState::walk);
+	//level.actors.push_back(enemy);
+	//return enemy->id;
+//}
+
+
+//ActorID CreateEnemy(Level& level)
+//{
+//	ActorID dummyID = {};
+//	Dummy* dummy = new Dummy(&dummyID);
+//	AttachAnimation(dummy, mimicType);
+//	PlayAnimation(dummy, ActorState::dead);
+//	dummy->actorState = ActorState::dead;
+//	level.actors.push_back(dummy);
+//	return dummy->id;
+//}
+
 ActorID CreateActor(ActorType actorType, ActorType mimicType, Level& level)
 {
 	//TODO:: Add dummy like the rest of the actors
@@ -632,7 +652,7 @@ ActorID CreateActor(ActorType actorType, ActorType mimicType, Level& level)
 	}
 	case ActorType::enemy:
 	{
-		
+
 		ActorID enemyID = {};
 		Enemy* enemy = new Enemy(EnemyType::head, &enemyID);
 		PlayAnimation(enemy, ActorState::walk);
@@ -658,8 +678,7 @@ ActorID CreateActor(ActorType actorType, ActorType mimicType, Level& level)
 
 Portal* CreatePortal(int32 PortalID, const std::string& levelName, int32 levelPortalID, Level& level)
 {
-	
-	ActorID portalID = {};
+
 	Portal* portal = new Portal(PortalID, levelName, levelPortalID);
 	AttachAnimation(portal);
 	PlayAnimation(portal, ActorState::idle);
@@ -673,7 +692,7 @@ Portal* GetPortalsPointer(Portal* basePortal)
 	for (int32 i = 0; i < level->actors.size(); i++)
 	{
 		Actor* actor = level->actors[i];
-		if (actor->actorType == ActorType::portal)
+		if (actor->GetActorType() == ActorType::portal)
 		{
 			Portal* result = (Portal*)actor;
 			if (result->portalID == basePortal->portalPointerID)
@@ -694,7 +713,6 @@ Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 
 	bullet.paintType = blockToBeType;
 	bullet.inUse = true;
-	bullet.actorType = ActorType::projectile;
 	AttachAnimation(&bullet);
 	PlayAnimation(&bullet, ActorState::idle);
 	Sprite* sprite = GetSpriteFromAnimation(&bullet);
@@ -720,7 +738,6 @@ void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 {
 	laser.paintType = paintType;
 	laser.inUse = true;
-	laser.actorType = ActorType::projectile;
 	AttachAnimation(&laser);
 	PlayAnimation(&laser, ActorState::idle);
 	Sprite* sprite = GetSpriteFromAnimation(&laser);
@@ -752,7 +769,7 @@ Player* FindPlayer(Level& level)
 {
 	for (auto& actor : level.actors)
 	{
-		if (actor->actorType == ActorType::player)
+		if (actor->GetActorType() == ActorType::player)
 			return (Player*)actor;
 	}
 	return nullptr;
@@ -761,7 +778,7 @@ Player* FindPlayer(Level& level)
 void UpdateAnimationIndex(Actor* actor, float deltaTime)
 {
 	bool ignoringStates = actor->actorState == ActorState::dead || actor->actorState == ActorState::jump;
-		
+
 	if (actor->animationCountdown < 0)
 	{
 		actor->index++;
@@ -775,7 +792,7 @@ void UpdateAnimationIndex(Actor* actor, float deltaTime)
 				actor->index = 0;
 		}
 	}
-	//TODO:: Fix animationCountdown going far negative when index == anime.size()	
+	//TODO:: Fix animationCountdown going far negative when index == anime.size()
 	actor->animationCountdown -= deltaTime;
 	if (actor->animationList->GetAnimation(actor->actorState) == nullptr)
 		actor->currentSprite = nullptr;
@@ -786,7 +803,7 @@ void UpdateAnimationIndex(Actor* actor, float deltaTime)
 
 void PlayAnimation(Actor* actor, ActorState state)
 {
-	ActorType actorType = actor->actorType;
+	ActorType actorType = actor->GetActorType();
 	if (actor->animationList->GetAnimation(state) == nullptr)
 	{
 		ActorState holdingState = ActorState::none;
@@ -801,7 +818,8 @@ void PlayAnimation(Actor* actor, ActorState state)
 		if (holdingState == ActorState::none)
 		{
 			//no valid animation to use
-			DebugPrint("No valid animation for %s \n", std::to_string((int)actor->actorType).c_str());
+			assert(false);
+			DebugPrint("No valid animation for %s \n", std::to_string((int)actor->GetActorType()).c_str());
 			return;
 		}
 		state = holdingState;
@@ -817,7 +835,7 @@ void PlayAnimation(Actor* actor, ActorState state)
 
 void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 {
-	ActorType actorType = actor->actorType;
+	ActorType actorType = actor->GetActorType();
 	if (actor->inUse)
 	{
 		if (actor->invinciblityTime <= 0)
@@ -836,9 +854,9 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 		if (actor->health == 0)
 		{
 			//TODO: put a level pointer onto each actor
-			ActorID ID = CreateActor(ActorType::dummy, actor->actorType, level);
+			ActorID ID = CreateActor(ActorType::dummy, actor->GetActorType(), level);
 			Actor* dummy = FindActor(ID, level);
-			
+
 			dummy->position						= actor->position;
 			dummy->animationList->colOffset		= actor->animationList->colOffset;
 			dummy->animationList->colRect		= actor->animationList->colRect;
@@ -874,7 +892,7 @@ void UpdateEnemiesPosition(float gravity, float deltaTime)
 	for (int32 i = 0; i < currentLevel->actors.size(); i++)
 	{
 		Actor* actor = currentLevel->actors[i];
-		if (actor->actorType == ActorType::enemy)
+		if (actor->GetActorType() == ActorType::enemy)
 		{
 			UpdateLocation(actor, gravity, deltaTime);
 			CollisionWithBlocks(actor, true);
@@ -945,7 +963,7 @@ void AttachAnimation(Actor* actor, ActorType overrideType)
 	if (overrideType != ActorType::none)
 		actorReferenceType = overrideType;
 	else
-		actorReferenceType = actor->actorType;
+		actorReferenceType = actor->GetActorType();
 
 	switch (actorReferenceType)
 	{
@@ -956,7 +974,7 @@ void AttachAnimation(Actor* actor, ActorType overrideType)
 	}
 	case ActorType::enemy:
 	{
-		entityName = "HeadMinion";
+		entityName = "Striker";//"HeadMinion";
 		break;
 	}
 	case ActorType::projectile:

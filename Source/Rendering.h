@@ -51,6 +51,30 @@ struct FontSprite
     int32 charPerRow;
 };
 
+
+enum class RectRenderType
+{
+    Outline,
+    Fill
+};
+
+enum class RenderPrio
+{
+    Background,
+    Sprites,
+    foreground,
+    UI,
+    Debug,
+};
+
+struct RenderInformation
+{
+    RectRenderType renderType;
+    SDL_Rect rect;
+    SDL_Color color;
+    RenderPrio prio;
+};
+
 struct Camera {
     Vector position;
 };
@@ -61,6 +85,9 @@ struct Actor;
 struct Block;
 
 
+void AddRectToRender(RectRenderType type, Rectangle rect, SDL_Color color, RenderPrio prio);
+void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio);
+void RenderDrawCalls();
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode);
 FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 xCharSize, int32 charPerRow);
 SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize);
@@ -69,7 +96,6 @@ VectorInt CameraToPixelCoord(VectorInt input);
 void BackgroundRender(Sprite* sprite, Camera* camera);
 void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc);
 void SpriteMapRender(Sprite* sprite, const Block& block);
-void DebugRectRender(Rectangle rect, SDL_Color color);
 void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, float size, VectorInt loc, UIX XLayout, UIY YLayout);
 SDL_Rect RectangleToSDL(Rectangle rect);
 //bottom left and top right

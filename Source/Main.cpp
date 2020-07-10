@@ -50,7 +50,6 @@ TODO(choman):
     -add layered background(s)
     -windows settings local grid highlight
     -add gun to change blocks aka <spring/wind, tacky(can hop off walls with it), timed explosion to get more height>
-    -handle multiple levels
     -moving platforms
     -enemy ai
     -power ups
@@ -60,18 +59,17 @@ TODO(choman):
     -multithread loading
     -scaled total time based on incrimenting the delta time
     -game states
+        -main menu
+        -pausing
+        -settings
+            -keybinds
     -Player spawning
+        -creating a new player on player death
     -store player ID on levels
     -use more IDs 
-    -virtual function for actor types
-    -edit rendering/list selection of physics and collision to only be a slmall amount of tiles
     -fix bullets ending at the end of where you clicked instead of ending immediatly passing where you clicked.  
         reference is the tail of the sprite not the head
 
-    CURRENT:
-    -need to have animations store the collision rect and offsets.
-    -creating a new player on player death
-    
 
     CS20
     -singly linked list
@@ -102,34 +100,7 @@ Core Gameplay
     -use the tools you have to get there with the least amount of blocks added/changed
     -tools include block place and block modifier?
 
-
-
-    Casey questions:
-
-    original:
-    int val;
-    if (somthing is true)
-    {
-        val = 5;
-    }
-
-    solution:
-    int val;
-    if (somthing is true)
-    {
-        val = 5;
-    }
-    else
-    {
-        val = 0;
-    }
-
-    my solution:
-    int val = 0;
-    if (somthing is true)
-    {
-        val = 5;
-    }
+}
 */
 
 
@@ -188,6 +159,7 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates("HeadMinion");
     LoadAllAnimationStates("Bullet");
     LoadAllAnimationStates("Portal");
+    LoadAllAnimationStates("Striker");
     {
 		AnimationList& dino = animations["Dino"];
 		dino.GetAnimation(ActorState::jump)->fps = 30.0f;
@@ -207,11 +179,19 @@ int main(int argc, char* argv[])
 
 		AnimationList& portal = animations["Portal"];
 		spriteHeight = portal.GetAnyValidAnimation()->anime[0]->height;
-		portal.GetAnimation(ActorState::idle)->fps = 30.0f;
+		portal.GetAnimation(ActorState::idle)->fps = 20.0f;
 		portal.colOffset.x = 0.125f;
 		portal.colOffset.y = 0.25f;
 		portal.colRect = { { 85, spriteHeight - 299 }, { 229, spriteHeight - 19 } };
 		portal.scaledWidth = 32;
+
+		AnimationList& striker = animations["Striker"];
+		striker.GetAnimation(ActorState::run)->fps = 20.0f;
+		spriteHeight = striker.GetAnyValidAnimation()->anime[0]->height;
+		striker.colOffset.x = 0.125f;
+		striker.colOffset.y = 0.25f;
+		striker.colRect = { { 36, spriteHeight - 67 }, { 55, spriteHeight - 35 } };
+		striker.scaledWidth = 40;
     }
 
     Sprite* spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
@@ -239,7 +219,6 @@ int main(int argc, char* argv[])
         totalTime = SDL_GetPerformanceCounter() / freq;
         float deltaTime = float(totalTime - previousTime);// / 10;
         previousTime = totalTime;
-        
 
         if (deltaTime > 1 / 30.0f)
         {
@@ -354,7 +333,7 @@ int main(int argc, char* argv[])
 
 			std::erase_if(currentLevel->actors, [](Actor* actor)
 			{
-				if (actor->actorType == ActorType::player)
+				if (actor->GetActorType() == ActorType::player)
 				{
 					delete actor;
 					return true;
@@ -366,7 +345,7 @@ int main(int argc, char* argv[])
 			currentLevel->actors.push_back(player);
 			std::erase_if(oldLevel->actors, [](Actor* actor)
 			{
-				return actor->actorType == ActorType::player;
+				return actor->GetActorType() == ActorType::player;
 			});
 			player->position = GetPortalsPointer(levelChangePortal)->position;
 		}
@@ -427,11 +406,11 @@ int main(int argc, char* argv[])
         {
             for (int i = 0; i < currentLevel->actors.size(); i++)
             {
-                if (currentLevel->actors[i]->actorType == ActorType::enemy)
+                if (currentLevel->actors[i]->GetActorType() == ActorType::enemy)
                 {
                     screenFlash = CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel, float(totalTime));
                 }
-                else if (currentLevel->actors[i]->actorType == ActorType::portal)
+                else if (currentLevel->actors[i]->GetActorType() == ActorType::portal)
                 {
                     if (CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel, float(totalTime)))
                         levelChangePortal = (Portal*)currentLevel->actors[i];
@@ -471,20 +450,16 @@ int main(int argc, char* argv[])
 						blockRect.bottomLeft = block->location;
 						blockRect.topRight = { block->location.x + 1 , block->location.y + 1 };
 
-						DebugRectRender(blockRect, lightRed);
+                        AddRectToRender(blockRect, lightRed, RenderPrio::Debug);
 					}
 				}
 
 			}
         }
-        if (debugList[DebugOptions::clickLocation])
-        {
-            DebugRectRender(clickRect, transGreen);
-        }
         RenderActors();
         RenderLaser();
-        
-        DrawText(textSheet, Green, std::to_string(1 / deltaTime), 1.0f, { 0, 0 }, UIX::left, UIY::top);
+
+        DrawText(textSheet, Green, std::to_string(1 / deltaTime) + "fps", 1.0f, { 0, 0 }, UIX::left, UIY::top);
         if (player != nullptr)
         {
             DrawText(textSheet, Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
@@ -498,9 +473,8 @@ int main(int argc, char* argv[])
             SDL_SetRenderDrawColor(windowInfo.renderer, lightWhite.r, lightWhite.g, lightWhite.b, lightWhite.a);
             SDL_RenderDrawRect(windowInfo.renderer, NULL);
             SDL_RenderFillRect(windowInfo.renderer, NULL);
-
-            //DebugRectRender({ {0,0}, {float(windowInfo.width), float(windowInfo.height)} }, White);
         }
+        RenderDrawCalls();
         //DrawButton(textSheet, "Test", { 0, 0 }, UIX::left, UIY::top, Green, Orange, mouseButtonEvent, mouseMotionEvent);
         //DrawText(textSheet, Red, "Test", { windowInfo.width / 2, windowInfo.height / 2}, UIX::mid, UIY::mid);
 

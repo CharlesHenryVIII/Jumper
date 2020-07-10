@@ -120,7 +120,7 @@ public:
     bool inUse = true;
     bool grounded = true;
     float invinciblityTime = false;
-    ActorType actorType = ActorType::none;
+    //ActorType actorType = ActorType::none;
     ActorState actorState = ActorState::none;
     
     Sprite* currentSprite = nullptr;
@@ -131,15 +131,12 @@ public:
     virtual void Update(float deltaTime) = 0;
     virtual void Render() = 0;
     virtual void UpdateHealth(Level& level, float deltaHealth) = 0;
+    virtual ActorType GetActorType() = 0;
     float SpriteRatio()
     {
         assert(animationList->colRect.Width());
         return animationList->scaledWidth / animationList->colRect.Width();
     }
-    //float ScaledWidth()
-    //{
-    //    return scaledWidth;// colRect.Width()* GoldenRatio();
-    //}
     float ScaledHeight()
     {
         return animationList->colRect.Height() * SpriteRatio();
@@ -161,6 +158,7 @@ struct Enemy : public Actor
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override;
+    ActorType GetActorType() override { return ActorType::enemy; }
 };
 
 struct Player : public Actor
@@ -169,6 +167,7 @@ struct Player : public Actor
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override;
+    ActorType GetActorType() override { return ActorType::player; }
 };
 
 enum class TileType {
@@ -189,6 +188,7 @@ struct Projectile : public Actor
     {
 
     }
+    ActorType GetActorType() override { return ActorType::projectile; }
 };
 
 struct Dummy : public Actor
@@ -200,6 +200,7 @@ struct Dummy : public Actor
     {
 
     };
+    ActorType GetActorType() override { return ActorType::dummy; }
 };
 
 struct Portal : public Actor
@@ -215,6 +216,7 @@ struct Portal : public Actor
     {
 
     };
+    ActorType GetActorType() override { return ActorType::portal; }
 };
 
 
@@ -257,8 +259,7 @@ struct Level
     TileMap blocks;
     std::string name;
     const char* filename;  //DefaultLevel.PNG;
-    Block entrance;
-    Block exit;
+    ActorID playerID;
 };
 
 

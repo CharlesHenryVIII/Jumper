@@ -23,20 +23,36 @@ void CreateWindow()
 
 static std::vector<RenderInformation> drawCalls;
 
-void AddRectToRender(RectRenderType type, Rectangle rect, SDL_Color color, RenderPrio prio)
+void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect,  RenderPrio priority, SDL_Texture* texture, float rotation, const SDL_Point* rotationPoint, SDL_RendererFlip flippage)
+{
+    RenderInformation info;
+    info.renderType = RenderType::Texture;
+	info.sRect = sRect;
+	info.dRect = dRect;
+    info.prio = priority;
+
+    info.d.texture.texture = texture;
+    info.d.texture.rotation = rotation;
+    info.d.texture.flippage = flippage;
+    info.d.texture.rotationPoint = rotationPoint;
+
+    drawCalls.push_back(info);
+}
+
+void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPrio prio)
 {
     RenderInformation renderInformation;
     renderInformation.renderType = type;
-    renderInformation.rect = CameraOffset(rect.bottomLeft, { rect.Width(), rect.Height() });
-    renderInformation.color = color;
+	renderInformation.sRect = CameraOffset(rect.bottomLeft, { rect.Width(), rect.Height() });
+    renderInformation.d.debugRect.color = color;
     renderInformation.prio = prio;
     drawCalls.push_back(renderInformation);
 }
 
 void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio)
 {
-    AddRectToRender(RectRenderType::Outline, rect, color, prio);
-    AddRectToRender(RectRenderType::Fill, rect, color, prio);
+    AddRectToRender(RenderType::DebugOutline, rect, color, prio);
+    AddRectToRender(RenderType::DebugFill, rect, color, prio);
 }
 
 void RenderDrawCalls()
@@ -46,18 +62,36 @@ void RenderDrawCalls()
     });
     for (auto& item : drawCalls)
     {
-
-        SDL_SetRenderDrawColor(windowInfo.renderer, item.color.r, item.color.g, item.color.b, item.color.a);
         switch (item.renderType)
         {
-            case RectRenderType::Outline:
+
+            case RenderType::Texture:
             {
-                SDL_RenderDrawRect(windowInfo.renderer, &item.rect);
+                const SDL_Rect* sRect = &item.sRect;
+                const SDL_Rect* dRect = &item.dRect;
+                if (item.sRect.w == 0 && item.sRect.h == 0)
+                    sRect = nullptr;
+                if (item.dRect.w == 0 && item.dRect.h == 0)
+                    dRect = nullptr;
+				SDL_RenderCopyEx(windowInfo.renderer, item.d.texture.texture, sRect, dRect, item.d.texture.rotation, item.d.texture.rotationPoint, item.d.texture.flippage);
                 break;
             }
-            case RectRenderType::Fill:
+            case RenderType::DebugOutline:
             {
-                SDL_RenderFillRect(windowInfo.renderer, &item.rect);
+                const SDL_Rect* sRect = &item.sRect;
+                if (item.sRect.w == 0 && item.sRect.h == 0)
+                    sRect = nullptr;
+                SDL_SetRenderDrawColor(windowInfo.renderer, item.d.debugRect.color.r, item.d.debugRect.color.g, item.d.debugRect.color.b, item.d.debugRect.color.a);
+                SDL_RenderDrawRect(windowInfo.renderer, sRect);
+                break;
+            }
+            case RenderType::DebugFill:
+            {
+                const SDL_Rect* sRect = &item.sRect;
+                if (item.sRect.w == 0 && item.sRect.h == 0)
+                    sRect = nullptr;
+                SDL_SetRenderDrawColor(windowInfo.renderer, item.d.debugRect.color.r, item.d.debugRect.color.g, item.d.debugRect.color.b, item.d.debugRect.color.a);
+                SDL_RenderFillRect(windowInfo.renderer, sRect);
                 break;
             }
         }
@@ -68,8 +102,7 @@ void RenderDrawCalls()
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
 {
  int32 textureHeight, textureWidth, colorChannels;
-
-    unsigned char* image = stbi_load(name, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
+unsigned char* image = stbi_load(name, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
 
     if (image == nullptr)
     {
@@ -177,7 +210,8 @@ void BackgroundRender(Sprite* sprite, Camera* camera)
     }
 
 
-    SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, &spriteRect, NULL, 0, NULL, SDL_FLIP_NONE);
+    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite->texture, 0, NULL, SDL_FLIP_NONE);
+    //SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, spriteRect, NULL, 0, NULL, SDL_FLIP_NONE);
 }
 
 
@@ -190,9 +224,10 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
     SDL_Rect blockRect = { x, y, xCharSize, itemSize };
     float itemSizeTranslatedx = PixelToBlock(xCharSize);
     float itemSizeTranslatedy = PixelToBlock(itemSize);
-    SDL_Rect DestRect = CameraOffset(loc, { itemSizeTranslatedx, itemSizeTranslatedy });
+    SDL_Rect destRect = CameraOffset(loc, { itemSizeTranslatedx, itemSizeTranslatedy });
 
-    SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, &blockRect, &DestRect, 0, NULL, SDL_FLIP_NONE);
+    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite->texture, 0, NULL, SDL_FLIP_NONE);
+    //SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, &blockRect, &destRect, 0, NULL, SDL_FLIP_NONE);
 }
 
 
@@ -228,7 +263,8 @@ void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, floa
         DRect.y = loc.y - (int32(YLayout) * DRect.h) / 2;
 
         SDL_SetTextureColorMod(fontSprite->sprite->texture, c.r, c.g, c.b);
-        SDL_RenderCopyEx(windowInfo.renderer, fontSprite->sprite->texture, &SRect, &DRect, 0, NULL, SDL_FLIP_NONE);
+        AddTextureToRender(SRect, DRect, RenderPrio::Sprites, fontSprite->sprite->texture, 0, NULL, SDL_FLIP_NONE);
+        //SDL_RenderCopyEx(windowInfo.renderer, fontSprite->sprite->texture, &SRect, &DRect, 0, NULL, SDL_FLIP_NONE);
     }
 }
 
@@ -326,8 +362,9 @@ void RenderLaser()
 
         SDL_SetTextureColorMod(sprite->texture, PC.r, PC.g, PC.b);
         SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(sprite->height) });
-        SDL_Point rotationPoint = { 0, rect.h / 2 };
-        SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        static SDL_Point rotationPoint = { 0, rect.h / 2 };
+        AddTextureToRender({}, rect, RenderPrio::Sprites, sprite->texture, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        //SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
     }
 }
 
@@ -359,7 +396,8 @@ void RenderActor(Actor* actor, float rotation)
                               actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio()))) },
         PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
                        (int)(actor->SpriteRatio() * sprite->height) }));
-    SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, NULL, &destRect, rotation, NULL, flippage);
+    AddTextureToRender({}, destRect, RenderPrio::Sprites, sprite->texture, rotation, NULL, flippage);
+    //SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, NULL, &destRect, rotation, NULL, flippage);
 }
 
 void GameSpaceRectRender(Rectangle rect, SDL_Color color)

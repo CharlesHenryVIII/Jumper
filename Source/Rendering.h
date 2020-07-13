@@ -52,10 +52,11 @@ struct FontSprite
 };
 
 
-enum class RectRenderType
+enum class RenderType
 {
-    Outline,
-    Fill
+    Texture,
+    DebugOutline,
+    DebugFill
 };
 
 enum class RenderPrio
@@ -67,12 +68,30 @@ enum class RenderPrio
     Debug,
 };
 
+struct DebugRectUnion
+{
+    SDL_Color color;
+};
+
+struct TextureRenderUnion
+{
+    SDL_Texture* texture;
+    float rotation;
+    SDL_RendererFlip flippage;
+    const SDL_Point* rotationPoint;
+};
+
 struct RenderInformation
 {
-    RectRenderType renderType;
-    SDL_Rect rect;
-    SDL_Color color;
+    RenderType renderType;
+    SDL_Rect sRect = {};
+    SDL_Rect dRect = {};
     RenderPrio prio;
+    union D
+    {
+		DebugRectUnion debugRect;
+		TextureRenderUnion texture;
+    } d;
 };
 
 struct Camera {
@@ -85,7 +104,8 @@ struct Actor;
 struct Block;
 
 
-void AddRectToRender(RectRenderType type, Rectangle rect, SDL_Color color, RenderPrio prio);
+void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority, SDL_Texture* texture, float rotation, const SDL_Point* rotationPoint, SDL_RendererFlip flippage);
+void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPrio prio);
 void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio);
 void RenderDrawCalls();
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode);

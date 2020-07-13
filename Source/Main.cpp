@@ -54,7 +54,7 @@ TODO(choman):
     -enemy ai
     -power ups
     -explosives!?
-    
+
     -loading bar at the begining of the game
     -multithread loading
     -scaled total time based on incrimenting the delta time
@@ -66,10 +66,20 @@ TODO(choman):
     -Player spawning
         -creating a new player on player death
     -store player ID on levels
-    -use more IDs 
-    -fix bullets ending at the end of where you clicked instead of ending immediatly passing where you clicked.  
+    -use more IDs
+    -fix bullets ending at the end of where you clicked instead of ending immediatly passing where you clicked.
         reference is the tail of the sprite not the head
+    -fix player collision against enemy
+    -improve actor input system.
+        -Moving slightly when you release a horizontal movement key and the next frame you press a horizontal movement key.
+        -rewriting the horizontal speed to zero when it should instead only write it once.
+            -This causes problems when the player hits an enemy and the enemy sets the movement to a nonzero value, the next frame the players horizontal speed is set to zero again.
 
+    Chris Questions:
+        -quaturnions
+        -shaders?
+        -class vs structs
+        -ideas on input system, player collision
 
     CS20
     -singly linked list
@@ -111,8 +121,17 @@ enum class DebugOptions
     playerCollision,
     blockCollision,
     clickLocation,
-    paintMethod, 
+    paintMethod,
     editBlocks
+};
+
+
+struct Key
+{
+    bool down;
+    bool downPrevFrame;
+    bool downThisFrame;
+    bool upThisFrame;
 };
 
 std::unordered_map<DebugOptions, bool> debugList;
@@ -128,14 +147,10 @@ struct MouseButtonState {
     VectorInt location;
 };
 
-
 int main(int argc, char* argv[])
 {
-
-    DebugPrint("testing please work");
-
-    //Window and Program Setups:
-    std::unordered_map<SDL_Keycode, double> keyBoardEvents;
+    //Window and Program Setups:Key
+    std::unordered_map<SDL_Keycode, Key> keyStates;
     MouseButtonState mouseButtonState = {};
     SDL_MouseMotionEvent mouseMotionEvent = {};
     bool running = true;
@@ -197,7 +212,7 @@ int main(int argc, char* argv[])
     Sprite* spriteMap = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
     FontSprite* textSheet = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
     Sprite* background = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
-    
+
     //Level instantiations
     LoadLevel("Level 1");
     LoadLevel("Default");
@@ -236,7 +251,7 @@ int main(int argc, char* argv[])
             //playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
             //LoadLevel(currentLevel, *(Player*)FindActor(playerID));
         }
-            
+
         Player* player = FindPlayer(*currentLevel);
 
 
@@ -251,13 +266,46 @@ int main(int argc, char* argv[])
                 running = false;
                 break;
 
+            //case SDL_KEYDOWN:
+            //    if (keyBoardEvents[SDLEvent.key.keysym.sym] == 0)
+            //        keyBoardEvents[SDLEvent.key.keysym.sym] = totalTime;
+            //    DebugPrint("Down: %f\n", totalTime);
+            //    break;
+            //case SDL_KEYUP:
+            //    keyBoardEvents[SDLEvent.key.keysym.sym] = 0;
+            //    DebugPrint("Up: %f\n", totalTime);
+            //    break;
+
             case SDL_KEYDOWN:
-                if (keyBoardEvents[SDLEvent.key.keysym.sym] == 0)
-                    keyBoardEvents[SDLEvent.key.keysym.sym] = totalTime;
-                break;
+                {
+                    keyStates[SDLEvent.key.keysym.sym].down = true;
+                    break;
+                }
+
             case SDL_KEYUP:
-                keyBoardEvents[SDLEvent.key.keysym.sym] = 0;
-                break;
+                {
+                    keyStates[SDLEvent.key.keysym.sym].down = false;
+                    break;
+                }
+    //        case SDL_KEYDOWN:
+    //        {
+				//if (keyBoardEvents[SDLEvent.key.keysym.sym].down == true)
+				//	keyBoardEvents[SDLEvent.key.keysym.sym].downThisFrame = false;
+				//else
+				//	keyBoardEvents[SDLEvent.key.keysym.sym].downThisFrame = true;
+				//keyBoardEvents[SDLEvent.key.keysym.sym].down = true;
+    //            DebugPrint("%f\n", totalTime);
+				//break;
+    //        }
+    //        case SDL_KEYUP:
+    //        {
+				//if (keyBoardEvents[SDLEvent.key.keysym.sym].down == true)
+				//	keyBoardEvents[SDLEvent.key.keysym.sym].upThisFrame = true;
+				//else
+				//	keyBoardEvents[SDLEvent.key.keysym.sym].upThisFrame = false;
+				//keyBoardEvents[SDLEvent.key.keysym.sym].down = false;
+				//break;
+    //        }
 
             case SDL_MOUSEBUTTONDOWN:
                 mouseButtonState.type = SDLEvent.button.type;
@@ -282,12 +330,32 @@ int main(int argc, char* argv[])
             }
         }
 
+        for (auto& key : keyStates)
+        {
+
+            if (key.second.down)
+            {
+                if (key.second.downPrevFrame)
+                    key.second.downThisFrame = false;
+                else
+                    key.second.downThisFrame = true;
+            }
+
+            else
+            {
+                if (key.second.downPrevFrame)
+                    key.second.upThisFrame = true;
+                else
+                    key.second.upThisFrame = false;
+            }
+            key.second.downPrevFrame = key.second.down;
+        }
 
         //Keyboard Control:
         if (player != nullptr)
         {
             player->acceleration.x = 0;
-            if (keyBoardEvents[SDLK_w] == totalTime || keyBoardEvents[SDLK_SPACE] == totalTime || keyBoardEvents[SDLK_UP] == totalTime)
+            if (keyStates[SDLK_w].downThisFrame || keyStates[SDLK_SPACE].downThisFrame || keyStates[SDLK_UP].downThisFrame)
             {
                 if (player->jumpCount > 0)
                 {
@@ -296,8 +364,8 @@ int main(int argc, char* argv[])
                     PlayAnimation(player, ActorState::jump);
                 }
             }
-            bool left = keyBoardEvents[SDLK_a] || keyBoardEvents[SDLK_LEFT];
-            bool right = keyBoardEvents[SDLK_d] || keyBoardEvents[SDLK_RIGHT];
+            bool left = keyStates[SDLK_a].down || keyStates[SDLK_LEFT].down;
+            bool right = keyStates[SDLK_d].down || keyStates[SDLK_RIGHT].down;
             if (left)
                 player->acceleration.x -= playerAccelerationAmount;
             if (right)
@@ -309,23 +377,24 @@ int main(int argc, char* argv[])
             }
 
         }
-        
-        if (keyBoardEvents[SDLK_1] == totalTime)
+
+
+        if (keyStates[SDLK_1].downThisFrame)
             debugList[DebugOptions::playerCollision] = !debugList[DebugOptions::playerCollision];
-        if (keyBoardEvents[SDLK_2] == totalTime)
+        if (keyStates[SDLK_2].downThisFrame)
             debugList[DebugOptions::blockCollision] = !debugList[DebugOptions::blockCollision];
-        if (keyBoardEvents[SDLK_3] == totalTime)
+        if (keyStates[SDLK_3].downThisFrame)
             debugList[DebugOptions::clickLocation] = !debugList[DebugOptions::clickLocation];
-        if (keyBoardEvents[SDLK_4] == totalTime)
+        if (keyStates[SDLK_4].downThisFrame)
             debugList[DebugOptions::paintMethod] = !debugList[DebugOptions::paintMethod];
-        if (keyBoardEvents[SDLK_5] == totalTime)
+        if (keyStates[SDLK_5].downThisFrame)
             debugList[DebugOptions::editBlocks] = !debugList[DebugOptions::editBlocks];
-        if (keyBoardEvents[SDLK_0] == totalTime)
+        if (keyStates[SDLK_0].downThisFrame)
             SaveLevel(&cacheLevel, *player);
-        if (keyBoardEvents[SDLK_9] == totalTime)
+        if (keyStates[SDLK_9].downThisFrame)
             LoadLevel(&cacheLevel, *player);
 
-		if (levelChangePortal != nullptr && keyBoardEvents[SDLK_w] == totalTime)
+		if (levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
 		{
 			//remove player from new level, load player from old level, delete player from old level.
 			Level* oldLevel = currentLevel;
@@ -358,7 +427,7 @@ int main(int argc, char* argv[])
         {
             VectorInt mouseLocation = CameraToPixelCoord({ mouseMotionEvent.x, mouseMotionEvent.y });
             Vector mouseLocationTranslated = PixelToBlock(mouseLocation);
-            
+
             clickRect.bottomLeft = { mouseLocationTranslated.x - 0.5f, mouseLocationTranslated.y - 0.5f };
             clickRect.topRight = { mouseLocationTranslated.x + 0.5f, mouseLocationTranslated.y + 0.5f };
             Block* blockPointer = &currentLevel->blocks.GetBlock(mouseLocationTranslated);
@@ -467,7 +536,7 @@ int main(int argc, char* argv[])
             DrawText(textSheet, Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, windowInfo.height }, UIX::left, UIY::bot);
 
         }
-        
+
         if (screenFlash)
         {
             SDL_SetRenderDrawColor(windowInfo.renderer, lightWhite.r, lightWhite.g, lightWhite.b, lightWhite.a);
@@ -489,6 +558,6 @@ int main(int argc, char* argv[])
             return false;
         });
     }
-    
+
     return 0;
 }

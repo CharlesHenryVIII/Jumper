@@ -110,7 +110,6 @@ void Enemy::UpdateHealth(Level& level, float deltaHealth)
 //	return ActorType::enemy;
 //}
 
-
 /*********************
  *
  * Projectile
@@ -431,19 +430,23 @@ void ClickUpdate(Block* block, bool updateTop)
 	SurroundBlockUpdate(block, updateTop);
 }
 
-Rectangle CollisionXOffsetToRectangle(Actor* actor)
+Rectangle CollisionXOffsetToRectangle(Actor* actor, float xPercentOffset)
 {
 	Rectangle result = {};
-	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->animationList->scaledWidth)) / 2, actor->position.y + actor->animationList->colOffset.x * PixelToBlock(int32(actor->ScaledHeight())) };
-	result.topRight = { actor->position.x + (1 - actor->animationList->colOffset.x) * PixelToBlock(int32(actor->animationList->scaledWidth)), actor->position.y + (1 - actor->animationList->colOffset.x) * PixelToBlock(int32(actor->ScaledHeight())) };
+	//result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->animationList->scaledWidth)) / 2, actor->position.y + actor->animationList->colOffset.x * PixelToBlock(int32(actor->ScaledHeight())) };
+	//result.topRight = { actor->position.x + (1 - actor->animationList->colOffset.x) * PixelToBlock(int32(actor->animationList->scaledWidth)), actor->position.y + (1 - actor->animationList->colOffset.x) * PixelToBlock(int32(actor->ScaledHeight())) };
+	result.bottomLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * xPercentOffset };
+	result.topRight		= { actor->position.x + PixelToBlock((int)actor->animationList->scaledWidth), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - xPercentOffset) };
 	return result;
 }
 
-Rectangle CollisionYOffsetToRectangle(Actor* actor)
+Rectangle CollisionYOffsetToRectangle(Actor* actor, float yPercentOffset)
 {
 	Rectangle result = {};
-	result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->animationList->scaledWidth)) / 2, actor->position.y };
-	result.topRight = { actor->position.x + (1 - actor->animationList->colOffset.y) * PixelToBlock(int32(actor->animationList->scaledWidth)), actor->position.y + PixelToBlock(int32(actor->ScaledHeight())) };
+	//result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->animationList->scaledWidth)) / 2, actor->position.y };
+	//result.topRight = { actor->position.x + (1 - actor->animationList->colOffset.y) * PixelToBlock(int32(actor->animationList->scaledWidth)), actor->position.y + PixelToBlock(int32(actor->ScaledHeight())) };
+	result.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * yPercentOffset),		actor->position.y };
+	result.topRight		= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * (1 - yPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
 	return result;
 }
 
@@ -453,20 +456,16 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 {
 	uint32 result = CollisionNone;
 
-	Rectangle xRect = CollisionXOffsetToRectangle(actor);
-	Rectangle yRect = CollisionYOffsetToRectangle(actor);
+
 	float xPercentOffset = 0.2f;
 	float yPercentOffset = 0.2f;
-	xRect.bottomLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * xPercentOffset };
-	xRect.topRight		= { actor->position.x + PixelToBlock((int)actor->animationList->scaledWidth), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - xPercentOffset) };
-	yRect.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * yPercentOffset),		actor->position.y };
-	yRect.topRight		= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * (1 - yPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
+	Rectangle xRect = CollisionXOffsetToRectangle(actor, xPercentOffset);
+	Rectangle yRect = CollisionYOffsetToRectangle(actor, yPercentOffset);
 
-	if (true)//(debugList[DebugOptions::playerCollision])
+	if (actor->GetActorType() == ActorType::player)
 	{
-		SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-        AddRectToRender(xRect, transOrange, RenderPrio::Debug);
-		AddRectToRender(yRect, transGreen, RenderPrio::Debug);
+		AddRectToRender(xRect, transGreen, RenderPrio::Debug);
+		AddRectToRender(yRect, transOrange, RenderPrio::Debug);
 	}
 
 
@@ -563,15 +562,13 @@ bool CollisionWithActor(Player& player, Actor& enemy, Level& level, float deltaT
 {
 	bool result = false;
 
-	Rectangle xRect = CollisionXOffsetToRectangle(&enemy);
-	Rectangle yRect = CollisionYOffsetToRectangle(&enemy);
 	float xPercentOffset = 0.2f;
 	float yPercentOffset = 0.3f;
+	Rectangle xRect = CollisionXOffsetToRectangle(&enemy, xPercentOffset);
+	Rectangle yRect = CollisionYOffsetToRectangle(&enemy, yPercentOffset);
 
-	xRect.bottomLeft	= { enemy.position.x - PixelToBlock((int)enemy.animationList->scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * xPercentOffset };
-	xRect.topRight		= { enemy.position.x + PixelToBlock((int)enemy.animationList->scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * (1 - xPercentOffset) };
-	yRect.bottomLeft	= { enemy.position.x - PixelToBlock((int)enemy.animationList->scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * yPercentOffset };
-	yRect.topRight		= { enemy.position.x + PixelToBlock((int)enemy.animationList->scaledWidth), enemy.position.y + PixelToBlock((int)enemy.ScaledHeight()) * (1 - yPercentOffset) };
+	AddRectToRender(xRect, transGreen, RenderPrio::Debug);
+	AddRectToRender(yRect, transOrange, RenderPrio::Debug);
 
 	uint32 xCollisionFlags = CollisionWithRect(&player, xRect);
 	uint32 yCollisionFlags = CollisionWithRect(&player, yRect);
@@ -589,20 +586,24 @@ bool CollisionWithActor(Player& player, Actor& enemy, Level& level, float deltaT
 
 			if (xCollisionFlags & CollisionRight)
 			{//hit by enemy, knockback, take damage, screen flash
-				player.velocity.x = -50 * knockBackAmount;
+				player.velocity.x = -500000 * knockBackAmount;
 				player.velocity.y = knockBackAmount;
+				player.UpdateHealth(level, -enemy.damage);
+				enemy.invinciblityTime = 1;
 			}
 			if (xCollisionFlags & CollisionLeft)
 			{//hit by enemy, knockback, take damage, screen flash
-				player.velocity.x = 50 * knockBackAmount;
+				player.velocity.x = 5000000 * knockBackAmount;
 				player.velocity.y = knockBackAmount;
+				player.UpdateHealth(level, -enemy.damage);
+				enemy.invinciblityTime = 1;
 			}
 		}
 
-		if ((xCollisionFlags || yCollisionFlags))
-		{
-			player.UpdateHealth(level, -enemy.damage);
-		}
+		//if ((xCollisionFlags || yCollisionFlags))
+		//{
+		//
+		//}
 	}
 
 	return result;

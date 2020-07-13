@@ -286,8 +286,6 @@ void LoadLevel(Level* level, Player& player);
 void UpdateAllNeighbors(Block* block);
 void SurroundBlockUpdate(Block* block, bool updateTop);
 void ClickUpdate(Block* block, bool updateTop);
-Rectangle CollisionXOffsetToRectangle(Actor* actor);
-Rectangle CollisionYOffsetToRectangle(Actor* actor);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
 bool CollisionWithActor(Player& player, Actor& enemy, Level& level, float deltaTime);

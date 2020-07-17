@@ -127,7 +127,6 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);
 bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC);
 Sprite* GetSpriteFromAnimation(Actor* actor);
 void RenderLaser();
-void IndexIncrimentor(Animation& anime, bool stayOnLastFrame, Actor* actor, double totalTime);
 void RenderActor(Actor* actor, float rotation);
 void GameSpaceRectRender(Rectangle rect, SDL_Color color);
 

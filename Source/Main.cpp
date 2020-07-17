@@ -45,9 +45,9 @@
 /*
 TODO(choman):
     -camera zoom
-    -sub pixel rendering
+    -sub pixel rendering/SuperSampling
     -multithread saving/png compression
-    -add layered background(s)
+    -add paralaxed background(s)
     -windows settings local grid highlight
     -add gun to change blocks aka <spring/wind, tacky(can hop off walls with it), timed explosion to get more height>
     -moving platforms
@@ -77,9 +77,15 @@ TODO(choman):
 
     Chris Questions:
         -quaturnions
-        -shaders?
-        -class vs structs
+        -openGL GLSL?
+            -shaders?
         -ideas on input system, player collision
+
+
+    -Load fonts the same as the character sprites
+    -game states
+    -bullet fixes
+    -character input
 
     CS20
     -singly linked list
@@ -125,7 +131,6 @@ enum class DebugOptions
     editBlocks
 };
 
-
 struct Key
 {
     bool down;
@@ -136,28 +141,12 @@ struct Key
 
 std::unordered_map<DebugOptions, bool> debugList;
 
-struct MouseButtonState {
-    Uint32 type;        /**< ::SDL_MOUSEBUTTONDOWN or ::SDL_MOUSEBUTTONUP */
-    double timestamp;   /**< In milliseconds, populated using SDL_GetTicks() */
-    //Uint32 windowID;  /**< The window with mouse focus, if any */
-    //Uint32 which;     /**< The mouse instance id, or SDL_TOUCH_MOUSEID */
-    Uint8 button;       /**< The mouse button index */
-    Uint8 state;        /**< ::SDL_PRESSED or ::SDL_RELEASED */
-    //Uint8 clicks;     /**< 1 for single-click, 2 for double-click, etc. */
-    VectorInt location;
-};
-
 int main(int argc, char* argv[])
 {
     //Window and Program Setups:Key
-    std::unordered_map<SDL_Keycode, Key> keyStates;
-    MouseButtonState mouseButtonState = {};
-    SDL_MouseMotionEvent mouseMotionEvent = {};
-    bool running = true;
+    std::unordered_map<int32, Key> keyStates;
+    VectorInt mouseLocation;
     Portal* levelChangePortal = nullptr;
-    SDL_Event SDLEvent;
-    VectorInt previousMouseLocation = {};
-    TileType paintType = TileType::invalid;
 
     CreateWindow();
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
@@ -227,6 +216,7 @@ int main(int argc, char* argv[])
 
 
     //Start Of Running Program
+    bool running = true;
     while (running)
     {
 
@@ -258,6 +248,7 @@ int main(int argc, char* argv[])
 
 
         //Event Queing and handling:
+        SDL_Event SDLEvent;
         while (SDL_PollEvent(&SDLEvent))
         {
             switch (SDLEvent.type)
@@ -266,66 +257,23 @@ int main(int argc, char* argv[])
                 running = false;
                 break;
 
-            //case SDL_KEYDOWN:
-            //    if (keyBoardEvents[SDLEvent.key.keysym.sym] == 0)
-            //        keyBoardEvents[SDLEvent.key.keysym.sym] = totalTime;
-            //    DebugPrint("Down: %f\n", totalTime);
-            //    break;
-            //case SDL_KEYUP:
-            //    keyBoardEvents[SDLEvent.key.keysym.sym] = 0;
-            //    DebugPrint("Up: %f\n", totalTime);
-            //    break;
-
             case SDL_KEYDOWN:
-                {
-                    keyStates[SDLEvent.key.keysym.sym].down = true;
-                    break;
-                }
+                keyStates[SDLEvent.key.keysym.sym].down = true;
+                break;
 
             case SDL_KEYUP:
-                {
-                    keyStates[SDLEvent.key.keysym.sym].down = false;
-                    break;
-                }
-    //        case SDL_KEYDOWN:
-    //        {
-				//if (keyBoardEvents[SDLEvent.key.keysym.sym].down == true)
-				//	keyBoardEvents[SDLEvent.key.keysym.sym].downThisFrame = false;
-				//else
-				//	keyBoardEvents[SDLEvent.key.keysym.sym].downThisFrame = true;
-				//keyBoardEvents[SDLEvent.key.keysym.sym].down = true;
-    //            DebugPrint("%f\n", totalTime);
-				//break;
-    //        }
-    //        case SDL_KEYUP:
-    //        {
-				//if (keyBoardEvents[SDLEvent.key.keysym.sym].down == true)
-				//	keyBoardEvents[SDLEvent.key.keysym.sym].upThisFrame = true;
-				//else
-				//	keyBoardEvents[SDLEvent.key.keysym.sym].upThisFrame = false;
-				//keyBoardEvents[SDLEvent.key.keysym.sym].down = false;
-				//break;
-    //        }
+                keyStates[SDLEvent.key.keysym.sym].down = false;
+                break;
 
             case SDL_MOUSEBUTTONDOWN:
-                mouseButtonState.type = SDLEvent.button.type;
-                if (mouseButtonState.timestamp == 0)
-                    mouseButtonState.timestamp = totalTime;//SDLEvent.button.timestamp;
-                mouseButtonState.button = SDLEvent.button.button;
-                mouseButtonState.state = SDLEvent.button.state;
-                mouseButtonState.location.x = SDLEvent.button.x;
-                mouseButtonState.location.y = SDLEvent.button.y;
-                break;
             case SDL_MOUSEBUTTONUP:
-                mouseButtonState.type = SDLEvent.button.type;
-                mouseButtonState.timestamp = 0;//SDLEvent.button.timestamp;
-                mouseButtonState.button = SDLEvent.button.button;
-                mouseButtonState.state = SDLEvent.button.state;
-                mouseButtonState.location.x = SDLEvent.button.x;
-                mouseButtonState.location.y = SDLEvent.button.y;
+                //keyStates
+                keyStates[SDLEvent.button.button].down = SDLEvent.button.state;
                 break;
+
             case SDL_MOUSEMOTION:
-                mouseMotionEvent = SDLEvent.motion;
+                mouseLocation.x = SDLEvent.motion.x;
+                mouseLocation.y = SDLEvent.motion.y;
                 break;
             }
         }
@@ -364,12 +312,14 @@ int main(int argc, char* argv[])
                     PlayAnimation(player, ActorState::jump);
                 }
             }
+            //TODO: Check other games  first
             bool left = keyStates[SDLK_a].down || keyStates[SDLK_LEFT].down;
             bool right = keyStates[SDLK_d].down || keyStates[SDLK_RIGHT].down;
             if (left)
                 player->acceleration.x -= playerAccelerationAmount;
             if (right)
                 player->acceleration.x += playerAccelerationAmount;
+
             if (left == right)
             {
                 player->velocity.x = 0;
@@ -421,13 +371,12 @@ int main(int argc, char* argv[])
 		levelChangePortal = nullptr;
 
         //Mouse Control:
-        Rectangle clickRect = {};
         laser.inUse = false;
-        if (debugList[DebugOptions::editBlocks] && mouseButtonState.timestamp && &player != nullptr)
+        if (debugList[DebugOptions::editBlocks] && ( keyStates[SDL_BUTTON_LEFT].down || keyStates[SDL_BUTTON_RIGHT].down ) && player != nullptr)
         {
-            VectorInt mouseLocation = CameraToPixelCoord({ mouseMotionEvent.x, mouseMotionEvent.y });
-            Vector mouseLocationTranslated = PixelToBlock(mouseLocation);
+            Vector mouseLocationTranslated = PixelToBlock(CameraToPixelCoord(mouseLocation));
 
+			Rectangle clickRect = {};
             clickRect.bottomLeft = { mouseLocationTranslated.x - 0.5f, mouseLocationTranslated.y - 0.5f };
             clickRect.topRight = { mouseLocationTranslated.x + 0.5f, mouseLocationTranslated.y + 0.5f };
             Block* blockPointer = &currentLevel->blocks.GetBlock(mouseLocationTranslated);
@@ -435,24 +384,19 @@ int main(int argc, char* argv[])
             blockPointer->location.x = floorf(blockPointer->location.x);
             blockPointer->location.y = floorf(blockPointer->location.y);
 
-            if (mouseButtonState.timestamp == totalTime)
+            TileType paintType;
+			if (keyStates[SDL_BUTTON_LEFT].down)
+				paintType = TileType::filled;
+			else if (keyStates[SDL_BUTTON_RIGHT].down)
+				paintType = TileType::invalid;
+
+            if (debugList[DebugOptions::paintMethod])
             {
-                if (mouseButtonState.button == SDL_BUTTON_LEFT)
-                    paintType = TileType::filled;
-                else if (mouseButtonState.button == SDL_BUTTON_RIGHT)
-                    paintType = TileType::invalid;
+				UpdateLaser(player, mouseLocationTranslated, paintType, deltaTime);
+				blockPointer->tileType = paintType;
+				UpdateAllNeighbors(blockPointer);
             }
-            if (debugList[DebugOptions::paintMethod] && mouseButtonState.type == SDL_MOUSEBUTTONDOWN)
-            {
-                if ((mouseButtonState.location.x != previousMouseLocation.x || mouseButtonState.location.y != previousMouseLocation.y))
-                {
-                    CreateLaser(player, mouseLocationTranslated, paintType, deltaTime);
-                    blockPointer->tileType = paintType;
-                    UpdateAllNeighbors(blockPointer);
-                    previousMouseLocation = mouseLocation;
-                }
-            }
-            else if (mouseButtonState.timestamp == totalTime)
+            else if (keyStates[SDL_BUTTON_LEFT].downThisFrame || keyStates[SDL_BUTTON_RIGHT].downThisFrame)
             {
                 // TODO: remove the cast
                 currentLevel->actors.push_back(CreateBullet(player, mouseLocationTranslated, paintType));
@@ -477,11 +421,11 @@ int main(int argc, char* argv[])
             {
                 if (currentLevel->actors[i]->GetActorType() == ActorType::enemy)
                 {
-                    screenFlash = CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel, float(totalTime));
+                    screenFlash = CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel);
                 }
                 else if (currentLevel->actors[i]->GetActorType() == ActorType::portal)
                 {
-                    if (CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel, float(totalTime)))
+                    if (CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel))
                         levelChangePortal = (Portal*)currentLevel->actors[i];
                 }
             }
@@ -503,7 +447,7 @@ int main(int argc, char* argv[])
         if (player != nullptr)
             camera.position = player->position;
 
-        Vector offset = { 25, 15 };
+        Vector offset = { float(windowInfo.width / blockSize / 2) + 1, float(windowInfo.height / blockSize / 2) + 1 };
         for (float y = camera.position.y - offset.y; y < (camera.position.y + offset.y); y++)
         {
             for (float x = camera.position.x - offset.x; x < (camera.position.x + offset.x); x++)
@@ -544,7 +488,6 @@ int main(int argc, char* argv[])
             SDL_RenderFillRect(windowInfo.renderer, NULL);
         }
         RenderDrawCalls();
-        //DrawButton(textSheet, "Test", { 0, 0 }, UIX::left, UIY::top, Green, Orange, mouseButtonEvent, mouseMotionEvent);
         //DrawText(textSheet, Red, "Test", { windowInfo.width / 2, windowInfo.height / 2}, UIX::mid, UIY::mid);
 
         //Present Screen

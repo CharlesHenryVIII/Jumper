@@ -430,64 +430,68 @@ void ClickUpdate(Block* block, bool updateTop)
 	SurroundBlockUpdate(block, updateTop);
 }
 
-Rectangle CollisionXOffsetToRectangle(Actor* actor, float xPercentOffset)
+Rectangle CollisionXOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	//result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->animationList->scaledWidth)) / 2, actor->position.y + actor->animationList->colOffset.x * PixelToBlock(int32(actor->ScaledHeight())) };
-	//result.topRight = { actor->position.x + (1 - actor->animationList->colOffset.x) * PixelToBlock(int32(actor->animationList->scaledWidth)), actor->position.y + (1 - actor->animationList->colOffset.x) * PixelToBlock(int32(actor->ScaledHeight())) };
-	result.bottomLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * xPercentOffset };
-	result.topRight		= { actor->position.x + PixelToBlock((int)actor->animationList->scaledWidth), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - xPercentOffset) };
+	result.bottomLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * actor->animationList->colOffset.x};
+	result.topRight		= { actor->position.x + PixelToBlock((int)actor->animationList->scaledWidth), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - actor->animationList->colOffset.x) };
 	return result;
 }
 
-Rectangle CollisionYOffsetToRectangle(Actor* actor, float yPercentOffset)
+Rectangle CollisionYOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	//result.bottomLeft = { actor->position.x + PixelToBlock(int32(actor->animationList->scaledWidth)) / 2, actor->position.y };
-	//result.topRight = { actor->position.x + (1 - actor->animationList->colOffset.y) * PixelToBlock(int32(actor->animationList->scaledWidth)), actor->position.y + PixelToBlock(int32(actor->ScaledHeight())) };
-	result.bottomLeft	= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * yPercentOffset),		actor->position.y };
-	result.topRight		= { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * (1 - yPercentOffset)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
+	result.bottomLeft = { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * actor->animationList->colOffset.y), actor->position.y };
+	result.topRight   = { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * (1 - actor->animationList->colOffset.y)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
 	return result;
 }
 
 
+Rectangle previousXRect = {};
+Rectangle previousYRect = {};
 
 uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 {
 	uint32 result = CollisionNone;
+	Rectangle xRect = CollisionXOffsetToRectangle(actor);
+	Rectangle yRect = CollisionYOffsetToRectangle(actor);
 
-
-	float xPercentOffset = 0.2f;
-	float yPercentOffset = 0.2f;
-	Rectangle xRect = CollisionXOffsetToRectangle(actor, xPercentOffset);
-	Rectangle yRect = CollisionYOffsetToRectangle(actor, yPercentOffset);
-
-	if (actor->GetActorType() == ActorType::player)
+	if (actor->GetActorType() == ActorType::player &&
+		//previousXRect.bottomLeft.x != xRect.bottomLeft.x && previousXRect.bottomLeft.y != xRect.bottomLeft.y && 
+		//previousXRect.topRight.x != xRect.topRight.x && previousXRect.topRight.y != xRect.topRight.y &&
+		//previousYRect.bottomLeft.x != yRect.bottomLeft.x && previousYRect.bottomLeft.y != yRect.bottomLeft.y && 
+		//previousYRect.topRight.x != yRect.topRight.x && previousYRect.topRight.y != yRect.topRight.y && 
+		true)
 	{
 		AddRectToRender(xRect, transGreen, RenderPrio::Debug);
 		AddRectToRender(yRect, transOrange, RenderPrio::Debug);
+		AddRectToRender(rect, transRed, RenderPrio::Debug);
+		DebugPrint("xRect Top Right = { %f, %f}  yRect Top Right = { %f, %f}\n", xRect.topRight.x, xRect.topRight.y, yRect.topRight.x, yRect.topRight.y);
+		//DrawText(fontSprite, Green, yRectText, float size, VectorInt loc, UIX XLayout, UIY YLayout)
+		previousXRect = xRect;
+		previousYRect = yRect;
 	}
 
 
-	if ((rect.topRight.y) > xRect.bottomLeft.y && rect.bottomLeft.y < xRect.topRight.y)
+	if (rect.topRight.y > xRect.bottomLeft.y && rect.bottomLeft.y < xRect.topRight.y)
 	{
 		//checking the right side of player against the left side of a block
 		if (rect.bottomLeft.x > xRect.bottomLeft.x && rect.bottomLeft.x < xRect.topRight.x)
 			result |= CollisionRight;
 
 		//checking the left side of player against the right side of the block
-		if ((rect.topRight.x) > xRect.bottomLeft.x && (rect.topRight.x) < xRect.topRight.x)
+		if (rect.topRight.x > xRect.bottomLeft.x && rect.topRight.x < xRect.topRight.x)
 			result |= CollisionLeft;
 	}
 
 	if (rect.topRight.x > yRect.bottomLeft.x && rect.bottomLeft.x < yRect.topRight.x)
 	{
 		//checking the top of player against the bottom of the block
-		if (rect.bottomLeft.y > yRect.bottomLeft.y && rect.bottomLeft.y < yRect.topRight.y)
+		if (rect.bottomLeft.y < yRect.topRight.y && rect.topRight.y > yRect.topRight.y)
 			result |= CollisionTop;
 
 		//checking the bottom of player against the top of the block
-		if ((rect.topRight.y) > yRect.bottomLeft.y && (rect.topRight.y) < yRect.topRight.y)
+		if (rect.topRight.y > yRect.bottomLeft.y && rect.topRight.y < yRect.topRight.y)
 			result |= CollisionBot;
 	}
 	return result;
@@ -497,14 +501,17 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 void CollisionWithBlocks(Actor* actor, bool isEnemy)
 {
 	bool grounded = false;
-	float checkOffset = 2;
-	float yMax = actor->position.y + checkOffset;
-	float xMax = (int32)actor->position.x + checkOffset;
-	for (float y = actor->position.y - checkOffset; y < yMax; y++)
+	float checkOffset = 1;
+	float yMax = truncf(actor->position.y + actor->GameHeight() + checkOffset + 0.5f);
+	float yMin = actor->position.y - checkOffset + 0.5f;
+	float xMax = actor->position.x + actor->GameWidth() + checkOffset + 0.5f;
+	float xMin = actor->position.x - checkOffset + 0.5f;
+
+	for (float y = yMin; y <= yMax; y++)
 	{
-		for (float x = actor->position.x - checkOffset; x < xMax; x++)
+		for (float x = xMin; x < xMax; x++)
 		{
-			Block* block = currentLevel->blocks.TryGetBlock({ (float)x, (float)y });
+			Block* block = currentLevel->blocks.TryGetBlock({ x, y });
 			if (block == nullptr || block->tileType == TileType::invalid)
 				continue;
 
@@ -534,7 +541,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 
 			if (collisionFlags & CollisionTop)
 			{
-				actor->position.y = block->location.y - actor->GameHeight();//PixelToBlock(int32(actor->colRect.Height() * actor->GoldenRatio()));
+				//actor->position.y = block->location.y - actor->GameHeight();//PixelToBlock(int32(actor->colRect.Height() * actor->GoldenRatio()));
 				if (actor->velocity.y > 0)
 					actor->velocity.y = 0;
 			}
@@ -558,14 +565,14 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	actor->grounded = grounded;
 }
 
-bool CollisionWithActor(Player& player, Actor& enemy, Level& level, float deltaTime)
+bool CollisionWithActor(Player& player, Actor& enemy, Level& level)
 {
 	bool result = false;
 
 	float xPercentOffset = 0.2f;
 	float yPercentOffset = 0.3f;
-	Rectangle xRect = CollisionXOffsetToRectangle(&enemy, xPercentOffset);
-	Rectangle yRect = CollisionYOffsetToRectangle(&enemy, yPercentOffset);
+	Rectangle xRect = CollisionXOffsetToRectangle(&enemy);
+	Rectangle yRect = CollisionYOffsetToRectangle(&enemy);
 
 	AddRectToRender(xRect, transGreen, RenderPrio::Debug);
 	AddRectToRender(yRect, transOrange, RenderPrio::Debug);
@@ -599,11 +606,6 @@ bool CollisionWithActor(Player& player, Actor& enemy, Level& level, float deltaT
 				enemy.invinciblityTime = 1;
 			}
 		}
-
-		//if ((xCollisionFlags || yCollisionFlags))
-		//{
-		//
-		//}
 	}
 
 	return result;
@@ -735,7 +737,7 @@ Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 }
 
 
-void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime)
+void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime)
 {
 	laser.paintType = paintType;
 	laser.inUse = true;

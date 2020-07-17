@@ -288,7 +288,7 @@ void SurroundBlockUpdate(Block* block, bool updateTop);
 void ClickUpdate(Block* block, bool updateTop);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
-bool CollisionWithActor(Player& player, Actor& enemy, Level& level, float deltaTime);
+bool CollisionWithActor(Player& player, Actor& enemy, Level& level);
 ActorID CreateActor(ActorType actorType, ActorType dummyType, Level& level);
 Actor* FindActor(ActorID actorID, Level& level);
 //returns first find of that type
@@ -299,7 +299,7 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth);
 Portal* CreatePortal(int32 PortalID, const std::string& levelPointer, int32 levelPortalID, Level& level);
 Portal* GetPortalsPointer(Portal* basePortal);
 Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
-void CreateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
+void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);
 void RenderActors();

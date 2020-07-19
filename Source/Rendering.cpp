@@ -6,6 +6,8 @@
 #include <algorithm>
 
 WindowInfo windowInfo = { 200, 200, 1280, 720 };
+std::unordered_map<std::string, Sprite*> sprites;
+std::unordered_map<std::string, FontSprite*> fonts;
 Camera camera;
 
 
@@ -23,18 +25,19 @@ void CreateWindow()
 
 static std::vector<RenderInformation> drawCalls;
 
-void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect,  RenderPrio priority, SDL_Texture* texture, float rotation, const SDL_Point* rotationPoint, SDL_RendererFlip flippage)
+void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority, SDL_Texture* texture, SDL_Color colorMod, float rotation, const SDL_Point* rotationPoint, SDL_RendererFlip flippage)
 {
     RenderInformation info;
     info.renderType = RenderType::Texture;
 	info.sRect = sRect;
 	info.dRect = dRect;
     info.prio = priority;
+    info.color = colorMod;
 
-    info.d.texture.texture = texture;
-    info.d.texture.rotation = rotation;
-    info.d.texture.flippage = flippage;
-    info.d.texture.rotationPoint = rotationPoint;
+    info.texture.texture = texture;
+    info.texture.rotation = rotation;
+    info.texture.flippage = flippage;
+    info.texture.rotationPoint = rotationPoint;
 
     drawCalls.push_back(info);
 }
@@ -43,8 +46,11 @@ void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPri
 {
     RenderInformation renderInformation;
     renderInformation.renderType = type;
-	renderInformation.sRect = CameraOffset(rect.bottomLeft, { rect.Width(), rect.Height() });
-    renderInformation.d.debugRect.color = color;
+	if (prio == RenderPrio::UI || prio == RenderPrio::foreground)
+		renderInformation.dRect = RectangleToSDL(rect, false);
+	else
+		renderInformation.dRect = CameraOffset(rect.bottomLeft, { rect.Width(), rect.Height() });
+    renderInformation.color = color;
     renderInformation.prio = prio;
     drawCalls.push_back(renderInformation);
 }
@@ -64,34 +70,38 @@ void RenderDrawCalls()
     {
         switch (item.renderType)
         {
-
             case RenderType::Texture:
             {
+
                 const SDL_Rect* sRect = &item.sRect;
                 const SDL_Rect* dRect = &item.dRect;
                 if (item.sRect.w == 0 && item.sRect.h == 0)
                     sRect = nullptr;
                 if (item.dRect.w == 0 && item.dRect.h == 0)
                     dRect = nullptr;
-				SDL_RenderCopyEx(windowInfo.renderer, item.d.texture.texture, sRect, dRect, item.d.texture.rotation, item.d.texture.rotationPoint, item.d.texture.flippage);
+                if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
+					SDL_SetTextureColorMod(item.texture.texture, item.color.r, item.color.g, item.color.b);
+				SDL_RenderCopyEx(windowInfo.renderer, item.texture.texture, sRect, dRect, item.texture.rotation, item.texture.rotationPoint, item.texture.flippage);
                 break;
             }
             case RenderType::DebugOutline:
             {
-                const SDL_Rect* sRect = &item.sRect;
-                if (item.sRect.w == 0 && item.sRect.h == 0)
+
+                const SDL_Rect* sRect = &item.dRect;
+                if (item.sRect.w == 0 && item.dRect.h == 0)
                     sRect = nullptr;
-                SDL_SetRenderDrawColor(windowInfo.renderer, item.d.debugRect.color.r, item.d.debugRect.color.g, item.d.debugRect.color.b, item.d.debugRect.color.a);
+                SDL_SetRenderDrawColor(windowInfo.renderer, item.color.r, item.color.g, item.color.b, item.color.a);
                 SDL_RenderDrawRect(windowInfo.renderer, sRect);
                 break;
             }
             case RenderType::DebugFill:
             {
-                const SDL_Rect* sRect = &item.sRect;
-                if (item.sRect.w == 0 && item.sRect.h == 0)
-                    sRect = nullptr;
-                SDL_SetRenderDrawColor(windowInfo.renderer, item.d.debugRect.color.r, item.d.debugRect.color.g, item.d.debugRect.color.b, item.d.debugRect.color.a);
-                SDL_RenderFillRect(windowInfo.renderer, sRect);
+
+                const SDL_Rect* dRect = &item.dRect;
+                if (item.sRect.w == 0 && item.dRect.h == 0)
+                    dRect = nullptr;
+                SDL_SetRenderDrawColor(windowInfo.renderer, item.color.r, item.color.g, item.color.b, item.color.a);
+                SDL_RenderFillRect(windowInfo.renderer, dRect);
                 break;
             }
         }
@@ -101,41 +111,41 @@ void RenderDrawCalls()
 
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
 {
- int32 textureHeight, textureWidth, colorChannels;
-unsigned char* image = stbi_load(name, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
+	int32 textureHeight, textureWidth, colorChannels;
+	unsigned char* image = stbi_load(name, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
 
-    if (image == nullptr)
-    {
-        return nullptr;
-    }
+	if (image == nullptr)
+	{
+		return nullptr;
+	}
 
-    SDL_Texture* testTexture = SDL_CreateTexture(windowInfo.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, textureWidth, textureHeight);
+	SDL_Texture* testTexture = SDL_CreateTexture(windowInfo.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, textureWidth, textureHeight);
 
-    SDL_SetTextureBlendMode(testTexture, blendMode);
+	SDL_SetTextureBlendMode(testTexture, blendMode);
 
-    uint32 stride = STBI_rgb_alpha * textureWidth;
+	uint32 stride = STBI_rgb_alpha * textureWidth;
 
-    void* pixels;
-    int32 pitch;
-    SDL_LockTexture(testTexture, NULL, &pixels, &pitch);
+	void* pixels;
+	int32 pitch;
+	SDL_LockTexture(testTexture, NULL, &pixels, &pitch);
 
-    for (int32 y = 0; y < textureHeight; y++)
-    {
-        memcpy((uint8*)pixels + (size_t(y) * pitch), image + (size_t(y) * stride), stride);
-    }
+	for (int32 y = 0; y < textureHeight; y++)
+	{
+		memcpy((uint8*)pixels + (size_t(y) * pitch), image + (size_t(y) * stride), stride);
+	}
 
-    stbi_image_free(image);
-    SDL_UnlockTexture(testTexture);
+	stbi_image_free(image);
+	SDL_UnlockTexture(testTexture);
 
-    Sprite* result = new Sprite;
-    result->texture = testTexture;
-    result->height = textureHeight;
-    result->width = textureWidth;
-    return result;
+	Sprite* result = new Sprite;
+	result->texture = testTexture;
+	result->height = textureHeight;
+	result->width = textureWidth;
+	return result;
 }
 
 
-FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 xCharSize, int32 charPerRow)
+FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 actualCharWidth, int32 charPerRow)
 {
     Sprite* SP = CreateSprite(name, blendMode);;
     if (SP == nullptr)
@@ -144,7 +154,7 @@ FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize
     FontSprite* result = new FontSprite();
     result->sprite = SP;
     result->charSize = charSize;
-    result->xCharSize = xCharSize;
+    result->xCharSize = actualCharWidth;
     result->charPerRow = charPerRow;
     return result;
 }
@@ -210,8 +220,7 @@ void BackgroundRender(Sprite* sprite, Camera* camera)
     }
 
 
-    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite->texture, 0, NULL, SDL_FLIP_NONE);
-    //SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, spriteRect, NULL, 0, NULL, SDL_FLIP_NONE);
+    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite->texture, {}, 0, NULL, SDL_FLIP_NONE);
 }
 
 
@@ -226,8 +235,7 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
     float itemSizeTranslatedy = PixelToBlock(itemSize);
     SDL_Rect destRect = CameraOffset(loc, { itemSizeTranslatedx, itemSizeTranslatedy });
 
-    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite->texture, 0, NULL, SDL_FLIP_NONE);
-    //SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, &blockRect, &destRect, 0, NULL, SDL_FLIP_NONE);
+    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite->texture, {}, 0, NULL, SDL_FLIP_NONE);
 }
 
 
@@ -261,16 +269,17 @@ void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, floa
 
         DRect.x = loc.x + i * DRect.w - (int32(XLayout) * DRect.w * int32(text.size())) / 2;
         DRect.y = loc.y - (int32(YLayout) * DRect.h) / 2;
-
-        SDL_SetTextureColorMod(fontSprite->sprite->texture, c.r, c.g, c.b);
-        AddTextureToRender(SRect, DRect, RenderPrio::Sprites, fontSprite->sprite->texture, 0, NULL, SDL_FLIP_NONE);
+        AddTextureToRender(SRect, DRect, RenderPrio::UI, fontSprite->sprite->texture, c, 0, NULL, SDL_FLIP_NONE);
         //SDL_RenderCopyEx(windowInfo.renderer, fontSprite->sprite->texture, &SRect, &DRect, 0, NULL, SDL_FLIP_NONE);
     }
 }
 
-SDL_Rect RectangleToSDL(Rectangle rect)
+SDL_Rect RectangleToSDL(Rectangle rect, bool yFlip)
 {
-    return { (int32)rect.bottomLeft.x, windowInfo.height - (int32)rect.topRight.y, (int32)rect.Width(), (int32)rect.Height() };
+    if (yFlip)
+		return { (int32)rect.bottomLeft.x, windowInfo.height - (int32)rect.topRight.y, (int32)rect.Width(), (int32)rect.Height() };
+    else
+		return { (int32)rect.bottomLeft.x, (int32)rect.bottomLeft.y, (int32)rect.Width(), (int32)rect.Height() };
 }
 
 //bottom left and top right
@@ -301,46 +310,45 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect)
 
 
 //top left 0,0
-bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc, UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC)
+bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc, 
+                UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC, 
+                VectorInt mouseLoc, bool mousePressed)
 {
     bool result = false;
     //Copied from DrawText()
     //TODO(choman): change this to be more fluid and remove most of the dependancies.
 
-    SDL_Rect buttonRect = {};
+    SDL_Rect sdlButRect = {};
     int32 widthOffset = 5;
     int32 heightOffset = 5;
 
-    buttonRect.w = textSprite->xCharSize * int32(text.size()) + widthOffset * 2;
-    buttonRect.h = (textSprite->charSize + heightOffset * 2);
-    int32 xOffset = (int32(XLayout) * buttonRect.w) / 2;
-    int32 yOffset = (int32(YLayout) * buttonRect.h) / 2; //top, mid, bot
+    sdlButRect.w = textSprite->xCharSize * int32(text.size()) + widthOffset * 2;
+    sdlButRect.h = (textSprite->charSize + heightOffset * 2);
+    int32 xOffset = (int32(XLayout) * sdlButRect.w) / 2;
+    int32 yOffset = (int32(YLayout) * sdlButRect.h) / 2; //top, mid, bot
 
-    buttonRect.x = loc.x - xOffset;
-    buttonRect.y = loc.y - yOffset;
+    sdlButRect.x = loc.x - xOffset;
+    sdlButRect.y = loc.y - yOffset;
 
-    SDL_SetRenderDrawColor(windowInfo.renderer, BC.r, BC.g, BC.b, BC.a);
-    Rectangle cshRect = SDLToRectangle(buttonRect);
-    SDL_RenderDrawRect(windowInfo.renderer, &buttonRect);
+    Rectangle butRect = SDLToRectangle(sdlButRect);
+    AddRectToRender(RenderType::DebugOutline, butRect, BC, RenderPrio::UI);
 
-    VectorInt mousePosition;
-    bool leftButtonPressed = (SDL_GetMouseState(&mousePosition.x, &mousePosition.y) & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
+    //VectorInt mousePosition;
+    //bool leftButtonPressed = (SDL_GetMouseState(&mousePosition.x, &mousePosition.y) & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
 
-    if (SDLPointRectangleCollision(mousePosition, cshRect))
+    if (SDLPointRectangleCollision(mouseLoc, butRect))
     {
-        SDL_SetRenderDrawColor(windowInfo.renderer, BC.r, BC.g, BC.b, BC.a / 2);
-        SDL_RenderFillRect(windowInfo.renderer, &buttonRect);
+        AddRectToRender(RenderType::DebugFill, butRect, { BC.r, BC.g, BC.b, BC.a / (uint32)2}, RenderPrio::UI);
     }
-    if (leftButtonPressed)
+    if (mousePressed)
     {
-        if (SDLPointRectangleCollision(mousePosition, cshRect))
+        if (SDLPointRectangleCollision(mouseLoc, butRect))
         {
-            SDL_SetRenderDrawColor(windowInfo.renderer, BC.r, BC.g, BC.b, BC.a);
-            SDL_RenderFillRect(windowInfo.renderer, &buttonRect);
+			AddRectToRender(RenderType::DebugFill, butRect, BC, RenderPrio::UI);
             result = true;
         }
     }
-    DrawText(textSprite, TC, text, 1.0f, { buttonRect.x + buttonRect.w / 2, buttonRect.y + buttonRect.h / 2 }, UIX::mid, UIY::mid);
+    DrawText(textSprite, TC, text, 1.0f, { sdlButRect.x + sdlButRect.w / 2, sdlButRect.y + sdlButRect.h / 2 }, UIX::mid, UIY::mid);
     return result;
 }
 
@@ -360,11 +368,9 @@ void RenderLaser()
             PC = Red;
         Sprite* sprite = GetSpriteFromAnimation(&laser);
 
-        SDL_SetTextureColorMod(sprite->texture, PC.r, PC.g, PC.b);
         SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(sprite->height) });
         static SDL_Point rotationPoint = { 0, rect.h / 2 };
-        AddTextureToRender({}, rect, RenderPrio::Sprites, sprite->texture, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
-        //SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, NULL, &rect, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        AddTextureToRender({}, rect, RenderPrio::Sprites, sprite->texture, PC, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
     }
 }
 
@@ -374,14 +380,7 @@ void RenderActor(Actor* actor, float rotation)
     SDL_Rect destRect = {};
     SDL_RendererFlip flippage = SDL_FLIP_NONE;
     int32 xPos;
-
-    ActorType actorType = actor->GetActorType();
-
-    //std::vector<Sprite*>* list = {}; actorType == ActorType::projectile
     Sprite* sprite = GetSpriteFromAnimation(actor);
-
-    SDL_SetTextureColorMod(sprite->texture, actor->colorMod.r, actor->colorMod.g, actor->colorMod.b);
-
 
     if (actor->lastInputWasLeft && actor->GetActorType() != ActorType::projectile)
     {
@@ -392,17 +391,17 @@ void RenderActor(Actor* actor, float rotation)
     {
         xPos = actor->animationList->colRect.bottomLeft.x;
     }
+
     destRect = CameraOffset({ actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio()))),
                               actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio()))) },
         PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
                        (int)(actor->SpriteRatio() * sprite->height) }));
-    AddTextureToRender({}, destRect, RenderPrio::Sprites, sprite->texture, rotation, NULL, flippage);
-    //SDL_RenderCopyEx(windowInfo.renderer, sprite->texture, NULL, &destRect, rotation, NULL, flippage);
+    AddTextureToRender({}, destRect, RenderPrio::Sprites, sprite->texture, actor->colorMod, rotation, NULL, flippage);
 }
 
 void GameSpaceRectRender(Rectangle rect, SDL_Color color)
 {
-    SDL_Rect tempRect = CameraOffset( rect.bottomLeft , PixelToBlock({ int32(BlockToPixel(rect.Width())), int32(rect.Height()) }));
-    SDL_SetRenderDrawColor(windowInfo.renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderFillRect(windowInfo.renderer, &tempRect);
+    Vector offset = PixelToBlock({ int32(BlockToPixel(rect.Width())), int32(rect.Height()) });
+    Rectangle tempRect = { {rect.bottomLeft.x, rect.bottomLeft.y}, {rect.bottomLeft.x + offset.x, rect.bottomLeft.y + offset.y} };
+    AddRectToRender(RenderType::DebugFill, tempRect, color, RenderPrio::Debug );
 }

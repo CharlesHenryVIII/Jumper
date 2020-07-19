@@ -106,33 +106,6 @@ T GetActorProperty(const picojson::value& props, const std::string& propertyName
 	return {};
 }
 
-//const std::string& GetActorPropertyString(const picojson::value& props, const std::string& propertyName)
-//{
-//	const picojson::value& result = GetActorPropertyValue(props, propertyName);
-//	if (result.is<std::string>())
-//	{
-//		return result.get<std::string>();
-//	}
-//
-//	assert(false);
-//	DebugPrint("GetActorPropertyString failed to return a value for %s\n", propertyName.c_str());
-//	return "";
-//}
-//
-//double GetActorPropertyDouble(const picojson::value& props, const std::string& propertyName)
-//{
-//	const picojson::value& result = GetActorPropertyValue(props, propertyName);
-//	if (result.is<double>())
-//	{
-//		return result.get<double>();
-//	}
-//
-//	assert(false);
-//	DebugPrint("GetActorPropertyDouble failed to return a value for %s\n", propertyName.c_str());
-//	return 0;
-//}
- 
-
 Level* LoadLevel(const std::string& name)
 {
 	const picojson::value& v = JsonStruct(name);
@@ -160,42 +133,6 @@ Level* LoadLevel(const std::string& name)
 	}
 
 
-	//const picojson::value& actorObjects = FindChildObject("objects", "objectgroup", layers);
-	//for (int32 i = 0; i < actorObjects.get<picojson::array>().size(); i++)
-	//{
-	//	const picojson::value& actorProperties = actorObjects.get<picojson::array>()[i];
-
-	//	Vector loc = { (float)actorProperties.get("x").get<double>() / blockSize,
-	//				   (float)actorProperties.get("y").get<double>() / blockSize };
-	//	loc.y -= 2 * loc.y;
-	//	const std::string& type = actorProperties.get("type").get<std::string>();
-	//	if (type == "PlayerType")
-	//	{
-	//		// Do Player Stuff
-	//		assert(FindPlayer(*level) == nullptr);
-	//		Actor* player = FindActor(CreateActor(ActorType::player, ActorType::none, *level), *level);
-	//		player->position = loc;
-	//		int a = 0;
-	//	}
-	//	else if (type == "EnemyType")
-	//	{
-	//		// Do Enemy Stuff
-	//		const picojson::value& props = actorProperties.get("properties");
-	//		Actor* enemy = FindActor(CreateActor(ActorType::enemy, ActorType::none, *level), *level);
-	//		enemy->position = loc;
-	//		enemy->damage = (float)GetActorProperty<double>(props, "Damage");
-
-	//	}
-	//	else if (type == "DummyType")
-	//	{
-	//		// Do Dummy Stuff
-	//		const picojson::value& props = actorProperties.get("properties");
-	//		ActorType mimic = (ActorType)GetActorProperty<double>(props, "ActorType");
-	//		Actor* dummy = FindActor(CreateActor(ActorType::dummy, mimic, *level), *level);
-	//		dummy->position = loc;
-	//		int32 a = 0;
-	//	}
-	//}
 
 	const picojson::value& portalObjects = FindChildObject("objects", "objectgroup", layers);
 	for (int32 i = 0; i < (int32)portalObjects.get<picojson::array>().size(); i++)
@@ -209,7 +146,7 @@ Level* LoadLevel(const std::string& name)
 		if (type == "PlayerType")
 		{
 			// Do Player Stuff
-			Actor* player = FindActor(CreateActor(ActorType::player, ActorType::none, *level), *level);
+			Actor* player = FindActor(CreatePlayer(*level), *level);
 			player->position = loc;
 			int a = 0;
 		}
@@ -217,7 +154,7 @@ Level* LoadLevel(const std::string& name)
 		{
 			// Do Enemy Stuff
 			const picojson::value& props = actorProperties.get("properties");
-			Actor* enemy = FindActor(CreateActor(ActorType::enemy, ActorType::none, *level), *level);
+			Actor* enemy = FindActor(CreateEnemy(*level), *level);
 			enemy->position = loc;
 			enemy->damage = (float)GetActorProperty<double>(props, "Damage");
 		}
@@ -226,7 +163,7 @@ Level* LoadLevel(const std::string& name)
 			// Do Dummy Stuff
 			const picojson::value& props = actorProperties.get("properties");
 			ActorType mimic = (ActorType)GetActorProperty<double>(props, "ActorType");
-			Actor* dummy = FindActor(CreateActor(ActorType::dummy, mimic, *level), *level);
+			Actor* dummy = FindActor(CreateDummy(mimic, *level), *level);
 			dummy->position = loc;
 		}
 		else if (type == "PortalType")

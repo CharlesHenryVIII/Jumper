@@ -24,6 +24,7 @@ enum class ActorType
     projectile,
     dummy,
     portal,
+    item,
     count
 };
 
@@ -220,6 +221,20 @@ struct Portal : public Actor
 };
 
 
+struct Item : public Actor
+{
+
+    Item(float healthChange);
+    void Update(float deltaTime) override;
+    void Render() override;
+    void UpdateHealth(Level& level, float deltaHealth) override
+    {
+
+    };
+    ActorType GetActorType() override { return ActorType::item; }
+};
+
+
 struct Block {
     Vector location = {};
     TileType tileType = TileType::invalid;
@@ -271,12 +286,10 @@ enum class CollisionDirection {
 };
 
 
-//extern TileMap tileMap;
 extern Projectile laser;
-//extern std::vector<Actor*> actorList;
 extern Level* currentLevel;
 extern std::unordered_map<std::string, Level> levels;
-extern std::unordered_map<std::string, AnimationList> animations;
+extern std::unordered_map<std::string, AnimationList> actorAnimations;
 
 
 TileType CheckColor(SDL_Color color);
@@ -289,7 +302,10 @@ void ClickUpdate(Block* block, bool updateTop);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
 bool CollisionWithActor(Player& player, Actor& enemy, Level& level);
-ActorID CreateActor(ActorType actorType, ActorType dummyType, Level& level);
+//ActorID CreateActor(ActorType actorType, ActorType dummyType, Level& level);
+ActorID CreatePlayer(Level& level);
+ActorID CreateEnemy(Level& level);
+ActorID CreateDummy(ActorType mimicType, Level& level);
 Actor* FindActor(ActorID actorID, Level& level);
 //returns first find of that type
 Player* FindPlayer(Level& level);

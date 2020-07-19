@@ -34,6 +34,7 @@ const SDL_Color lightBlue = { 0, 0, 255, 63 };
 const SDL_Color White = { 255, 255, 255, 255 };
 const SDL_Color lightWhite = { 150, 150, 150, 150 };
 const SDL_Color Black = { 0, 0, 0, 255 };
+const SDL_Color lightBlack = { 0, 0, 0, 150 };
 const SDL_Color Brown = { 130, 100, 70, 255 };  //used for dirt block
 const SDL_Color Mint = { 0, 255, 127, 255 };   //used for corner block
 const SDL_Color Orange = { 255, 127, 0, 255 };   //used for edge block

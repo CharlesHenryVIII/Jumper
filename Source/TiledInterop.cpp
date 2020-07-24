@@ -7,13 +7,6 @@
 #include <iostream>
 
 
-void AddBlocksToTileMap(Level* level, picojson::value chunks)
-{
-
-}
-
-
-
 const char* ReadEntireFileAsString(const char* fileName)
 {
 	FILE* file;

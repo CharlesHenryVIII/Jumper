@@ -117,11 +117,11 @@ void Enemy::UpdateHealth(Level& level, float deltaHealth)
  * Projectile
  *
  ********/
-
 void Projectile::Update(float deltaTime)
 {
 	UpdateLocation(this, 0, deltaTime);
-	Vector realPosition = { position.x + cosf(rotation)*GameWidth(), position.y/* + sinf(rotation) * GameWidth()*/ };
+	float rad = DegToRad(rotation);
+	Vector realPosition = { position.x + cosf(rad)*GameWidth(), position.y - sinf(rad) * GameWidth() };
 	if (DotProduct(velocity, destination - realPosition) < 0)
 	{
 		//paint block and remove bullet
@@ -571,7 +571,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 
 	if (actor->grounded != grounded)
 	{
-		if (!grounded)
+		if (!grounded && (actor->GetActorType() == ActorType::player || actor->GetActorType() == ActorType::enemy))
 			PlayAnimation(actor, ActorState::jump);
 	}
 	actor->grounded = grounded;
@@ -704,16 +704,18 @@ Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 	bullet.animationList->scaledWidth = (float)sprite->width;
 	bullet.terminalVelocity = { 1000, 1000 };
 	Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
+	Vector playerPosAdjusted = { adjustedPlayerPosition.x + (player->GameWidth() / 2), adjustedPlayerPosition.y };
 
 	float playerBulletRadius = 0.5f; //half a block
 	bullet.destination = mouseLoc;
 	bullet.rotation = Atan2fToDegreeDiff(atan2f(bullet.destination.y - adjustedPlayerPosition.y, bullet.destination.x - adjustedPlayerPosition.x));
 
 	float speed = 50.0f;
-	Vector ToDest = bullet.destination - adjustedPlayerPosition;
+	Vector ToDest = bullet.destination - playerPosAdjusted;
 	ToDest = Normalize(ToDest);
 	bullet.velocity = ToDest * speed;
-	bullet.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
+	Vector gameSize = { bullet.GameWidth(), bullet.GameHeight() };
+	bullet.position = adjustedPlayerPosition + (ToDest * playerBulletRadius)/* + gameSize*/;
 	return bullet_a;
 }
 
@@ -861,7 +863,8 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 	actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
 	actor->position += actor->velocity * deltaTime;
 
-	if (actor->velocity.x == 0 && actor->velocity.y == 0)
+	if (actor->velocity.x == 0 && actor->velocity.y == 0 && 
+		(actor->GetActorType() == ActorType::player || actor->GetActorType() == ActorType::enemy))
 		PlayAnimation(actor, ActorState::idle);
 	if (actor->velocity.x < 0)
 		actor->lastInputWasLeft = true;

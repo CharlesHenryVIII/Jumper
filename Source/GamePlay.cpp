@@ -28,7 +28,7 @@ void SwitchToGame()
 }
 
 
-void DoPlayGame(float deltaTime, std::unordered_map<int32, Key> keyStates, VectorInt mouseLocation)
+void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, VectorInt mouseLocation)
 {
 	
 	if (paused)

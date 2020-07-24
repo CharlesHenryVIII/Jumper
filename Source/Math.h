@@ -12,11 +12,14 @@ using uint8 = uint8_t;
 using uint16 = uint16_t;
 using uint32 = uint32_t;
 using uint64 = uint64_t;
+//using uint64 = uint64_t;
 //typedef uint64_t uint64;
 //#define uint64_t uint64
 
 constexpr int32 blockSize = 32;
 
+const float pi = 3.14159f;
+const float tau = 2 * pi;
 
 const SDL_Color Red = { 255, 0, 0, 255 };
 const SDL_Color Green = { 0, 255, 0, 255 };
@@ -165,7 +168,12 @@ T Clamp(T v, T min, T max)
 
 inline float RadToDeg(float angle)
 {
-    return ((angle) / (2 * 3.14159f)) * 360;
+    return ((angle) / (tau)) * 360;
+}
+
+inline float DegToRad(float angle)
+{
+    return (angle / 360 ) * (tau);
 }
 
 

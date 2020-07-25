@@ -24,7 +24,8 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	DrawText(fonts["2"], White, "J U M P E R", 4.0f, { windowInfo.width / 2, windowInfo.height / 4 }, UIX::mid, UIY::mid);
 
 	if (DrawButton(fonts["1"], "Start Game", { windowInfo.width / 2, windowInfo.height / 2 },
-					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame))
+					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame) ||
+		keyStates[SDLK_RETURN].down)
 		SwitchToGame();
 	DrawButton(fonts["1"], "Settings", { windowInfo.width / 2, windowInfo.height / 2 + 64 }, 
 					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame);

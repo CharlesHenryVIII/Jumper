@@ -34,7 +34,6 @@ Player::Player(ActorID* playerID)
 	*playerID = id;
 }
 
-
 void Player::Update(float deltaTime)
 {
 	UpdateLocation(this, -60.0f, deltaTime);
@@ -68,7 +67,6 @@ void Player::UpdateHealth(Level& level, float deltaHealth)
  *
  ********/
 
-
 Enemy::Enemy(EnemyType type, ActorID* enemyID)
 {
 	position = { 28, 1 };
@@ -93,7 +91,6 @@ void Enemy::Update(float deltaTime)
 			PlayAnimation(this, ActorState::idle);
 	}
 	UpdateAnimationIndex(this, deltaTime);
-	//actorState = ActorState::idle;
 }
 
 void Enemy::Render()
@@ -107,16 +104,12 @@ void Enemy::UpdateHealth(Level& level, float deltaHealth)
 	UpdateActorHealth(level, this, deltaHealth);
 }
 
-//ActorType Enemy::GetActorType()
-//{
-//	return ActorType::enemy;
-//}
-
 /*********************
  *
  * Projectile
  *
  ********/
+
 void Projectile::Update(float deltaTime)
 {
 	UpdateLocation(this, 0, deltaTime);
@@ -130,7 +123,6 @@ void Projectile::Update(float deltaTime)
 		UpdateAllNeighbors(blockPointer);
 		inUse = false;
 	}
-//	actorState = ActorState::idle;
 	UpdateAnimationIndex(this, deltaTime);
 }
 
@@ -142,11 +134,6 @@ void Projectile::Render()
 		colorMod = Red;
 	RenderActor(this, rotation);
 }
-
-//ActorType Projectile::GetActorType()
-//{
-//	return ActorType::projectile;
-//}
 
 
 /*********************
@@ -199,9 +186,31 @@ void Portal::Render()
 	RenderActor(this, 0);
 }
 
+
 /*********************
  *
- * Items 
+ * Spring
+ *
+ ********/
+
+Spring::Spring()
+{
+	inUse = true;
+	damage = 0;
+}
+
+void Spring::Update(float deltaTime)
+{
+	UpdateAnimationIndex(this, deltaTime);
+}
+void Spring::Render()
+{
+	RenderActor(this, 0);
+}
+
+/*********************
+ *
+ * Items
  *
  ********/
 
@@ -479,11 +488,11 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	Rectangle xRect = CollisionXOffsetToRectangle(actor);
 	Rectangle yRect = CollisionYOffsetToRectangle(actor);
 
-	//if (actor->GetActorType() == ActorType::player && debugList[DebugOptions::playerCollision])
-	//{
-	//	AddRectToRender(xRect, transGreen, RenderPrio::Debug);
-	//	AddRectToRender(yRect, transOrange, RenderPrio::Debug);
-	//}
+	if (actor->GetActorType() == ActorType::player && debugList[DebugOptions::playerCollision])
+	{
+		AddRectToRender(xRect, transGreen, RenderPrio::Debug);
+		AddRectToRender(yRect, transOrange, RenderPrio::Debug);
+	}
 
 
 	if (rect.topRight.y > xRect.bottomLeft.y && rect.bottomLeft.y < xRect.topRight.y)
@@ -577,9 +586,9 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	actor->grounded = grounded;
 }
 
-bool CollisionWithActor(Player& player, Actor& enemy, Level& level)
+uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 {
-	bool result = false;
+	uint32 result = 0;
 
 	float xPercentOffset = 0.2f;
 	float yPercentOffset = 0.3f;
@@ -592,13 +601,13 @@ bool CollisionWithActor(Player& player, Actor& enemy, Level& level)
 		AddRectToRender(yRect, transOrange, RenderPrio::Debug);
 	}
 
-	uint32 xCollisionFlags = CollisionWithRect(&player, xRect);
-	uint32 yCollisionFlags = CollisionWithRect(&player, yRect);
+	uint32 xCollisionFlags = CollisionWithRect(&player, xRect) & (CollisionLeft | CollisionRight);
+	uint32 yCollisionFlags = CollisionWithRect(&player, yRect) & (CollisionBot | CollisionTop);
 	float knockBackAmount = 15;
-	result = bool(xCollisionFlags | yCollisionFlags);
+	result = xCollisionFlags | yCollisionFlags;
 	if (enemy.GetActorType() == ActorType::enemy)
 	{
-		if (yCollisionFlags & CollisionBot)
+		if (result & CollisionBot)
 		{//hit enemy, apply damage to enemy
 			enemy.UpdateHealth(level, -player.damage);
 			player.velocity.y = knockBackAmount;
@@ -606,16 +615,16 @@ bool CollisionWithActor(Player& player, Actor& enemy, Level& level)
 		else
 		{
 
-			if (xCollisionFlags & CollisionRight)
+			if (result & CollisionRight)
 			{//hit by enemy, knockback, take damage, screen flash
-				player.velocity.x = -500000 * knockBackAmount;
+				player.velocity.x = -knockBackAmount * 3;
 				player.velocity.y = knockBackAmount;
 				player.UpdateHealth(level, -enemy.damage);
 				enemy.invinciblityTime = 1;
 			}
-			if (xCollisionFlags & CollisionLeft)
+			if (result & CollisionLeft)
 			{//hit by enemy, knockback, take damage, screen flash
-				player.velocity.x = 5000000 * knockBackAmount;
+				player.velocity.x = knockBackAmount * 3;
 				player.velocity.y = knockBackAmount;
 				player.UpdateHealth(level, -enemy.damage);
 				enemy.invinciblityTime = 1;
@@ -663,6 +672,16 @@ Portal* CreatePortal(int32 PortalID, const std::string& levelName, int32 levelPo
 	PlayAnimation(portal, ActorState::idle);
 	level.actors.push_back(portal);
 	return portal;
+}
+
+Spring* CreateSpring(Level& level)
+{
+
+	Spring* spring = new Spring();
+	AttachAnimation(spring);
+	PlayAnimation(spring, ActorState::idle);
+	level.actors.push_back(spring);
+	return spring;
 }
 
 Item* CreateItem(Level& level)
@@ -863,7 +882,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 	actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
 	actor->position += actor->velocity * deltaTime;
 
-	if (actor->velocity.x == 0 && actor->velocity.y == 0 && 
+	if (actor->velocity.x == 0 && actor->velocity.y == 0 &&
 		(actor->GetActorType() == ActorType::player || actor->GetActorType() == ActorType::enemy))
 		PlayAnimation(actor, ActorState::idle);
 	if (actor->velocity.x < 0)
@@ -973,6 +992,11 @@ void AttachAnimation(Actor* actor, ActorType overrideType)
 	case ActorType::portal:
 	{
 		entityName = "Portal";
+		break;
+	}
+	case ActorType::spring:
+	{
+		entityName = "Spring";
 		break;
 	}
 	default:

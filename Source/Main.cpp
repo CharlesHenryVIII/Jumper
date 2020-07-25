@@ -71,7 +71,10 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates("Bullet");
     LoadAllAnimationStates("Portal");
     LoadAllAnimationStates("Striker");
+    LoadAllAnimationStates("Spring");
     {
+        Vector basicCollisionOffset = { 0.125f, 0.25f };
+
 		AnimationList& dino = actorAnimations["Dino"];
 		dino.GetAnimation(ActorState::jump)->fps = 30.0f;
 		dino.GetAnimation(ActorState::run)->fps = 15.0f;
@@ -83,30 +86,40 @@ int main(int argc, char* argv[])
 
 		AnimationList& headMinion = actorAnimations["HeadMinion"];
 		spriteHeight = headMinion.GetAnyValidAnimation()->anime[0]->height;
-		headMinion.colOffset.x = 0.125f;
-		headMinion.colOffset.y = 0.25f;
+        headMinion.colOffset = basicCollisionOffset;
 		headMinion.colRect = { { 4, spriteHeight - 32 }, { 27, spriteHeight - 9 } };
 		headMinion.scaledWidth = (float)headMinion.colRect.Width();
 
 		AnimationList& portal = actorAnimations["Portal"];
 		spriteHeight = portal.GetAnyValidAnimation()->anime[0]->height;
 		portal.GetAnimation(ActorState::idle)->fps = 20.0f;
-		portal.colOffset.x = 0.125f;
-		portal.colOffset.y = 0.25f;
+        portal.colOffset = basicCollisionOffset;
 		portal.colRect = { { 85, spriteHeight - 299 }, { 229, spriteHeight - 19 } };
 		portal.scaledWidth = 32;
 
 		AnimationList& striker = actorAnimations["Striker"];
 		striker.GetAnimation(ActorState::run)->fps = 20.0f;
 		spriteHeight = striker.GetAnyValidAnimation()->anime[0]->height;
-		striker.colOffset.x = 0.125f;
-		striker.colOffset.y = 0.25f;
+        striker.colOffset = basicCollisionOffset;
 		striker.colRect = { { 36, spriteHeight - 67 }, { 55, spriteHeight - 35 } };
 		striker.scaledWidth = 40;
+
+		AnimationList& spring = actorAnimations["Spring"];
+		spriteHeight = spring.GetAnyValidAnimation()->anime[0]->height;
+        spring.colOffset = basicCollisionOffset;
+		spring.colRect = { { 0, spriteHeight - 31 }, { 31, spriteHeight - 0 } };
+		spring.scaledWidth = 32;
     }
 	sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
 	sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
 	sprites["MainMenuBackground"] = CreateSprite("MainMenuBackground.png", SDL_BLENDMODE_BLEND);
+//    const char* fontFileNames[] = {
+//        "Text.png",
+//        "Text 2.png",
+//    }
+//    LoadFonts(fontFileNames);
+//    Cant do this because I would need to pass the font information as well
+//    could make a struct but will do when/if there are more fonts
 	fonts["1"] = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
 	fonts["2"] = CreateFont("Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
 

@@ -139,6 +139,7 @@ Level* LoadLevel(const std::string& name)
 		if (type == "PlayerType")
 		{
 			// Do Player Stuff
+
 			Actor* player = FindActor(CreatePlayer(*level), *level);
 			player->position = loc;
 			int a = 0;
@@ -146,6 +147,7 @@ Level* LoadLevel(const std::string& name)
 		else if (type == "EnemyType")
 		{
 			// Do Enemy Stuff
+
 			const picojson::value& props = actorProperties.get("properties");
 			Actor* enemy = FindActor(CreateEnemy(*level), *level);
 			enemy->position = loc;
@@ -155,20 +157,29 @@ Level* LoadLevel(const std::string& name)
 		{
 			// Do Dummy Stuff
 			const picojson::value& props = actorProperties.get("properties");
+
 			ActorType mimic = (ActorType)GetActorProperty<double>(props, "ActorType");
 			Actor* dummy = FindActor(CreateDummy(mimic, *level), *level);
 			dummy->position = loc;
 		}
 		else if (type == "PortalType")
 		{
-			
+			// Do Spring Stuff
+
 			const picojson::value& props = actorProperties.get("properties");
-			Portal* portal = CreatePortal((int32)GetActorProperty<double>(props, "PortalID"), 
-												 GetActorProperty<std::string>(props, "PortalPointerLevel"), 
-										  (int32)GetActorProperty<double>(props, "PortalPointerID"),
-												*level);
+			Portal* portal = CreatePortal((int32)GetActorProperty<double>(props, "PortalID"),
+				GetActorProperty<std::string>(props, "PortalPointerLevel"),
+				(int32)GetActorProperty<double>(props, "PortalPointerID"),
+				*level);
 			portal->position = loc;
 
+		}
+		else if (type == "SpringType")
+		{
+			// Do Spring Stuff
+			
+			Spring* spring = CreateSpring(*level);
+			spring->position = loc;
 		}
 	}
 	level->blocks.UpdateAllBlocks();

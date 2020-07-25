@@ -24,6 +24,7 @@ enum class ActorType
     projectile,
     dummy,
     portal,
+    spring,
     item,
     count
 };
@@ -123,7 +124,7 @@ public:
     float invinciblityTime = false;
     //ActorType actorType = ActorType::none;
     ActorState actorState = ActorState::none;
-    
+
     Sprite* currentSprite = nullptr;
     AnimationList* animationList = {};
     int32 index = 0;
@@ -188,7 +189,7 @@ struct Projectile : public Actor
     void UpdateHealth(Level& level, float deltaHealth) override
     {
 
-    }
+    };
     ActorType GetActorType() override { return ActorType::projectile; }
 };
 
@@ -220,6 +221,20 @@ struct Portal : public Actor
     ActorType GetActorType() override { return ActorType::portal; }
 };
 
+struct Spring : public Actor
+{
+    Spring();
+    Vector springVelocity = { 0.0f, 30.0f };
+
+
+    void Update(float deltaTime) override;
+    void Render() override;
+    void UpdateHealth(Level& level, float deltaHealth) override
+    {
+
+    };
+    ActorType GetActorType() override { return ActorType::spring; }
+};
 
 struct Item : public Actor
 {
@@ -261,7 +276,7 @@ public:
     bool CheckForBlock(Vector loc);
     void UpdateBlock(Block* block);
     void UpdateAllBlocks();
-    
+
     //returns &blocks
     const std::unordered_map<uint64, Block>* blockList();
     void ClearBlocks();
@@ -301,7 +316,7 @@ void SurroundBlockUpdate(Block* block, bool updateTop);
 void ClickUpdate(Block* block, bool updateTop);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
-bool CollisionWithActor(Player& player, Actor& enemy, Level& level);
+uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level);
 //ActorID CreateActor(ActorType actorType, ActorType dummyType, Level& level);
 ActorID CreatePlayer(Level& level);
 ActorID CreateEnemy(Level& level);
@@ -315,6 +330,7 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth);
 Portal* CreatePortal(int32 PortalID, const std::string& levelPointer, int32 levelPortalID, Level& level);
 Portal* GetPortalsPointer(Portal* basePortal);
 Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
+Spring* CreateSpring(Level& level);
 void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);

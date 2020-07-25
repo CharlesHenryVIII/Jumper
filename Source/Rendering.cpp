@@ -144,6 +144,15 @@ Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
 	return result;
 }
 
+//void LoadFonts(const char* fileNames[])
+//{
+//    int32 nameStart = 0;
+//    for (auto& name : fileNames)
+//    {
+//        fonts[name] = CreateFont(name, SDL_BLENDMODE_BLEND, 32, 20, 16);
+//        fonts["1"] = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
+//    }
+//}
 
 FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 actualCharWidth, int32 charPerRow)
 {
@@ -310,8 +319,8 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect)
 
 
 //top left 0,0
-bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc, 
-                UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC, 
+bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
+                UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC,
                 VectorInt mouseLoc, bool mousePressed)
 {
     bool result = false;

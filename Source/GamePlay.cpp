@@ -77,15 +77,16 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		bool rUpThisFrame = keyStates[SDLK_d].upThisFrame || keyStates[SDLK_RIGHT].upThisFrame;
 
 
+		//Set player velocity to the block they are on so they can be moved on a moving platform...
 		if ((lDown && rUpThisFrame) || (rDown && lUpThisFrame))
 		{
 			player->velocity.x = 0;
 			player->acceleration.x = 0;
 
 		}
-		else if (lDown == rDown)
+		else if (lDown == rDown && player->velocity.x < 15)
 		{
-			if (lDown == false || fabsf(player->velocity.x) <= 2)
+			if (/*lDown == false || */fabsf(player->velocity.x) <= 2)
 			{
 				player->velocity.x = 0;
 				player->acceleration.x = 0;
@@ -203,16 +204,41 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	{
 		for (int i = 0; i < currentLevel->actors.size(); i++)
 		{
-			if (currentLevel->actors[i]->GetActorType() == ActorType::enemy)
+			Actor* actor =  currentLevel->actors[i];
+			switch (actor->GetActorType())
 			{
+			case ActorType::enemy:
+			{
+
 				//flash screen 
-				if (CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel))
+				if (CollisionWithActor(*player, *actor, *currentLevel))
 					AddRectToRender({ {0, (float)windowInfo.height}, { (float)windowInfo.width, 0 } }, lightWhite, RenderPrio::foreground);
+				break;
 			}
-			else if (currentLevel->actors[i]->GetActorType() == ActorType::portal)
+			case ActorType::portal:
 			{
-				if (CollisionWithActor(*player, *currentLevel->actors[i], *currentLevel))
-					levelChangePortal = (Portal*)currentLevel->actors[i];
+
+				if (CollisionWithActor(*player, *actor, *currentLevel))
+					levelChangePortal = (Portal*)actor;
+				break;
+			}
+			case ActorType::spring:
+			{
+				uint32 test = CollisionWithActor(*player, *actor, *currentLevel);
+				uint32 result = CollisionWithActor(*player, *actor, *currentLevel);
+				if (result > 0)
+				{
+					Spring* spring = (Spring*)actor;
+					if (CollisionLeft & result)
+						player->position.x = spring->position.x + spring->GameWidth();
+					else if (CollisionRight & result)
+						player->position.x = spring->position.x - player->GameWidth();
+					else if (CollisionBot & result)
+						player->velocity.y = spring->springVelocity.y;
+				}
+				break;
+
+			}
 			}
 		}
 	}

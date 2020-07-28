@@ -72,6 +72,7 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates("Portal");
     LoadAllAnimationStates("Striker");
     LoadAllAnimationStates("Spring");
+    LoadAllAnimationStates("MovingPlatform");
     {
         Vector basicCollisionOffset = { 0.125f, 0.25f };
 
@@ -109,6 +110,14 @@ int main(int argc, char* argv[])
         spring.colOffset = basicCollisionOffset;
 		spring.colRect = { { 0, spriteHeight - 31 }, { 31, spriteHeight - 0 } };
 		spring.scaledWidth = 32;
+
+		AnimationList& MP = actorAnimations["MovingPlatform"];
+		spriteHeight = MP.GetAnyValidAnimation()->anime[0]->height;
+		int32 spriteWidth = MP.GetAnyValidAnimation()->anime[0]->width;
+        MP.colOffset.x = basicCollisionOffset.x;
+        MP.colOffset.y = 0;
+		MP.colRect = { { 0, 0 }, { spriteWidth, spriteHeight } };
+		MP.scaledWidth = 32;
     }
 	sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
 	sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);

@@ -32,6 +32,7 @@ Player::Player(ActorID* playerID)
 	inUse = true;
 	AttachAnimation(this);
 	*playerID = id;
+	terminalVelocity.x = 50;
 }
 
 void Player::Update(float deltaTime)
@@ -204,6 +205,79 @@ void Spring::Update(float deltaTime)
 	UpdateAnimationIndex(this, deltaTime);
 }
 void Spring::Render()
+{
+	RenderActor(this, 0);
+}
+
+
+/*********************
+ *
+ * MovingPlatform
+ *
+ ********/
+
+MovingPlatform::MovingPlatform()
+{
+	nextLocation = 1;
+	reversePath = false;
+	acceleration = { 0, 0 };
+	inUse = true;
+	damage = 0;
+}
+
+void MovingPlatform::Update(float deltaTime)
+{
+	float speed = 2;
+
+/*
+
+	if (DotProduct(velocity, destination - realPosition) < 0)
+
+*/
+
+	dest = locations[nextLocation];
+	Vector directionVector = Normalize(dest - position);
+	velocity = directionVector * speed;
+	UpdateLocation(this, 0, deltaTime);
+	//Vector prevLocation;
+	//if (reversePath)
+	//	prevLocation = locations[nextLocation + 1];
+	//else
+	//	prevLocation = locations[nextLocation - 1];
+
+	//check for the next destination
+	//set the velocity to be applied until passing
+	//check dot product between the velocity and destination/origin
+	//if passed then check for next destination again
+
+	if (((dest.x > 0 && position.x >= dest.x) || (dest.x <= 0 && position.x <= dest.x)) &&
+		(dest.y > 0 && position.y >= dest.y) || (dest.y <= 0 && position.y <= dest.y))
+	{
+		if (reversePath)
+		{
+			nextLocation--;
+			if (nextLocation < 0)
+			{
+				nextLocation--;
+				reversePath = false;
+			}
+		}
+		else
+		{
+			nextLocation++;
+			if (nextLocation == locations.size())
+			{
+				nextLocation--;
+				reversePath = true;
+			}
+		}
+		dest = locations[nextLocation];
+
+	}
+
+	UpdateAnimationIndex(this, deltaTime);
+}
+void MovingPlatform::Render()
 {
 	RenderActor(this, 0);
 }
@@ -603,7 +677,7 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 
 	uint32 xCollisionFlags = CollisionWithRect(&player, xRect) & (CollisionLeft | CollisionRight);
 	uint32 yCollisionFlags = CollisionWithRect(&player, yRect) & (CollisionBot | CollisionTop);
-	float knockBackAmount = 15;
+	float knockBackAmount = 20;
 	result = xCollisionFlags | yCollisionFlags;
 	if (enemy.GetActorType() == ActorType::enemy)
 	{
@@ -617,14 +691,14 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 
 			if (result & CollisionRight)
 			{//hit by enemy, knockback, take damage, screen flash
-				player.velocity.x = -knockBackAmount * 3;
+				player.velocity.x = -knockBackAmount;
 				player.velocity.y = knockBackAmount;
 				player.UpdateHealth(level, -enemy.damage);
 				enemy.invinciblityTime = 1;
 			}
 			if (result & CollisionLeft)
 			{//hit by enemy, knockback, take damage, screen flash
-				player.velocity.x = knockBackAmount * 3;
+				player.velocity.x = knockBackAmount;
 				player.velocity.y = knockBackAmount;
 				player.UpdateHealth(level, -enemy.damage);
 				enemy.invinciblityTime = 1;
@@ -682,6 +756,17 @@ Spring* CreateSpring(Level& level)
 	PlayAnimation(spring, ActorState::idle);
 	level.actors.push_back(spring);
 	return spring;
+}
+
+
+MovingPlatform* CreateMovingPlatform(Level& level)
+{
+
+	MovingPlatform* MP = new MovingPlatform();
+	AttachAnimation(MP);
+	PlayAnimation(MP, ActorState::idle);
+	level.actors.push_back(MP);
+	return MP;
 }
 
 Item* CreateItem(Level& level)
@@ -997,6 +1082,11 @@ void AttachAnimation(Actor* actor, ActorType overrideType)
 	case ActorType::spring:
 	{
 		entityName = "Spring";
+		break;
+	}
+	case ActorType::movingPlatform:
+	{
+		entityName = "MovingPlatform";
 		break;
 	}
 	default:

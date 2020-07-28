@@ -86,7 +86,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		}
 		else if (lDown == rDown && player->velocity.x < 15)
 		{
-			if (/*lDown == false || */fabsf(player->velocity.x) <= 2)
+			if ((lUpThisFrame && !rDown) || (rUpThisFrame && !rDown) || fabsf(player->velocity.x) <= 2)
 			{
 				player->velocity.x = 0;
 				player->acceleration.x = 0;
@@ -99,11 +99,11 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		}
 		else
 		{
-			if (lDown)
-				player->acceleration.x -= playerAccelerationAmount;
-			if (rDown)
-				player->acceleration.x += playerAccelerationAmount;
 
+			if (lDown && player->velocity.x >= -10)
+				player->acceleration.x -= playerAccelerationAmount;
+			if (rDown && player->velocity.x <= 10)
+				player->acceleration.x += playerAccelerationAmount;
 		}
 	}
 
@@ -224,7 +224,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 			}
 			case ActorType::spring:
 			{
-				uint32 test = CollisionWithActor(*player, *actor, *currentLevel);
+
 				uint32 result = CollisionWithActor(*player, *actor, *currentLevel);
 				if (result > 0)
 				{
@@ -237,7 +237,32 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 						player->velocity.y = spring->springVelocity.y;
 				}
 				break;
+			}
+			case ActorType::movingPlatform:
+			{
 
+				//TODO: determine how to update the actors x position with the moving platform
+				uint32 result = CollisionWithActor(*player, *actor, *currentLevel);
+				if (result > 0)
+				{
+					MovingPlatform* MP = (MovingPlatform*)actor;
+					if (CollisionBot & result)
+					{
+						player->grounded = true;
+						player->jumpCount = 2;
+						player->position.y = MP->position.y + MP->GameHeight();
+						if (player->velocity.x != 0)
+							PlayAnimation(player, ActorState::run);
+						else
+							PlayAnimation(player, ActorState::idle);
+						player->velocity.y = 0;
+					}
+					else if (CollisionLeft & result)
+						player->position.x = MP->position.x + MP->GameWidth();
+					else if (CollisionRight & result)
+						player->position.x = MP->position.x - player->GameWidth();
+				}
+				break;
 			}
 			}
 		}

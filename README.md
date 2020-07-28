@@ -4,26 +4,28 @@
 ### TODO:
 #### Current
 - [ ] GET SOME DAMN GAMEPLAY DOWN
-- [ ] Grappling
-- [ ] Moving Platforms 
-- [ ] Power Ups (health, movement, jumping height, extra jump, etc) 
-- [ ] Wall jump 
-- [x] Spring Board
-- [ ] Explosions 
-	- [ ] Changing player movement
-	- [ ] Changing tiles 
-- [ ] Wind
-- [ ] Slippery surfaces/walls
+	- [ ] Grappling
+	- [ ] Moving Platforms 
+		- [x] Loading Moving platforms
+		- [ ] Integrate the platform movement/pathing correctly
+	- [ ] Power Ups (health, movement, jumping height, extra jump, etc) 
+	- [ ] Wall jump 
+	- [ ] Explosions 
+		- [ ] Changing player movement
+		- [ ] Changing tiles 
+	- [ ] Wind
+	- [ ] Slippery surfaces/walls
+	- [x] Spring Board
 - [ ] Load fonts the same as the character sprites
 	* need to determine a way to load all files in a directory
 	* also cant really do this because I need the information about the font (NAME, offset length, width, etc)
 	* also cant garentee that it will have loaded correctly.  Need to verify that I am loading assets like the character sprites.
-- [x] bullet fixes
 - [ ] player spawning
 	* need to figure out where to spawn the player
 - [ ] Asperite integration?
 - [ ] change how tilesets are managed?
 	* possibly get arid of the auto updating of tiles
+- [x] bullet fixes
 
 
 #### Future
@@ -34,7 +36,6 @@
     * creating a new player on player death
 * store player ID on levels
 * use more IDs
-- [x] fix bullets ending at the end of where you clicked instead of ending immediatly passing where you clicked.  Reference is the tail of the sprite not the head
 
 
 #### Ideas

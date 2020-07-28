@@ -25,6 +25,7 @@ enum class ActorType
     dummy,
     portal,
     spring,
+    movingPlatform,
     item,
     count
 };
@@ -174,7 +175,8 @@ struct Player : public Actor
 
 enum class TileType {
     invalid,
-    filled
+    filled,
+    moving,
 };
 
 
@@ -234,6 +236,22 @@ struct Spring : public Actor
 
     };
     ActorType GetActorType() override { return ActorType::spring; }
+};
+
+struct MovingPlatform : public Actor
+{
+    MovingPlatform();
+    std::vector<Vector> locations;
+    Vector dest;
+    int32 nextLocation;
+    bool reversePath;
+    void Update(float deltaTime) override;
+    void Render() override;
+    void UpdateHealth(Level& level, float deltaHealth) override
+    {
+
+    };
+    ActorType GetActorType() override { return ActorType::movingPlatform; }
 };
 
 struct Item : public Actor
@@ -331,6 +349,7 @@ Portal* CreatePortal(int32 PortalID, const std::string& levelPointer, int32 leve
 Portal* GetPortalsPointer(Portal* basePortal);
 Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
 Spring* CreateSpring(Level& level);
+MovingPlatform* CreateMovingPlatform(Level& level);
 void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateEnemiesPosition(float gravity, float deltaTime);

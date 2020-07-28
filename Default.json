@@ -192,6 +192,43 @@
                  "width":32,
                  "x":-288,
                  "y":0
+                }, 
+                {
+                 "height":32,
+                 "id":29,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"Destination1X",
+                         "type":"float",
+                         "value":-12
+                        }, 
+                        {
+                         "name":"Destination1Y",
+                         "type":"float",
+                         "value":-4
+                        }, 
+                        {
+                         "name":"Destination2X",
+                         "type":"float",
+                         "value":-12
+                        }, 
+                        {
+                         "name":"Destination2Y",
+                         "type":"float",
+                         "value":-8
+                        }, 
+                        {
+                         "name":"LocationCounts",
+                         "type":"int",
+                         "value":2
+                        }],
+                 "rotation":0,
+                 "type":"MovingPlatformType",
+                 "visible":true,
+                 "width":32,
+                 "x":-160,
+                 "y":-128
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -200,7 +237,7 @@
          "y":0
         }],
  "nextlayerid":9,
- "nextobjectid":29,
+ "nextobjectid":30,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.4.1",
@@ -209,6 +246,10 @@
         {
          "firstgid":1,
          "source":"Main.tsx"
+        }, 
+        {
+         "firstgid":65,
+         "source":"MovingPlatform.tsx"
         }],
  "tilewidth":32,
  "type":"map",

@@ -70,33 +70,40 @@ const picojson::value& FindChildObject(const std::string& name, const std::strin
 	return result;
 }
 
-const picojson::value& GetActorPropertyValue(const picojson::value& props, const std::string& propertyName)
+const picojson::value& GetActorPropertyValue(const picojson::value& props, const std::string& propertyName, bool& success)
 {
 	for (int32 i = 0; i < props.get<picojson::array>().size(); i++)
 	{
 		if (props.get<picojson::array>()[i].get("name").get<std::string>() == propertyName)
 		{
+			success = true;
 			return props.get<picojson::array>()[i].get("value");
 		}
 	}
-	assert(false);
+	//assert(false);
 	DebugPrint("GetActorPropertyValue failed to return a value for %s\n", propertyName.c_str());
 	static picojson::value result;
+	success = false;
 	return result;
 }
 
 template<typename T>
 T GetActorProperty(const picojson::value& props, const std::string& propertyName)
 {
-	const picojson::value& result = GetActorPropertyValue(props, propertyName);
-	if (result.is<T>())
+	bool status = true;
+	const picojson::value& result = GetActorPropertyValue(props, propertyName, status);
+	if (status)
 	{
-		return result.get<T>();
+		if (result.is<T>())
+		{
+			return result.get<T>();
+		}
 	}
-
-	assert(false);
 	DebugPrint("GetActorProperty failed to return a value for %s\n", propertyName.c_str());
 	return {};
+	//assert(false);
+	//DebugPrint("GetActorProperty failed to return a value for %s\n", propertyName.c_str());
+	//return {};
 }
 
 Level* LoadLevel(const std::string& name)
@@ -164,7 +171,7 @@ Level* LoadLevel(const std::string& name)
 		}
 		else if (type == "PortalType")
 		{
-			// Do Spring Stuff
+			// Do Portal Stuff
 
 			const picojson::value& props = actorProperties.get("properties");
 			Portal* portal = CreatePortal((int32)GetActorProperty<double>(props, "PortalID"),
@@ -180,6 +187,29 @@ Level* LoadLevel(const std::string& name)
 			
 			Spring* spring = CreateSpring(*level);
 			spring->position = loc;
+		}
+		else if (type == "MovingPlatformType")
+		{
+			// Do Spring Stuff
+			MovingPlatform* MP = CreateMovingPlatform(*level);
+			MP->position = loc;
+			MP->locations.push_back(loc);
+
+			const picojson::value& props = actorProperties.get("properties");
+			if (props.evaluate_as_boolean())
+			{
+				int32 locationCount = (int32)GetActorProperty<double>(props, "LocationCounts");
+				if (locationCount == 0)
+					locationCount = 1;
+				for (int32 i = 1; i <= locationCount; i++)
+				{
+					std::string x = "Destination" + std::to_string(i) + "X";
+					std::string y = "Destination" + std::to_string(i) + "Y";
+					Vector pos = { (float)GetActorProperty<double>(props, x), (float)GetActorProperty<double>(props, y) };
+					pos.y -= 2 * pos.y;
+					MP->locations.push_back(pos);
+				}
+			}
 		}
 	}
 	level->blocks.UpdateAllBlocks();

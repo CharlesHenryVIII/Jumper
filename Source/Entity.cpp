@@ -946,13 +946,18 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 	//actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
 	actor->position += actor->velocity * deltaTime;
 
+	ActorType actorType = actor->GetActorType();
 	if (actor->velocity.x == 0 && actor->velocity.y == 0 &&
-		(actor->GetActorType() == ActorType::player || actor->GetActorType() == ActorType::enemy))
+		(actorType == ActorType::player || actorType == ActorType::enemy))
 		PlayAnimation(actor, ActorState::idle);
-	if (actor->velocity.x < 0)
-		actor->lastInputWasLeft = true;
-	else if (actor->velocity.x > 0)
-		actor->lastInputWasLeft = false;
+
+	if (actorType != ActorType::player)
+	{
+		if (actor->velocity.x < 0)
+			actor->lastInputWasLeft = true;
+		else if (actor->velocity.x > 0)
+			actor->lastInputWasLeft = false;
+	}
 }
 
 

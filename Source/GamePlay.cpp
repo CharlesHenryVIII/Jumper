@@ -80,6 +80,13 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		Actor* playerParent = FindActor(player->parent, *currentLevel); //needs nullptr check when using
 		float xVelOffset = 0;
 
+		if (lDown != rDown)
+		{
+			if (lDown)
+				player->lastInputWasLeft = true;
+			else
+				player->lastInputWasLeft = false;
+		}
 
 		//TODO: Clunky clean up code
 		//Set player velocity to the block they are on so they can be moved on a moving platform...

@@ -25,7 +25,6 @@
 - [ ] Asperite integration?
 - [ ] change how tilesets are managed?
 	* possibly get arid of the auto updating of tiles
-- [x] bullet fixes
 
 
 #### Future

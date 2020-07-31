@@ -34,7 +34,8 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	if (paused)
 	{
 		if (DrawButton(fonts["1"], "QUIT TO MAIN MENU", { windowInfo.width / 2, windowInfo.height / 4 }, 
-						UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame))
+						UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame)
+			|| keyStates[SDLK_RETURN].downThisFrame)
 			SwitchToMenu();
 		deltaTime = 0.0f;
 		AddRectToRender({ {0, (float)windowInfo.height}, { (float)windowInfo.width, 0 } }, lightBlack, RenderPrio::foreground);
@@ -76,37 +77,77 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		//bool rDownThisFrame = keyStates[SDLK_d].downThisFrame || keyStates[SDLK_RIGHT].downThisFrame;
 		bool rUpThisFrame = keyStates[SDLK_d].upThisFrame || keyStates[SDLK_RIGHT].upThisFrame;
 
+		Actor* playerParent = FindActor(player->parent, *currentLevel); //needs nullptr check when using
+		float xVelOffset = 0;
 
+
+		//TODO: Clunky clean up code
 		//Set player velocity to the block they are on so they can be moved on a moving platform...
+		//if the player is grounded and velocity is greater than terminal velocity then decelerate to the terminal velocity.
+		//else continue to accelerate the player;
+		if (playerParent)
+		{
+			xVelOffset = playerParent->velocity.x;
+		}
 		if ((lDown && rUpThisFrame) || (rDown && lUpThisFrame))
 		{
-			player->velocity.x = 0;
+			player->velocity.x = xVelOffset + 0;
 			player->acceleration.x = 0;
 
 		}
-		else if (lDown == rDown && player->velocity.x < 15)
+		else if (lDown == rDown && player->velocity.x < xVelOffset + 15)
 		{
-			if ((lUpThisFrame && !rDown) || (rUpThisFrame && !rDown) || fabsf(player->velocity.x) <= 2)
+
+			if ((lUpThisFrame && !rDown) || (rUpThisFrame && !rDown) || fabsf(player->velocity.x) <= xVelOffset + 1)
 			{
-				player->velocity.x = 0;
+				player->velocity.x = xVelOffset + 0;
 				player->acceleration.x = 0;
 			}
-			else if (player->velocity.x > 0)
-				player->acceleration.x -= playerAccelerationAmount;
-			else if (player->velocity.x < 0)
-				player->acceleration.x += playerAccelerationAmount;
 
+			else if (player->velocity.x > xVelOffset + 0)
+				player->acceleration.x -= playerAccelerationAmount;
+			else if (player->velocity.x < -xVelOffset + 0)
+				player->acceleration.x += playerAccelerationAmount;
 		}
 		else
 		{
 
-			if (lDown && player->velocity.x >= -10)
-				player->acceleration.x -= playerAccelerationAmount;
-			if (rDown && player->velocity.x <= 10)
-				player->acceleration.x += playerAccelerationAmount;
-		}
-	}
+			if (player->grounded)
+			{
+				if (player->velocity.x > player->terminalVelocity.x + xVelOffset)
+					player->acceleration.x -= playerAccelerationAmount * 4;
+				else if (player->velocity.x < -(player->terminalVelocity.x))
+					player->acceleration.x += playerAccelerationAmount * 4;
 
+				else if (lDown && player->velocity.x >= -(player->terminalVelocity.x + xVelOffset))
+					player->acceleration.x -= playerAccelerationAmount;
+				else if (rDown && player->velocity.x <= xVelOffset + player->terminalVelocity.x)
+					player->acceleration.x += playerAccelerationAmount;
+			}
+			else
+			{
+
+				float airAccelerationAmount = 5;
+				if (lDown)
+				{
+					if (lDown && player->velocity.x >= -player->terminalVelocity.x)
+						player->acceleration.x -= playerAccelerationAmount;
+					else
+						player->acceleration.x -= airAccelerationAmount;
+				}
+
+				if (rDown)
+				{
+
+					if (player->velocity.x <= player->terminalVelocity.x)
+						player->acceleration.x += playerAccelerationAmount;
+					else
+						player->acceleration.x += airAccelerationAmount;
+				}
+			}
+		}
+
+	}
 
 	if (keyStates[SDLK_1].downThisFrame)
 		debugList[DebugOptions::playerCollision] = !debugList[DebugOptions::playerCollision];
@@ -245,22 +286,54 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 				uint32 result = CollisionWithActor(*player, *actor, *currentLevel);
 				if (result > 0)
 				{
+
+					player->parent = actor->id;
+					actor->children.push_back(player->id);
 					MovingPlatform* MP = (MovingPlatform*)actor;
 					if (CollisionBot & result)
 					{
+
 						player->grounded = true;
 						player->jumpCount = 2;
 						player->position.y = MP->position.y + MP->GameHeight();
+						player->velocity.y = MP->velocity.y;
+
 						if (player->velocity.x != 0)
 							PlayAnimation(player, ActorState::run);
 						else
 							PlayAnimation(player, ActorState::idle);
-						player->velocity.y = 0;
 					}
-					else if (CollisionLeft & result)
+
+					if (CollisionLeft & result)
+					{
 						player->position.x = MP->position.x + MP->GameWidth();
-					else if (CollisionRight & result)
+						player->velocity.x = MP->velocity.x;
+					}
+					if (CollisionRight & result)
+					{
 						player->position.x = MP->position.x - player->GameWidth();
+						player->velocity.x = MP->velocity.x;
+					}
+					if (CollisionTop & result)
+					{
+						player->position.y = MP->position.y - player->GameHeight();
+						if (actor->velocity.y > 0)
+							actor->velocity.y = 0;
+					}
+				}
+				else
+				{
+					if (player->parent == actor->id)
+					{
+
+						player->parent = 0;
+						for (int32 i = 0; i < actor->children.size(); i++)
+						{
+							if (actor->children[i] == player->id)
+								actor->children[i] = 0;
+						}
+						player->grounded = false;
+					}
 				}
 				break;
 			}

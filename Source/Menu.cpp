@@ -25,13 +25,14 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 
 	if (DrawButton(fonts["1"], "Start Game", { windowInfo.width / 2, windowInfo.height / 2 },
 					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame) ||
-		keyStates[SDLK_RETURN].down)
+		keyStates[SDLK_RETURN].downThisFrame || keyStates[SDLK_e].downThisFrame)
 		SwitchToGame();
 	DrawButton(fonts["1"], "Settings", { windowInfo.width / 2, windowInfo.height / 2 + 64 }, 
 					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame);
 
 	if (DrawButton(fonts["1"], "Quit", { windowInfo.width / 2, windowInfo.height / 2 + 128 }, 
-					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame))
+					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame) ||
+		keyStates[SDLK_q].downThisFrame)
 		QuitApp();
 		//
 	AddTextureToRender({}, {}, RenderPrio::Background, sprites["MainMenuBackground"]->texture, {}, 0, 0, SDL_FLIP_NONE);

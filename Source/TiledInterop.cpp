@@ -147,7 +147,7 @@ Level* LoadLevel(const std::string& name)
 		{
 			// Do Player Stuff
 
-			Actor* player = FindActor(CreatePlayer(*level), *level);
+			Actor* player = CreatePlayer(*level);
 			player->position = loc;
 			int a = 0;
 		}
@@ -156,7 +156,7 @@ Level* LoadLevel(const std::string& name)
 			// Do Enemy Stuff
 
 			const picojson::value& props = actorProperties.get("properties");
-			Actor* enemy = FindActor(CreateEnemy(*level), *level);
+			Enemy* enemy = CreateEnemy(*level);
 			enemy->position = loc;
 			enemy->damage = (float)GetActorProperty<double>(props, "Damage");
 		}
@@ -166,7 +166,7 @@ Level* LoadLevel(const std::string& name)
 			const picojson::value& props = actorProperties.get("properties");
 
 			ActorType mimic = (ActorType)GetActorProperty<double>(props, "ActorType");
-			Actor* dummy = FindActor(CreateDummy(mimic, *level), *level);
+			Dummy* dummy = CreateDummy(mimic, *level);
 			dummy->position = loc;
 		}
 		else if (type == "PortalType")
@@ -201,6 +201,7 @@ Level* LoadLevel(const std::string& name)
 				int32 locationCount = (int32)GetActorProperty<double>(props, "LocationCounts");
 				if (locationCount == 0)
 					locationCount = 1;
+
 				for (int32 i = 1; i <= locationCount; i++)
 				{
 					std::string x = "Destination" + std::to_string(i) + "X";
@@ -209,6 +210,9 @@ Level* LoadLevel(const std::string& name)
 					pos.y -= 2 * pos.y;
 					MP->locations.push_back(pos);
 				}
+				MP->dest = MP->locations[MP->nextLocationIndex];
+				Vector directionVector = Normalize(MP->dest - MP->position);
+				MP->velocity = directionVector * MP->speed;
 			}
 		}
 	}

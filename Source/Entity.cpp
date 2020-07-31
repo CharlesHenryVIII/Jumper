@@ -32,7 +32,6 @@ Player::Player(ActorID* playerID)
 	inUse = true;
 	AttachAnimation(this);
 	*playerID = id;
-	terminalVelocity.x = 50;
 }
 
 void Player::Update(float deltaTime)
@@ -218,8 +217,8 @@ void Spring::Render()
 
 MovingPlatform::MovingPlatform()
 {
-	nextLocation = 1;
-	reversePath = false;
+	nextLocationIndex = 1;
+	incrimentPositivePathIndex = true;
 	acceleration = { 0, 0 };
 	inUse = true;
 	damage = 0;
@@ -227,54 +226,29 @@ MovingPlatform::MovingPlatform()
 
 void MovingPlatform::Update(float deltaTime)
 {
-	float speed = 2;
-
-/*
-
-	if (DotProduct(velocity, destination - realPosition) < 0)
-
-*/
-
-	dest = locations[nextLocation];
-	Vector directionVector = Normalize(dest - position);
-	velocity = directionVector * speed;
 	UpdateLocation(this, 0, deltaTime);
-	//Vector prevLocation;
-	//if (reversePath)
-	//	prevLocation = locations[nextLocation + 1];
-	//else
-	//	prevLocation = locations[nextLocation - 1];
 
-	//check for the next destination
-	//set the velocity to be applied until passing
-	//check dot product between the velocity and destination/origin
-	//if passed then check for next destination again
-
-	if (((dest.x > 0 && position.x >= dest.x) || (dest.x <= 0 && position.x <= dest.x)) &&
-		(dest.y > 0 && position.y >= dest.y) || (dest.y <= 0 && position.y <= dest.y))
+	if (DotProduct(velocity, dest - position) <= 0)
 	{
-		if (reversePath)
-		{
-			nextLocation--;
-			if (nextLocation < 0)
-			{
-				nextLocation--;
-				reversePath = false;
-			}
-		}
+		int32 incrimentationAmount;
+		if (incrimentPositivePathIndex)
+			incrimentationAmount = 1;
+		else
+			incrimentationAmount = -1;
+
+		if (nextLocationIndex + incrimentationAmount < (int32)locations.size() && nextLocationIndex + incrimentationAmount >= 0)
+			nextLocationIndex += incrimentationAmount;
 		else
 		{
-			nextLocation++;
-			if (nextLocation == locations.size())
-			{
-				nextLocation--;
-				reversePath = true;
-			}
+
+			incrimentPositivePathIndex = !incrimentPositivePathIndex;
+			nextLocationIndex -= incrimentationAmount;
 		}
-		dest = locations[nextLocation];
 
+		dest = locations[nextLocationIndex];
+		Vector directionVector = Normalize(dest - position);
+		velocity = directionVector * speed;
 	}
-
 	UpdateAnimationIndex(this, deltaTime);
 }
 void MovingPlatform::Render()
@@ -540,6 +514,7 @@ void ClickUpdate(Block* block, bool updateTop)
 	SurroundBlockUpdate(block, updateTop);
 }
 
+
 Rectangle CollisionXOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
@@ -709,25 +684,27 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 	return result;
 }
 
-ActorID CreatePlayer(Level& level)
+Player* CreatePlayer(Level& level)
 {
+
 	ActorID playerID = {};
 	Player* player = new Player(&playerID);
 	level.actors.push_back(player);
-	return playerID;
+	return player;
 }
 
-ActorID CreateEnemy(Level& level)
+Enemy* CreateEnemy(Level& level)
 {
+
     ActorID enemyID = {};
     Enemy* enemy = new Enemy(EnemyType::head, &enemyID);
     PlayAnimation(enemy, ActorState::walk);
     level.actors.push_back(enemy);
-    return enemy->id;
+    return enemy;
 }
 
 
-ActorID CreateDummy(ActorType mimicType, Level& level)
+Dummy* CreateDummy(ActorType mimicType, Level& level)
 {
 	ActorID dummyID = {};
 	Dummy* dummy = new Dummy(&dummyID);
@@ -735,7 +712,7 @@ ActorID CreateDummy(ActorType mimicType, Level& level)
 	PlayAnimation(dummy, ActorState::dead);
 	dummy->actorState = ActorState::dead;
 	level.actors.push_back(dummy);
-	return dummy->id;
+	return dummy;
 }
 
 Portal* CreatePortal(int32 PortalID, const std::string& levelName, int32 levelPortalID, Level& level)
@@ -771,11 +748,13 @@ MovingPlatform* CreateMovingPlatform(Level& level)
 
 Item* CreateItem(Level& level)
 {
+
 	return new Item(0);
 }
 
 Portal* GetPortalsPointer(Portal* basePortal)
 {
+
 	Level* level = GetLevel(basePortal->levelPointer);
 	for (int32 i = 0; i < level->actors.size(); i++)
 	{
@@ -789,12 +768,13 @@ Portal* GetPortalsPointer(Portal* basePortal)
 			}
 		}
 	}
+
 	assert(false);
 	DebugPrint("Failed to get Portal from %s at portalID %d", basePortal->levelPointer.c_str(), basePortal->portalPointerID);
 	return nullptr;
 }
 
-Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
+Projectile* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 {
 	Projectile* bullet_a = new Projectile();
 	Projectile& bullet = *bullet_a;
@@ -944,8 +924,7 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 		if (actor->health == 0)
 		{
 			//TODO: put a level pointer onto each actor
-			ActorID ID = CreateDummy(actor->GetActorType(), level);
-			Actor* dummy = FindActor(ID, level);
+			Dummy* dummy = CreateDummy(actor->GetActorType(), level);
 
 			dummy->position						= actor->position;
 			dummy->animationList->colOffset		= actor->animationList->colOffset;
@@ -964,7 +943,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 	actor->velocity.y = Clamp(actor->velocity.y, -actor->terminalVelocity.y, actor->terminalVelocity.y);
 
 	actor->velocity.x += actor->acceleration.x * deltaTime;
-	actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
+	//actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
 	actor->position += actor->velocity * deltaTime;
 
 	if (actor->velocity.x == 0 && actor->velocity.y == 0 &&

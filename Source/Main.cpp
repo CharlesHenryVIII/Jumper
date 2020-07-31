@@ -114,8 +114,7 @@ int main(int argc, char* argv[])
 		AnimationList& MP = actorAnimations["MovingPlatform"];
 		spriteHeight = MP.GetAnyValidAnimation()->anime[0]->height;
 		int32 spriteWidth = MP.GetAnyValidAnimation()->anime[0]->width;
-        MP.colOffset.x = basicCollisionOffset.x;
-        MP.colOffset.y = 0;
+        MP.colOffset = {};
 		MP.colRect = { { 0, 0 }, { spriteWidth, spriteHeight } };
 		MP.scaledWidth = 32;
     }
@@ -225,6 +224,12 @@ int main(int argc, char* argv[])
             }
             key.second.downPrevFrame = key.second.down;
         }
+
+        /*********************
+         *
+         * Game States
+         *
+         ********/
 
 		switch (gameState)
 		{

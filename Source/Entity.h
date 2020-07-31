@@ -123,8 +123,10 @@ public:
     bool inUse = true;
     bool grounded = true;
     float invinciblityTime = false;
-    //ActorType actorType = ActorType::none;
     ActorState actorState = ActorState::none;
+
+    ActorID parent;
+    std::vector<ActorID> children;
 
     Sprite* currentSprite = nullptr;
     AnimationList* animationList = {};
@@ -237,14 +239,15 @@ struct Spring : public Actor
     };
     ActorType GetActorType() override { return ActorType::spring; }
 };
-
+//NOTE: moving platform must have atleast 2 locations, the first being the original location
 struct MovingPlatform : public Actor
 {
     MovingPlatform();
     std::vector<Vector> locations;
     Vector dest;
-    int32 nextLocation;
-    bool reversePath;
+    int32 nextLocationIndex;
+    float speed = 2;
+    bool incrimentPositivePathIndex;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override
@@ -336,9 +339,9 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
 uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level);
 //ActorID CreateActor(ActorType actorType, ActorType dummyType, Level& level);
-ActorID CreatePlayer(Level& level);
-ActorID CreateEnemy(Level& level);
-ActorID CreateDummy(ActorType mimicType, Level& level);
+Player* CreatePlayer(Level& level);
+Enemy* CreateEnemy(Level& level);
+Dummy* CreateDummy(ActorType mimicType, Level& level);
 Actor* FindActor(ActorID actorID, Level& level);
 //returns first find of that type
 Player* FindPlayer(Level& level);
@@ -347,7 +350,7 @@ void PlayAnimation(Actor* actor, ActorState state);
 void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth);
 Portal* CreatePortal(int32 PortalID, const std::string& levelPointer, int32 levelPortalID, Level& level);
 Portal* GetPortalsPointer(Portal* basePortal);
-Actor* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
+Projectile* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType);
 Spring* CreateSpring(Level& level);
 MovingPlatform* CreateMovingPlatform(Level& level);
 void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);

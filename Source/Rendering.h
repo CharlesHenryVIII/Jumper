@@ -1,7 +1,7 @@
 #pragma once
 #include "Math.h"
 #include "SDL.h"
-//#include "Entity.h"
+#include "Glew/include/GL/glew.h"
 #include <string>
 #include <unordered_map>
 
@@ -18,7 +18,8 @@ struct WindowInfo
 };
 
 WindowInfo& GetWindowInfo();
-void CreateWindow();
+void CreateSDLWindow();
+void CreateOpenGLWindow();
 
 
 enum class UIY
@@ -38,7 +39,11 @@ enum class UIX
 
 struct Sprite
 {
+#if (OPENGLMODE==1)
+    GLuint texture;
+#else
     SDL_Texture* texture = nullptr;
+#endif
     int32 width = 0;
     int32 height = 0;
 };
@@ -69,6 +74,11 @@ enum class RenderPrio
     Debug,
 };
 
+struct Vertex
+{
+	float x, y;
+	float u, v;
+};
 
 struct TextureRenderUnion
 {
@@ -132,6 +142,8 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
                 UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC, 
                 VectorInt mouseLoc, bool mousePressed);
 Sprite* GetSpriteFromAnimation(Actor* actor);
+void RenderBlocks();
+void RenderMovingPlatforms();
 void RenderLaser();
 void RenderActor(Actor* actor, float rotation);
 void GameSpaceRectRender(Rectangle rect, SDL_Color color);

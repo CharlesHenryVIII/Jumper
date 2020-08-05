@@ -58,7 +58,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	 ********/
 
 	if (player != nullptr)
-	{
+	{ 
 		player->acceleration.x = 0;
 		if (keyStates[SDLK_w].downThisFrame || keyStates[SDLK_SPACE].downThisFrame || keyStates[SDLK_UP].downThisFrame)
 		{
@@ -153,8 +153,55 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 				}
 			}
 		}
+	
 
+		if (player->grappleDeployed)
+		{
+			//update grapple and player
+		}
+		else
+		{
+			if (keyStates[SDL_BUTTON_LEFT].downThisFrame && player->grappleEnabled && player->grappleReady)
+			{
+				//spawn grapple
+				
+				Grapple* grapple = new Grapple();
+				grapple->inUse = true;
+
+				AttachAnimation(grapple);
+				PlayAnimation(grapple, ActorState::idle);
+				Sprite* sprite = GetSpriteFromAnimation(grapple);
+				grapple->animationList->colRect = { {0,0}, {sprite->width,sprite->height} };
+				grapple->animationList->scaledWidth = (float)sprite->width;
+				grapple->terminalVelocity = { 1000, 1000 };
+
+				Vector adjustedPlayerPosition = { player->position.x, player->position.y + 1 };
+				Vector playerPosAdjusted = { adjustedPlayerPosition.x + (player->GameWidth() / 2), adjustedPlayerPosition.y };
+				grapple->destination = PixelToBlock(CameraToPixelCoord(mouseLocation));
+				grapple->rotation = Atan2fToDegreeDiff(atan2f(grapple->destination.y - adjustedPlayerPosition.y, grapple->destination.x - adjustedPlayerPosition.x));
+
+				float speed = 10.0f;
+				Vector ToDest = grapple->destination - playerPosAdjusted;
+				ToDest = Normalize(ToDest);
+				grapple->velocity = ToDest * speed;
+				Vector gameSize = { grapple->GameWidth(), grapple->GameHeight() };
+				float playerBulletRadius = 0.5f; //half a block
+				grapple->position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
+				currentLevel->actors.push_back(grapple);
+
+				player->grappleReady = false;
+				player->grappleDeployed = true;
+			}
+		}
+
+		if (keyStates[SDLK_q].downThisFrame)
+			player->grappleEnabled = !player->grappleEnabled;
+		if (keyStates[SDLK_0].downThisFrame)
+			SaveLevel(&cacheLevel, *player);
+		if (keyStates[SDLK_9].downThisFrame)
+			LoadLevel(&cacheLevel, *player);
 	}
+
 
 	if (keyStates[SDLK_1].downThisFrame)
 		debugList[DebugOptions::playerCollision] = !debugList[DebugOptions::playerCollision];
@@ -166,10 +213,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		debugList[DebugOptions::paintMethod] = !debugList[DebugOptions::paintMethod];
 	if (keyStates[SDLK_5].downThisFrame)
 		debugList[DebugOptions::editBlocks] = !debugList[DebugOptions::editBlocks];
-	if (keyStates[SDLK_0].downThisFrame)
-		SaveLevel(&cacheLevel, *player);
-	if (keyStates[SDLK_9].downThisFrame)
-		LoadLevel(&cacheLevel, *player);
 
 	if (levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
 	{
@@ -250,7 +293,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 
 	if (player != nullptr)
 	{
-		for (int i = 0; i < currentLevel->actors.size(); i++)
+		for (int32 i = 0; i < currentLevel->actors.size(); i++)
 		{
 			Actor* actor =  currentLevel->actors[i];
 			switch (actor->GetActorType())
@@ -286,65 +329,70 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 				}
 				break;
 			}
-			case ActorType::movingPlatform:
-			{
+			//case ActorType::movingPlatform:
+			//{
 
-				//TODO: determine how to update the actors x position with the moving platform
-				uint32 result = CollisionWithActor(*player, *actor, *currentLevel);
-				if (result > 0)
-				{
+			//	//TODO: determine how to update the actors x position with the moving platform
+			//	uint32 result = CollisionWithActor(*player, *actor, *currentLevel);
+			//	if (result > 0)
+			//	{
 
-					player->parent = actor->id;
-					actor->children.push_back(player->id);
-					MovingPlatform* MP = (MovingPlatform*)actor;
-					if (CollisionBot & result)
-					{
+			//		player->parent = actor->id;
+			//		actor->children.push_back(player->id);
+			//		MovingPlatform* MP = (MovingPlatform*)actor;
+			//		if (CollisionBot & result)
+			//		{
 
-						player->grounded = true;
-						player->jumpCount = 2;
-						player->position.y = MP->position.y + MP->GameHeight();
-						player->velocity.y = MP->velocity.y;
+			//			player->grounded = true;
+			//			player->jumpCount = 2;
+			//			player->position.y = MP->position.y + MP->GameHeight();
+			//			player->velocity.y = MP->velocity.y;
 
-						if (player->velocity.x != 0)
-							PlayAnimation(player, ActorState::run);
-						else
-							PlayAnimation(player, ActorState::idle);
-					}
+			//			//if (player->velocity.x != 0)
+			//			//	PlayAnimation(player, ActorState::run);
+			//			//else
+			//			//	PlayAnimation(player, ActorState::idle);
+			//		}
 
-					if (CollisionLeft & result)
-					{
-						player->position.x = MP->position.x + MP->GameWidth();
-						player->velocity.x = MP->velocity.x;
-					}
-					if (CollisionRight & result)
-					{
-						player->position.x = MP->position.x - player->GameWidth();
-						player->velocity.x = MP->velocity.x;
-					}
-					if (CollisionTop & result)
-					{
-						player->position.y = MP->position.y - player->GameHeight();
-						if (actor->velocity.y > 0)
-							actor->velocity.y = 0;
-					}
-				}
-				else
-				{
-					if (player->parent == actor->id)
-					{
+			//		if (CollisionLeft & result)
+			//		{
+			//			player->position.x = MP->position.x + MP->GameWidth();
+			//			player->velocity.x = MP->velocity.x;
+			//		}
+			//		if (CollisionRight & result)
+			//		{
+			//			player->position.x = MP->position.x - player->GameWidth();
+			//			player->velocity.x = MP->velocity.x;
+			//		}
+			//		if (CollisionTop & result)
+			//		{
+			//			player->position.y = MP->position.y - player->GameHeight();
+			//			if (actor->velocity.y > 0)
+			//				actor->velocity.y = 0;
+			//		}
+			//	}
+			//	else
+			//	{
+			//		if (player->parent == actor->id)
+			//		{
 
-						player->parent = 0;
-						for (int32 i = 0; i < actor->children.size(); i++)
-						{
-							if (actor->children[i] == player->id)
-								actor->children[i] = 0;
-						}
-						player->grounded = false;
-					}
-				}
-				break;
+			//			player->parent = 0;
+			//			for (int32 i = 0; i < actor->children.size(); i++)
+			//			{
+			//				if (actor->children[i] == player->id)
+			//					actor->children[i] = 0;
+			//			}
+			//			player->grounded = false;
+			//		}
+			//	}
+			//	break;
+			//}
 			}
-			}
+		}
+		
+		for (int32 i = 0; i < currentLevel->movingPlatforms.size(); i++)
+		{
+			currentLevel->movingPlatforms[i]->Update(deltaTime);
 		}
 	}
 
@@ -360,31 +408,20 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	BackgroundRender(sprites["background"], &camera);
 	if (player != nullptr)
 		camera.position = player->position;
-
-	Vector offset = { float(windowInfo.width / blockSize / 2) + 1, float(windowInfo.height / blockSize / 2) + 1 };
-	for (float y = camera.position.y - offset.y; y < (camera.position.y + offset.y); y++)
-	{
-		for (float x = camera.position.x - offset.x; x < (camera.position.x + offset.x); x++)
-		{
-			Block* block = currentLevel->blocks.TryGetBlock({ x, y });
-			if (block != nullptr && block->tileType != TileType::invalid)
-			{
-				SpriteMapRender(sprites["spriteMap"], *block);
-
-				if (debugList[DebugOptions::blockCollision] && block->tileType != TileType::invalid)
-				{
-					Rectangle blockRect;
-					blockRect.bottomLeft = block->location;
-					blockRect.topRight = { block->location.x + 1 , block->location.y + 1 };
-
-					AddRectToRender(blockRect, lightRed, RenderPrio::Debug);
-				}
-			}
-
-		}
-	}
+	
+	RenderBlocks();
 	RenderActors();
 	RenderLaser();
+	RenderMovingPlatforms();
+
+	if (player != nullptr && player->grappleEnabled)
+	{
+
+		if (player->grappleReady)
+			DrawText(fonts["1"], Green, "Grapple Ready", 1.0f, { windowInfo.width / 2, windowInfo.height }, UIX::mid, UIY::bot);
+		else
+			DrawText(fonts["1"], Red, "Grapple Ready", 1.0f, { windowInfo.width / 2, windowInfo.height }, UIX::mid, UIY::bot);
+	}
 
 	DrawText(fonts["1"], Green, std::to_string(1 / deltaTime) + "fps", 1.0f, { 0, 0 }, UIX::left, UIY::top);
 	if (player != nullptr)

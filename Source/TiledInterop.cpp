@@ -55,7 +55,7 @@ picojson::value JsonStruct(const std::string& name)
 
 const picojson::value& FindChildObject(const std::string& name, const std::string& type, const picojson::value& parent)
 {
-	for (int i = 0; i < parent.get<picojson::array>().size(); i++)
+	for (int32 i = 0; i < parent.get<picojson::array>().size(); i++)
 	{
 		const picojson::value& typeVal = parent.get(i).get("type");
 		if (typeVal.is<picojson::null>())
@@ -149,7 +149,7 @@ Level* LoadLevel(const std::string& name)
 
 			Actor* player = CreatePlayer(*level);
 			player->position = loc;
-			int a = 0;
+			int32 a = 0;
 		}
 		else if (type == "EnemyType")
 		{

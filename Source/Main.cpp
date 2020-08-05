@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "SDL.h"
+#include "Glew/include/GL/glew.h"
 #include "Math.h"
 #include "Rendering.h"
 #include "Entity.h"
@@ -54,8 +55,41 @@ int main(int argc, char* argv[])
     running = true;
 
 	gameState = GameState::game;
-    CreateWindow();
+#if (OPENGLMODE==1)
+
+    CreateOpenGLWindow();
+
+	GLenum err = glewInit();
+	if (GLEW_OK != err)
+	{
+		/* Problem: glewInit failed, something is seriously wrong. */
+		fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
+	}
+	fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+	glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glClearColor(0,0.5f,0.5f,0);
+    glClearColor(0,0.0f,0.0f,0);
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    
+    GLuint positionLocation = 0;
+    glEnableVertexAttribArray(positionLocation);
+    glVertexAttribPointer(positionLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
+    GLuint UVLocation = 1;
+    glEnableVertexAttribArray(UVLocation);
+    glVertexAttribPointer(UVLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
+
+    
+
+#else
+
+    CreateSDLWindow();
 	SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
+#endif
+
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
     double totalTime = SDL_GetPerformanceCounter() / freq; //sec
     double previousTime = totalTime;
@@ -73,13 +107,14 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates("Striker");
     LoadAllAnimationStates("Spring");
     LoadAllAnimationStates("MovingPlatform");
+    LoadAllAnimationStates("Grapple");
     {
         Vector basicCollisionOffset = { 0.125f, 0.25f };
 
 		AnimationList& dino = actorAnimations["Dino"];
 		dino.GetAnimation(ActorState::jump)->fps = 30.0f;
 		dino.GetAnimation(ActorState::run)->fps = 15.0f;
-		int spriteHeight = dino.GetAnyValidAnimation()->anime[0]->height;
+		int32 spriteHeight = dino.GetAnyValidAnimation()->anime[0]->height;
 		dino.colOffset.x = 0.2f;
 		dino.colOffset.y = 0.3f;
 		dino.colRect = { { 130, spriteHeight - 421 }, { 331, spriteHeight - 33 } };//680 x 472

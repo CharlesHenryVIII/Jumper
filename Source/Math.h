@@ -2,6 +2,7 @@
 #include <cstdint>
 #include "SDL_pixels.h"
 #include <cmath>
+#include "gb_math.h"
 
 using int8 = int8_t;
 using int16 = int16_t;
@@ -60,8 +61,8 @@ struct Vector {
 
 
 struct VectorInt {
-    int x = 0;
-    int y = 0;
+    int32 x = 0;
+    int32 y = 0;
 };
 
 

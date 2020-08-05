@@ -7,7 +7,8 @@
 	- [ ] Grappling
 	- [ ] Moving Platforms 
 		- [x] Loading Moving platforms
-		- [ ] Integrate the platform movement/pathing correctly
+		- [x] Integrate the platform movement/pathing correctly
+		- [ ] Review code and determine what improvments could be made
 	- [ ] Power Ups (health, movement, jumping height, extra jump, etc) 
 	- [ ] Wall jump 
 	- [ ] Explosions 

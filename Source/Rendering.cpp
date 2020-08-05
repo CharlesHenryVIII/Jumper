@@ -1,5 +1,6 @@
 #include "Rendering.h"
 #include "Entity.h"
+#include "Misc.h"
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
 #include <cassert>
@@ -16,11 +17,21 @@ WindowInfo& GetWindowInfo()
     return windowInfo;
 }
 
-void CreateWindow()
+void CreateSDLWindow()
 {
     //SDL_Init(SDL_INIT_EVERYTHING);
     windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
     windowInfo.renderer = SDL_CreateRenderer(windowInfo.SDLWindow, -1, SDL_RENDERER_ACCELERATED/*| SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE*/);
+}
+void CreateOpenGLWindow()
+{
+    windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+	SDL_GLContext GLContext = SDL_GL_CreateContext(windowInfo.SDLWindow);
+	SDL_GL_MakeCurrent(windowInfo.SDLWindow, GLContext);
 }
 
 static std::vector<RenderInformation> drawCalls;
@@ -111,36 +122,45 @@ void RenderDrawCalls()
 
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
 {
-	int32 textureHeight, textureWidth, colorChannels;
-	unsigned char* image = stbi_load(name, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
+	int32 colorChannels;
+	Sprite* result = new Sprite;
+	unsigned char* image = stbi_load(name, &result->width, &result->height, &colorChannels, STBI_rgb_alpha);
 
 	if (image == nullptr)
-	{
 		return nullptr;
-	}
 
-	SDL_Texture* testTexture = SDL_CreateTexture(windowInfo.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, textureWidth, textureHeight);
 
-	SDL_SetTextureBlendMode(testTexture, blendMode);
+#if (OPENGLMODE==1)
 
-	uint32 stride = STBI_rgb_alpha * textureWidth;
+    glGenTextures(1, &result->texture);
+    glBindTexture(GL_TEXTURE_2D, result->texture);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, result->width, result->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+
+#else 
+
+	result->texture = SDL_CreateTexture(windowInfo.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, result->width, result->height);
+	SDL_SetTextureBlendMode(result->texture, blendMode);
+	uint32 stride = STBI_rgb_alpha * result->width;
 
 	void* pixels;
 	int32 pitch;
-	SDL_LockTexture(testTexture, NULL, &pixels, &pitch);
+	SDL_LockTexture(result->texture, NULL, &pixels, &pitch);
 
-	for (int32 y = 0; y < textureHeight; y++)
+	for (int32 y = 0; y < result->height; y++)
 	{
 		memcpy((uint8*)pixels + (size_t(y) * pitch), image + (size_t(y) * stride), stride);
 	}
 
-	stbi_image_free(image);
-	SDL_UnlockTexture(testTexture);
+	SDL_UnlockTexture(result->texture);
+#endif
 
-	Sprite* result = new Sprite;
-	result->texture = testTexture;
-	result->height = textureHeight;
-	result->width = textureWidth;
+	stbi_image_free(image);
 	return result;
 }
 
@@ -173,8 +193,8 @@ SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize)
 {
     VectorInt location = BlockToPixel(gameLocation);
     VectorInt size = BlockToPixel(gameSize);
-    int xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
-    int yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
+    int32 xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
+    int32 yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
 
     SDL_Rect result;
     result.x = location.x - xOffset;
@@ -189,8 +209,8 @@ SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize)
 //difference between the player and the center of the screen
 VectorInt CameraToPixelCoord(VectorInt input)
 {
-    int xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
-    int yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
+    int32 xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
+    int32 yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
     return { input.x + xOffset, windowInfo.height - input.y + yOffset };
 }
 
@@ -364,6 +384,41 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
 Sprite* GetSpriteFromAnimation(Actor* actor)
 {
     return actor->currentSprite;
+}
+
+void RenderBlocks()
+{
+	Vector offset = { float(windowInfo.width / blockSize / 2) + 1, float(windowInfo.height / blockSize / 2) + 1 };
+
+	for (float y = camera.position.y - offset.y; y < (camera.position.y + offset.y); y++)
+	{
+		for (float x = camera.position.x - offset.x; x < (camera.position.x + offset.x); x++)
+		{
+			Block* block = currentLevel->blocks.TryGetBlock({ x, y });
+			if (block != nullptr && block->tileType != TileType::invalid)
+			{
+				SpriteMapRender(sprites["spriteMap"], *block);
+
+				if (debugList[DebugOptions::blockCollision] && block->tileType != TileType::invalid)
+				{
+					Rectangle blockRect;
+					blockRect.bottomLeft = block->location;
+					blockRect.topRight = { block->location.x + 1 , block->location.y + 1 };
+
+					AddRectToRender(blockRect, lightRed, RenderPrio::Debug);
+				}
+			}
+
+		}
+	}
+}
+
+void RenderMovingPlatforms()
+{
+    for (int32 i = 0; i < currentLevel->movingPlatforms.size(); i++)
+    {
+        currentLevel->movingPlatforms[i]->Render();
+    }
 }
 
 void RenderLaser()

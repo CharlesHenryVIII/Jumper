@@ -26,6 +26,7 @@ enum class ActorType
     portal,
     spring,
     movingPlatform,
+    grapple,
     item,
     count
 };
@@ -76,9 +77,9 @@ struct AnimationList
     }
 };
 
-inline int BlockToPixel(float loc)
+inline int32 BlockToPixel(float loc)
 {
-    return int(loc * blockSize);
+    return int32(loc * blockSize);
 }
 
 inline VectorInt BlockToPixel(Vector loc)
@@ -87,7 +88,7 @@ inline VectorInt BlockToPixel(Vector loc)
 }
 
 
-inline float PixelToBlock(int loc)
+inline float PixelToBlock(int32 loc)
 {
     return { float(loc) / blockSize };
 }
@@ -169,6 +170,9 @@ struct Enemy : public Actor
 struct Player : public Actor
 {
     Player(ActorID* playerID = nullptr);
+    bool grappleEnabled = false;
+    bool grappleReady = true;
+    bool grappleDeployed = false;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override;
@@ -190,10 +194,7 @@ struct Projectile : public Actor
 
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(Level& level, float deltaHealth) override
-    {
-
-    };
+    void UpdateHealth(Level& level, float deltaHealth) override {};
     ActorType GetActorType() override { return ActorType::projectile; }
 };
 
@@ -202,10 +203,7 @@ struct Dummy : public Actor
     Dummy(ActorID* dummyID = nullptr);
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(Level& level, float deltaHealth) override
-    {
-
-    };
+    void UpdateHealth(Level& level, float deltaHealth) override {};
     ActorType GetActorType() override { return ActorType::dummy; }
 };
 
@@ -218,10 +216,7 @@ struct Portal : public Actor
 
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(Level& level, float deltaHealth) override
-    {
-
-    };
+    void UpdateHealth(Level& level, float deltaHealth) override {};
     ActorType GetActorType() override { return ActorType::portal; }
 };
 
@@ -233,12 +228,10 @@ struct Spring : public Actor
 
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(Level& level, float deltaHealth) override
-    {
-
-    };
+    void UpdateHealth(Level& level, float deltaHealth) override {};
     ActorType GetActorType() override { return ActorType::spring; }
 };
+
 //NOTE: moving platform must have atleast 2 locations, the first being the original location
 struct MovingPlatform : public Actor
 {
@@ -250,11 +243,20 @@ struct MovingPlatform : public Actor
     bool incrimentPositivePathIndex;
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(Level& level, float deltaHealth) override
-    {
-
-    };
+    void UpdateHealth(Level& level, float deltaHealth) override {};
     ActorType GetActorType() override { return ActorType::movingPlatform; }
+};
+
+struct Grapple : public Actor
+{
+    Vector destination;
+    float rotation = 0;
+    ActorID attachedActor = 0;
+
+    void Update(float deltaTime) override;
+    void Render() override;
+    void UpdateHealth(Level& level, float deltaHealth) override {};
+    ActorType GetActorType() override { return ActorType::grapple; }
 };
 
 struct Item : public Actor
@@ -263,10 +265,7 @@ struct Item : public Actor
     Item(float healthChange);
     void Update(float deltaTime) override;
     void Render() override;
-    void UpdateHealth(Level& level, float deltaHealth) override
-    {
-
-    };
+    void UpdateHealth(Level& level, float deltaHealth) override {};
     ActorType GetActorType() override { return ActorType::item; }
 };
 
@@ -307,6 +306,7 @@ public:
 struct Level
 {
     std::vector<Actor*> actors;
+    std::vector<MovingPlatform*> movingPlatforms;
     TileMap blocks;
     std::string name;
     const char* filename;  //DefaultLevel.PNG;

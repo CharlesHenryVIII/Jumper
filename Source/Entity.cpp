@@ -256,6 +256,44 @@ void MovingPlatform::Render()
 	RenderActor(this, 0);
 }
 
+
+/*********************
+ *
+ * Grapple
+ *
+ ********/
+
+void Grapple::Update(float deltaTime)
+{
+	UpdateLocation(this, 0, deltaTime);
+	float rad = DegToRad(rotation);
+	Vector realPosition = { position.x + cosf(rad)*GameWidth(), position.y - sinf(rad) * GameWidth() };
+	if (DotProduct(velocity, destination - realPosition) < 0)
+	{
+		//paint block and remove bullet
+		Block* blockPointer = &currentLevel->blocks.GetBlock(destination);
+		Player* actor = (Player*)FindActor(attachedActor, *currentLevel);
+		if (actor != nullptr)
+		{
+			actor->grappleDeployed = false;
+			actor->grappleReady = true;
+		}
+		inUse = false;
+
+	}
+	UpdateAnimationIndex(this, deltaTime);
+}
+
+void Grapple::Render()
+{
+	Sprite* sprite = GetSpriteFromAnimation(this);
+	SDL_Rect rect = CameraOffset(position, { Pythags(destination - position), PixelToBlock(sprite->height) });
+	static SDL_Point rotationPoint = { 0, rect.h / 2 };
+	AddTextureToRender({}, rect, RenderPrio::Sprites, sprite->texture, {}, rotation, &rotationPoint, SDL_FLIP_NONE);
+
+	//RenderActor(this, rotation);
+}
+
 /*********************
  *
  * Items
@@ -447,8 +485,8 @@ void SaveLevel(Level* level, Player &player)
 	memBuff[size_t((playerBlockPositionX - left) + ((playerBlockPositionY - bot) * size_t(width)))] = Blue;
 
 	//Saving written memory to file
-	int stride_in_bytes = 4 * width;
-	int colorChannels = 4;
+	int32 stride_in_bytes = 4 * width;
+	int32 colorChannels = 4;
 	stbi_write_png(level->filename, width, height, colorChannels, memBuff.data(), stride_in_bytes);
 }
 
@@ -568,9 +606,51 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	return result;
 }
 
-
-void CollisionWithBlocks(Actor* actor, bool isEnemy)
+void CollisionWithBlocksSubFuntion(bool& grounded, Rectangle rect, Actor* actor, bool isEnemy)
 {
+
+	uint32 collisionFlags = CollisionWithRect(actor, rect);
+	if (collisionFlags > 0)
+	{
+
+		ActorType actorType = actor->GetActorType();
+		if (collisionFlags & CollisionRight)
+		{
+			actor->position.x = rect.bottomLeft.x - actor->GameWidth();// PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
+			if (isEnemy)
+				actor->velocity.x = -1 * actor->velocity.x;
+			else
+				actor->velocity.x = 0;
+		}
+
+		if (collisionFlags & CollisionLeft)
+		{
+			actor->position.x = (rect.bottomLeft.x + 1);// - actor->colOffset.x * PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
+			if (isEnemy)
+				actor->velocity.x = -1 * actor->velocity.x;
+			else
+				actor->velocity.x = 0;
+		}
+
+		if (collisionFlags & CollisionTop)
+		{
+			//actor->position.y = block->location.y - actor->GameHeight();//PixelToBlock(int32(actor->colRect.Height() * actor->GoldenRatio()));
+			if (actor->velocity.y > 0)
+				actor->velocity.y = 0;
+		}
+
+		if (collisionFlags & CollisionBot)
+		{
+			actor->position.y = rect.bottomLeft.y + 1;
+			if (actor->velocity.y < 0)
+				actor->velocity.y = 0;
+			actor->jumpCount = 2;
+			grounded = true;
+		}
+	}
+}
+
+void CollisionWithBlocks(Actor* actor, bool isEnemy) {
 	bool grounded = false;
 	float checkOffset = 1;
 	float yMax = floorf(actor->position.y + actor->GameHeight() + checkOffset + 0.5f);
@@ -586,45 +666,18 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			if (block == nullptr || block->tileType == TileType::invalid)
 				continue;
 
-			uint32 collisionFlags = CollisionWithRect(actor, { block->location, { block->location + Vector({ 1, 1 }) } });
-			if (!collisionFlags)
-				continue;
-
-			ActorType actorType = actor->GetActorType();
-			if (collisionFlags & CollisionRight)
-			{
-				actor->position.x = block->location.x - actor->GameWidth();// PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
-				if (isEnemy)
-					actor->velocity.x = -1 * actor->velocity.x;
-				else
-					actor->velocity.x = 0;
-			}
-
-			if (collisionFlags & CollisionLeft)
-			{
-				actor->position.x = (block->location.x + 1);// - actor->colOffset.x * PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
-				if (isEnemy)
-					actor->velocity.x = -1 * actor->velocity.x;
-				else
-					actor->velocity.x = 0;
-			}
-
-			if (collisionFlags & CollisionTop)
-			{
-				//actor->position.y = block->location.y - actor->GameHeight();//PixelToBlock(int32(actor->colRect.Height() * actor->GoldenRatio()));
-				if (actor->velocity.y > 0)
-					actor->velocity.y = 0;
-			}
-
-			if (collisionFlags & CollisionBot)
-			{
-				actor->position.y = block->location.y + 1;
-				if (actor->velocity.y < 0)
-					actor->velocity.y = 0;
-				actor->jumpCount = 2;
-				grounded = true;
-			}
+			CollisionWithBlocksSubFuntion(grounded, { block->location, { block->location + Vector({ 1, 1 }) } }, actor, isEnemy);
 		}
+	}
+
+	for (int32 i = 0; i < currentLevel->movingPlatforms.size(); i++)
+	{
+		MovingPlatform* MP = currentLevel->movingPlatforms[i];
+		if (MP == nullptr)
+			continue;
+			
+		Rectangle MPRect = { MP->position, { MP->position.x + MP->GameWidth(), MP->position.y + MP->GameHeight() } };
+		CollisionWithBlocksSubFuntion(grounded, MPRect, actor, isEnemy);
 	}
 
 	if (actor->grounded != grounded)
@@ -742,7 +795,7 @@ MovingPlatform* CreateMovingPlatform(Level& level)
 	MovingPlatform* MP = new MovingPlatform();
 	AttachAnimation(MP);
 	PlayAnimation(MP, ActorState::idle);
-	level.actors.push_back(MP);
+	level.movingPlatforms.push_back(MP);
 	return MP;
 }
 
@@ -1071,6 +1124,11 @@ void AttachAnimation(Actor* actor, ActorType overrideType)
 	case ActorType::movingPlatform:
 	{
 		entityName = "MovingPlatform";
+		break;
+	}
+	case ActorType::grapple:
+	{
+		entityName = "Grapple";
 		break;
 	}
 	default:

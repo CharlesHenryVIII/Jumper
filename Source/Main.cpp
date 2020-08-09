@@ -1,6 +1,7 @@
 #include <stdio.h>
+#define GB_MATH_IMPLEMENTATION
 #include "SDL.h"
-#include "Glew/include/GL/glew.h"
+#include "GL/glew.h"
 #include "Math.h"
 #include "Rendering.h"
 #include "Entity.h"
@@ -58,31 +59,7 @@ int main(int argc, char* argv[])
 #if (OPENGLMODE==1)
 
     CreateOpenGLWindow();
-
-	GLenum err = glewInit();
-	if (GLEW_OK != err)
-	{
-		/* Problem: glewInit failed, something is seriously wrong. */
-		fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
-	}
-	fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
-	glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	//glClearColor(0,0.5f,0.5f,0);
-    glClearColor(0,0.0f,0.0f,0);
-
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    
-    GLuint positionLocation = 0;
-    glEnableVertexAttribArray(positionLocation);
-    glVertexAttribPointer(positionLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
-    GLuint UVLocation = 1;
-    glEnableVertexAttribArray(UVLocation);
-    glVertexAttribPointer(UVLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
-
-    
+    InitializeOpenGL();
 
 #else
 
@@ -281,7 +258,11 @@ int main(int argc, char* argv[])
 		}
 
 		RenderDrawCalls();
+#if (OPENGLMODE==1)
+		SDL_GL_SwapWindow(windowInfo.SDLWindow);
+#else
 		SDL_RenderPresent(windowInfo.renderer);
+#endif
     }
 
     return 0;

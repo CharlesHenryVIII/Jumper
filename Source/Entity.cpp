@@ -289,7 +289,8 @@ void Grapple::Render()
 	Sprite* sprite = GetSpriteFromAnimation(this);
 	SDL_Rect rect = CameraOffset(position, { Pythags(destination - position), PixelToBlock(sprite->height) });
 	static SDL_Point rotationPoint = { 0, rect.h / 2 };
-	AddTextureToRender({}, rect, RenderPrio::Sprites, sprite->texture, {}, rotation, &rotationPoint, SDL_FLIP_NONE);
+	
+	AddTextureToRender({}, rect, RenderPrio::Sprites, sprite, {}, rotation, &rotationPoint, SDL_FLIP_NONE);
 
 	//RenderActor(this, rotation);
 }

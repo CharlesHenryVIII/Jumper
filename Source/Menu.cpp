@@ -35,7 +35,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		keyStates[SDLK_q].downThisFrame)
 		QuitApp();
 		//
-	AddTextureToRender({}, {}, RenderPrio::Background, sprites["MainMenuBackground"]->texture, {}, 0, 0, SDL_FLIP_NONE);
+	AddTextureToRender({}, {}, RenderPrio::Background, sprites["MainMenuBackground"], {}, 0, 0, SDL_FLIP_NONE);
 
 	/*********************
 	*

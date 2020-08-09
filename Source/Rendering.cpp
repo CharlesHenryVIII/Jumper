@@ -1,8 +1,11 @@
 #include "Rendering.h"
 #include "Entity.h"
 #include "Misc.h"
+#include "Math.h"
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
+#include "GL/glew.h"
+#include "WinUtilities.h"
 #include <cassert>
 #include <algorithm>
 
@@ -11,6 +14,50 @@ std::unordered_map<std::string, Sprite*> sprites;
 std::unordered_map<std::string, FontSprite*> fonts;
 Camera camera;
 
+void CheckError()
+{
+    while (GLenum error = glGetError())
+    {
+        DebugPrint("Error: %d\n", error);
+    }
+}
+
+const char* vertexShaderText = R"term(
+#version 330
+
+layout(location = 0) in vec2 i_position;
+layout(location = 1) in vec2 i_uv;
+
+uniform mat4 u_ortho;
+uniform float u_textureWidth;
+uniform float u_textureHeight;
+
+out vec2 o_uv;
+void main()
+{
+    o_uv.x = i_uv.x / u_textureWidth;
+    o_uv.y = i_uv.y / u_textureHeight;
+    gl_Position = u_ortho * vec4(i_position, 0, 1);
+}
+)term";
+
+const char* pixelShaderText = R"term(
+#version 330
+
+uniform sampler2D sampler;
+uniform vec4 u_color;
+
+in vec2 o_uv;
+out vec4 color;
+void main()
+{
+    color = u_color * texture(sampler, o_uv);
+}
+)term";
+
+uint32 indices[] = {
+    0, 1, 2, 1, 2, 3,
+};
 
 WindowInfo& GetWindowInfo()
 {
@@ -25,18 +72,46 @@ void CreateSDLWindow()
 }
 void CreateOpenGLWindow()
 {
-    windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
+    SDL_Init(SDL_INIT_VIDEO);
+    windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	SDL_GLContext GLContext = SDL_GL_CreateContext(windowInfo.SDLWindow);
 	SDL_GL_MakeCurrent(windowInfo.SDLWindow, GLContext);
+
+	GLenum err = glewInit();
+	if (GLEW_OK != err)
+	{
+		/* Problem: glewInit failed, something is seriously wrong. */
+		DebugPrint("Error: %s\n", glewGetErrorString(err));
+	}
+	DebugPrint("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+	glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glClearColor(0,0.5f,0.5f,0);
+    glClearColor(0,0.0f,0.0f,0);
 }
 
 static std::vector<RenderInformation> drawCalls;
 
-void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority, SDL_Texture* texture, SDL_Color colorMod, float rotation, const SDL_Point* rotationPoint, SDL_RendererFlip flippage)
+struct OpenGLInfo
+{
+    GLuint program;
+    GLuint orthoLocation;
+    GLuint widthLocation;
+    GLuint heightLocation;
+    GLuint colorLocation;
+    GLuint vao;
+    GLuint ebo;
+    GLuint vertexBuffer;
+    GLuint whiteTexture;
+}GLInfo = {};
+
+void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority,
+    Sprite* sprite, SDL_Color colorMod, float rotation,
+    const SDL_Point* rotationPoint, SDL_RendererFlip flippage)
 {
     RenderInformation info;
     info.renderType = RenderType::Texture;
@@ -45,10 +120,13 @@ void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority, SDL
     info.prio = priority;
     info.color = colorMod;
 
-    info.texture.texture = texture;
+    info.texture.texture = sprite->texture;
     info.texture.rotation = rotation;
     info.texture.flippage = flippage;
     info.texture.rotationPoint = rotationPoint;
+
+    info.texture.width = sprite->width;
+    info.texture.height = sprite->height;
 
     drawCalls.push_back(info);
 }
@@ -63,6 +141,11 @@ void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPri
 		renderInformation.dRect = CameraOffset(rect.bottomLeft, { rect.Width(), rect.Height() });
     renderInformation.color = color;
     renderInformation.prio = prio;
+    renderInformation.texture.width = 1;
+    renderInformation.texture.height= 1;
+#if (OPENGLMODE == 1)
+    renderInformation.texture.texture = GLInfo.whiteTexture;
+#endif
     drawCalls.push_back(renderInformation);
 }
 
@@ -72,18 +155,156 @@ void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio)
     AddRectToRender(RenderType::DebugFill, rect, color, prio);
 }
 
+
+void InitializeOpenGL()
+{
+    glGenVertexArrays(1, &GLInfo.vao);
+    glBindVertexArray(GLInfo.vao);
+    
+    GLuint vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
+    GLuint pixelShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+
+	glShaderSource(vertexShaderID, 1, &vertexShaderText, NULL);
+    glCompileShader(vertexShaderID);
+	GLint status;
+	glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &status);
+	if (status == GL_FALSE)
+	{
+
+		GLint log_length;
+		glGetShaderiv(vertexShaderID, GL_INFO_LOG_LENGTH, &log_length);
+		GLchar info[4096];
+		glGetShaderInfoLog(vertexShaderID, log_length, NULL, info);
+		DebugPrint("Vertex Shader compilation error: %s\n", info);
+	}
+
+	glShaderSource(pixelShaderID, 1, &pixelShaderText, NULL);
+    glCompileShader(pixelShaderID);
+	glGetShaderiv(pixelShaderID, GL_COMPILE_STATUS, &status);
+	if (status == GL_FALSE)
+	{
+
+		GLint log_length;
+		glGetShaderiv(pixelShaderID, GL_INFO_LOG_LENGTH, &log_length);
+		GLchar info[4096];
+		glGetShaderInfoLog(pixelShaderID, log_length, NULL, info);
+		DebugPrint("Vertex Shader compilation error: %s\n", info);
+	}
+	GLInfo.program = glCreateProgram();
+    
+    glAttachShader(GLInfo.program , vertexShaderID);
+    glAttachShader(GLInfo.program, pixelShaderID);
+    glLinkProgram(GLInfo.program);
+
+	glGetProgramiv(GLInfo.program, GL_LINK_STATUS, &status);
+	if (status == GL_FALSE)
+	{
+		GLint log_length;
+		glGetProgramiv(GLInfo.program, GL_INFO_LOG_LENGTH, &log_length);
+		GLchar info[4096];
+		glGetProgramInfoLog(GLInfo.program, log_length, NULL, info);
+		DebugPrint("Shader linking error: %s\n", info);
+	}
+
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+	GLInfo.orthoLocation = glGetUniformLocation(GLInfo.program, "u_ortho");
+	GLInfo.widthLocation = glGetUniformLocation(GLInfo.program, "u_textureWidth");
+	GLInfo.heightLocation = glGetUniformLocation(GLInfo.program, "u_textureHeight");
+    GLInfo.colorLocation = glGetUniformLocation(GLInfo.program, "u_color");
+
+    glGenBuffers(1, &GLInfo.ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GLInfo.ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	glGenBuffers(1, &GLInfo.vertexBuffer);
+
+    glGenTextures(1, &GLInfo.whiteTexture);
+    glBindTexture(GL_TEXTURE_2D, GLInfo.whiteTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	Uint8 image[] = {255, 255, 255, 255,};
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+
+}
+
 void RenderDrawCalls()
 {
     std::stable_sort(drawCalls.begin(), drawCalls.end(), [](const RenderInformation &a, const RenderInformation &b) {
         return a.prio < b.prio;
     });
+
     for (auto& item : drawCalls)
     {
         switch (item.renderType)
         {
+#if (OPENGLMODE==1)
+            case RenderType::DebugFill:
+#endif
             case RenderType::Texture:
             {
+#if (OPENGLMODE==1)
+                float width = (float)item.texture.width;
+                float height = (float)item.texture.height;
+                glUniform1f(GLInfo.widthLocation, width);
+				glUniform1f(GLInfo.heightLocation, height);
 
+                if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
+                    glUniform4f(GLInfo.colorLocation, item.color.r / 255.0f, item.color.g / 255.0f, item.color.b / 255.0f, item.color.a / 255.0f);
+                else
+                    glUniform4f(GLInfo.colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
+
+                float uvxo = (float)item.sRect.x;
+                float uvyo = (float)item.sRect.y;
+                float uvxd = (float)item.sRect.x + (float)item.sRect.w;
+                float uvyd = (float)item.sRect.y + (float)item.sRect.h;
+                if (item.sRect.w == 0)
+                    uvxd = (float)item.texture.width;
+                if (item.sRect.h == 0)
+                    uvyd = (float)item.texture.height;
+                std::swap(uvyo, uvyd);
+
+                float posxo = (float)item.dRect.x;
+                float posyo = (float)item.dRect.y;
+                float posxd = (float)item.dRect.x + (float)item.dRect.w;
+                float posyd = (float)item.dRect.y + (float)item.dRect.h;
+                if (item.dRect.w == 0)
+                    posxd = (float)windowInfo.width;
+                if (item.dRect.h == 0)
+                    posyd = (float)windowInfo.height;
+
+                if (item.texture.flippage)
+                    std::swap(posxo, posxd);
+
+				Vertex vertices[] = {
+					//x, y, u, v,
+                    { posxo, posyd, uvxo, uvyo }, //top left
+                    { posxo, posyo, uvxo, uvyd }, //bot left
+                    { posxd, posyd, uvxd, uvyo }, //top right
+                    { posxd, posyo, uvxd, uvyd } //bot right
+				};
+
+                glBindBuffer(GL_ARRAY_BUFFER, GLInfo.vertexBuffer);
+                glBindVertexArray(GLInfo.vao);
+                glEnableVertexArrayAttrib(GLInfo.vao, 0);
+                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
+                glEnableVertexArrayAttrib(GLInfo.vao, 1);
+                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
+
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GLInfo.ebo);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STREAM_DRAW);
+				glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+				glBindTexture(GL_TEXTURE_2D, item.texture.texture);
+                glUseProgram(GLInfo.program);
+
+                gbMat4 orthoMatrix;
+                gb_mat4_ortho2d(&orthoMatrix, 0, (float)windowInfo.width, (float)windowInfo.height, 0);
+				glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
+
+				glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(uint32), GL_UNSIGNED_INT, 0);
+#else
                 const SDL_Rect* sRect = &item.sRect;
                 const SDL_Rect* dRect = &item.dRect;
                 if (item.sRect.w == 0 && item.sRect.h == 0)
@@ -93,18 +314,61 @@ void RenderDrawCalls()
                 if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
 					SDL_SetTextureColorMod(item.texture.texture, item.color.r, item.color.g, item.color.b);
 				SDL_RenderCopyEx(windowInfo.renderer, item.texture.texture, sRect, dRect, item.texture.rotation, item.texture.rotationPoint, item.texture.flippage);
+#endif
                 break;
             }
             case RenderType::DebugOutline:
             {
+
+#if (OPENGLMODE==1)
+               
+                float L = (float)item.dRect.x;
+                float R = (float)item.dRect.x + item.dRect.w;
+                float T = (float)item.dRect.y;
+                float B = (float)item.dRect.y + item.dRect.h;
+                Vertex vertices[] = {
+                    //x, y, u, v
+                    {L, T, 1.0f, 1.0f},   //Top Left
+                    {R, T, 1.0f, 1.0f},   //Top Right
+                    {R, B, 1.0f, 1.0f},   //Bot Right
+                    {L, B, 1.0f, 1.0f},   //Bot Left
+                };
+
+                glBindBuffer(GL_ARRAY_BUFFER, GLInfo.vertexBuffer);
+                glBindVertexArray(GLInfo.vao);
+                glEnableVertexArrayAttrib(GLInfo.vao, 0);
+                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
+                glEnableVertexArrayAttrib(GLInfo.vao, 1);
+                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
+                
+                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+                glBindTexture(GL_TEXTURE_2D, GLInfo.whiteTexture);
+
+                glUseProgram(GLInfo.program);
+                glUniform1f(GLInfo.widthLocation, 1);
+				glUniform1f(GLInfo.heightLocation, 1);
+
+                gbMat4 orthoMatrix;
+                gb_mat4_ortho2d(&orthoMatrix, 0, (float)windowInfo.width, (float)windowInfo.height, 0);
+				glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
+
+                if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
+                    glUniform4f(GLInfo.colorLocation, item.color.r / 255.0f, item.color.g / 255.0f, item.color.b / 255.0f, item.color.a / 255.0f);
+                else
+                    glUniform4f(GLInfo.colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
+                glLineWidth(1.0f);
+                glDrawArrays(GL_LINE_LOOP, 0, sizeof(vertices) / sizeof(Vertex));
+#else
 
                 const SDL_Rect* sRect = &item.dRect;
                 if (item.sRect.w == 0 && item.dRect.h == 0)
                     sRect = nullptr;
                 SDL_SetRenderDrawColor(windowInfo.renderer, item.color.r, item.color.g, item.color.b, item.color.a);
                 SDL_RenderDrawRect(windowInfo.renderer, sRect);
+#endif
                 break;
             }
+#if (OPENGLMODE==0)
             case RenderType::DebugFill:
             {
 
@@ -114,7 +378,9 @@ void RenderDrawCalls()
                 SDL_SetRenderDrawColor(windowInfo.renderer, item.color.r, item.color.g, item.color.b, item.color.a);
                 SDL_RenderFillRect(windowInfo.renderer, dRect);
                 break;
+
             }
+#endif
         }
     }
     drawCalls.clear();
@@ -249,7 +515,7 @@ void BackgroundRender(Sprite* sprite, Camera* camera)
     }
 
 
-    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite->texture, {}, 0, NULL, SDL_FLIP_NONE);
+    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite, {}, 0, NULL, SDL_FLIP_NONE);
 }
 
 
@@ -264,7 +530,7 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
     float itemSizeTranslatedy = PixelToBlock(itemSize);
     SDL_Rect destRect = CameraOffset(loc, { itemSizeTranslatedx, itemSizeTranslatedy });
 
-    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite->texture, {}, 0, NULL, SDL_FLIP_NONE);
+    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite, {}, 0, NULL, SDL_FLIP_NONE);
 }
 
 
@@ -298,7 +564,7 @@ void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, floa
 
         DRect.x = loc.x + i * DRect.w - (int32(XLayout) * DRect.w * int32(text.size())) / 2;
         DRect.y = loc.y - (int32(YLayout) * DRect.h) / 2;
-        AddTextureToRender(SRect, DRect, RenderPrio::UI, fontSprite->sprite->texture, c, 0, NULL, SDL_FLIP_NONE);
+        AddTextureToRender(SRect, DRect, RenderPrio::UI, fontSprite->sprite, c, 0, NULL, SDL_FLIP_NONE);
         //SDL_RenderCopyEx(windowInfo.renderer, fontSprite->sprite->texture, &SRect, &DRect, 0, NULL, SDL_FLIP_NONE);
     }
 }
@@ -434,7 +700,7 @@ void RenderLaser()
 
         SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(sprite->height) });
         static SDL_Point rotationPoint = { 0, rect.h / 2 };
-        AddTextureToRender({}, rect, RenderPrio::Sprites, sprite->texture, PC, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        AddTextureToRender({}, rect, RenderPrio::Sprites, sprite, PC, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
     }
 }
 
@@ -460,7 +726,7 @@ void RenderActor(Actor* actor, float rotation)
                               actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio()))) },
         PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
                        (int)(actor->SpriteRatio() * sprite->height) }));
-    AddTextureToRender({}, destRect, RenderPrio::Sprites, sprite->texture, actor->colorMod, rotation, NULL, flippage);
+    AddTextureToRender({}, destRect, RenderPrio::Sprites, sprite, actor->colorMod, rotation, NULL, flippage);
 }
 
 void GameSpaceRectRender(Rectangle rect, SDL_Color color)

@@ -82,10 +82,17 @@ struct Vertex
 
 struct TextureRenderUnion
 {
+
+#if (OPENGLMODE==1)
+    GLuint texture;
+#else
     SDL_Texture* texture;
+#endif
     float rotation;
     SDL_RendererFlip flippage;
     const SDL_Point* rotationPoint;
+    int32 width;
+    int32 height;
 };
 
 struct RenderInformation
@@ -115,9 +122,10 @@ struct Actor;
 struct Block;
 
 
-void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority, 
-                        SDL_Texture* texture, SDL_Color colorMod, float rotation, 
-                        const SDL_Point* rotationPoint, SDL_RendererFlip flippage);
+void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority,
+    Sprite* sprite, SDL_Color colorMod, float rotation,
+    const SDL_Point* rotationPoint, SDL_RendererFlip flippage);
+void InitializeOpenGL();
 void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPrio prio);
 void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio);
 void RenderDrawCalls();

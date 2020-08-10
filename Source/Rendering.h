@@ -39,11 +39,7 @@ enum class UIX
 
 struct Sprite
 {
-#if (OPENGLMODE==1)
     GLuint texture;
-#else
-    SDL_Texture* texture = nullptr;
-#endif
     int32 width = 0;
     int32 height = 0;
 };
@@ -83,11 +79,7 @@ struct Vertex
 struct TextureRenderUnion
 {
 
-#if (OPENGLMODE==1)
     GLuint texture;
-#else
-    SDL_Texture* texture;
-#endif
     float rotation;
     SDL_RendererFlip flippage;
     const SDL_Point* rotationPoint;

@@ -907,6 +907,12 @@ void UpdateAnimationIndex(Actor* actor, float deltaTime)
 	{
 		actor->index++;
 		Animation* anime = actor->animationList->GetAnimation(actor->actorState);
+		if (anime == nullptr)
+		{
+			anime = actor->animationList->GetAnyValidAnimation();
+			DebugPrint("Could not get valid animation from actor state in UpdateAnimationIndex()");
+		}
+
 		actor->animationCountdown = 1.0f / anime->fps;
 		if (actor->index >= anime->anime.size())
 		{
@@ -919,7 +925,7 @@ void UpdateAnimationIndex(Actor* actor, float deltaTime)
 	//TODO:: Fix animationCountdown going far negative when index == anime.size()
 	actor->animationCountdown -= deltaTime;
 	if (actor->animationList->GetAnimation(actor->actorState) == nullptr)
-		actor->currentSprite = nullptr;
+		actor->currentSprite = actor->animationList->GetAnyValidAnimation()->anime[0];
 	else
 		actor->currentSprite = actor->animationList->GetAnimation(actor->actorState)->anime[actor->index];
 }
@@ -1015,7 +1021,6 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 }
 
 
-
 void UpdateEnemiesPosition(float gravity, float deltaTime)
 {
 	for (int32 i = 0; i < currentLevel->actors.size(); i++)
@@ -1099,7 +1104,7 @@ void AttachAnimation(Actor* actor, ActorType overrideType)
 	{
 	case ActorType::player:
 	{
-		entityName = "Dino";
+		entityName = "Knight"; //"Dino";
 		break;
 	}
 	case ActorType::enemy:

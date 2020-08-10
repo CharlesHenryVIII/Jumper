@@ -56,16 +56,8 @@ int main(int argc, char* argv[])
     running = true;
 
 	gameState = GameState::game;
-#if (OPENGLMODE==1)
-
     CreateOpenGLWindow();
     InitializeOpenGL();
-
-#else
-
-    CreateSDLWindow();
-	SDL_SetRenderDrawBlendMode(windowInfo.renderer, SDL_BLENDMODE_BLEND);
-#endif
 
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
     double totalTime = SDL_GetPerformanceCounter() / freq; //sec
@@ -85,6 +77,7 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates("Spring");
     LoadAllAnimationStates("MovingPlatform");
     LoadAllAnimationStates("Grapple");
+    LoadAllAnimationStates("Knight");
     {
         Vector basicCollisionOffset = { 0.125f, 0.25f };
 
@@ -129,6 +122,12 @@ int main(int argc, char* argv[])
         MP.colOffset = {};
 		MP.colRect = { { 0, 0 }, { spriteWidth, spriteHeight } };
 		MP.scaledWidth = 32;
+
+		AnimationList& K = actorAnimations["Knight"];
+		spriteHeight = K.GetAnyValidAnimation()->anime[0]->height;
+        K.colOffset = basicCollisionOffset;
+		K.colRect = { { 419, spriteHeight - (44 + 814) }, { 419 + 360, spriteHeight - 44} };
+		K.scaledWidth = 32;
     }
 	sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
 	sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
@@ -258,11 +257,7 @@ int main(int argc, char* argv[])
 		}
 
 		RenderDrawCalls();
-#if (OPENGLMODE==1)
 		SDL_GL_SwapWindow(windowInfo.SDLWindow);
-#else
-		SDL_RenderPresent(windowInfo.renderer);
-#endif
     }
 
     return 0;

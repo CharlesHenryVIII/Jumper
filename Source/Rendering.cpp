@@ -124,7 +124,6 @@ void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority,
     info.texture.rotation = rotation;
     info.texture.flippage = flippage;
     info.texture.rotationPoint = rotationPoint;
-
     info.texture.width = sprite->width;
     info.texture.height = sprite->height;
 
@@ -133,7 +132,7 @@ void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority,
 
 void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPrio prio)
 {
-    RenderInformation renderInformation;
+    RenderInformation renderInformation = {};
     renderInformation.renderType = type;
 	if (prio == RenderPrio::UI || prio == RenderPrio::foreground)
 		renderInformation.dRect = RectangleToSDL(rect, false);
@@ -143,9 +142,7 @@ void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPri
     renderInformation.prio = prio;
     renderInformation.texture.width = 1;
     renderInformation.texture.height= 1;
-#if (OPENGLMODE == 1)
     renderInformation.texture.texture = GLInfo.whiteTexture;
-#endif
     drawCalls.push_back(renderInformation);
 }
 
@@ -155,56 +152,71 @@ void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio)
     AddRectToRender(RenderType::DebugFill, rect, color, prio);
 }
 
+GLuint JMP_CreateTexture(int32 width, int32 height, uint8* data)
+{
+    GLuint result;
+    glGenTextures(1, &result);
+    glBindTexture(GL_TEXTURE_2D, result);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    return result;
+}
+
+GLuint JMP_CreateShader(GLenum shaderType, const char* shaderText)
+{
+    GLuint result = glCreateShader(shaderType);
+	glShaderSource(result, 1, &shaderText, NULL);
+    glCompileShader(result);
+
+	GLint status;
+	glGetShaderiv(result, GL_COMPILE_STATUS, &status);
+	if (status == GL_FALSE)
+	{
+
+		GLint log_length;
+		glGetShaderiv(result, GL_INFO_LOG_LENGTH, &log_length);
+		GLchar info[4096];
+		glGetShaderInfoLog(result, log_length, NULL, info);
+		DebugPrint("CreateShader() Shader compilation error: %s\n", info);
+	}
+
+    return result;
+}
+
+GLuint JMP_CreateShaderProgram()
+{
+    GLuint vertexShaderID = JMP_CreateShader(GL_VERTEX_SHADER, vertexShaderText);
+    GLuint pixelShaderID = JMP_CreateShader(GL_FRAGMENT_SHADER, pixelShaderText);
+    
+    GLuint result = glCreateProgram();
+    glAttachShader(result , vertexShaderID);
+    glAttachShader(result, pixelShaderID);
+    glLinkProgram(result);
+    
+    GLint status;
+	glGetProgramiv(result, GL_LINK_STATUS, &status);
+	if (status == GL_FALSE)
+	{
+		GLint log_length;
+		glGetProgramiv(result, GL_INFO_LOG_LENGTH, &log_length);
+		GLchar info[4096];
+		glGetProgramInfoLog(result, log_length, NULL, info);
+		DebugPrint("Shader linking error: %s\n", info);
+	}
+    return result;
+}
 
 void InitializeOpenGL()
 {
     glGenVertexArrays(1, &GLInfo.vao);
     glBindVertexArray(GLInfo.vao);
-    
-    GLuint vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
-    GLuint pixelShaderID = glCreateShader(GL_FRAGMENT_SHADER);
 
-	glShaderSource(vertexShaderID, 1, &vertexShaderText, NULL);
-    glCompileShader(vertexShaderID);
-	GLint status;
-	glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &status);
-	if (status == GL_FALSE)
-	{
-
-		GLint log_length;
-		glGetShaderiv(vertexShaderID, GL_INFO_LOG_LENGTH, &log_length);
-		GLchar info[4096];
-		glGetShaderInfoLog(vertexShaderID, log_length, NULL, info);
-		DebugPrint("Vertex Shader compilation error: %s\n", info);
-	}
-
-	glShaderSource(pixelShaderID, 1, &pixelShaderText, NULL);
-    glCompileShader(pixelShaderID);
-	glGetShaderiv(pixelShaderID, GL_COMPILE_STATUS, &status);
-	if (status == GL_FALSE)
-	{
-
-		GLint log_length;
-		glGetShaderiv(pixelShaderID, GL_INFO_LOG_LENGTH, &log_length);
-		GLchar info[4096];
-		glGetShaderInfoLog(pixelShaderID, log_length, NULL, info);
-		DebugPrint("Vertex Shader compilation error: %s\n", info);
-	}
-	GLInfo.program = glCreateProgram();
-    
-    glAttachShader(GLInfo.program , vertexShaderID);
-    glAttachShader(GLInfo.program, pixelShaderID);
-    glLinkProgram(GLInfo.program);
-
-	glGetProgramiv(GLInfo.program, GL_LINK_STATUS, &status);
-	if (status == GL_FALSE)
-	{
-		GLint log_length;
-		glGetProgramiv(GLInfo.program, GL_INFO_LOG_LENGTH, &log_length);
-		GLchar info[4096];
-		glGetProgramInfoLog(GLInfo.program, log_length, NULL, info);
-		DebugPrint("Shader linking error: %s\n", info);
-	}
+    GLInfo.program = JMP_CreateShaderProgram();
 
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -219,15 +231,8 @@ void InitializeOpenGL()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 	glGenBuffers(1, &GLInfo.vertexBuffer);
 
-    glGenTextures(1, &GLInfo.whiteTexture);
-    glBindTexture(GL_TEXTURE_2D, GLInfo.whiteTexture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	Uint8 image[] = {255, 255, 255, 255,};
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-
+    GLInfo.whiteTexture = JMP_CreateTexture(1, 1, image);
 }
 
 void RenderDrawCalls()
@@ -240,12 +245,9 @@ void RenderDrawCalls()
     {
         switch (item.renderType)
         {
-#if (OPENGLMODE==1)
             case RenderType::DebugFill:
-#endif
             case RenderType::Texture:
             {
-#if (OPENGLMODE==1)
                 float width = (float)item.texture.width;
                 float height = (float)item.texture.height;
                 glUniform1f(GLInfo.widthLocation, width);
@@ -304,24 +306,12 @@ void RenderDrawCalls()
 				glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
 
 				glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(uint32), GL_UNSIGNED_INT, 0);
-#else
-                const SDL_Rect* sRect = &item.sRect;
-                const SDL_Rect* dRect = &item.dRect;
-                if (item.sRect.w == 0 && item.sRect.h == 0)
-                    sRect = nullptr;
-                if (item.dRect.w == 0 && item.dRect.h == 0)
-                    dRect = nullptr;
-                if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
-					SDL_SetTextureColorMod(item.texture.texture, item.color.r, item.color.g, item.color.b);
-				SDL_RenderCopyEx(windowInfo.renderer, item.texture.texture, sRect, dRect, item.texture.rotation, item.texture.rotationPoint, item.texture.flippage);
-#endif
+
                 break;
             }
             case RenderType::DebugOutline:
             {
 
-#if (OPENGLMODE==1)
-               
                 float L = (float)item.dRect.x;
                 float R = (float)item.dRect.x + item.dRect.w;
                 float T = (float)item.dRect.y;
@@ -358,74 +348,25 @@ void RenderDrawCalls()
                     glUniform4f(GLInfo.colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
                 glLineWidth(1.0f);
                 glDrawArrays(GL_LINE_LOOP, 0, sizeof(vertices) / sizeof(Vertex));
-#else
 
-                const SDL_Rect* sRect = &item.dRect;
-                if (item.sRect.w == 0 && item.dRect.h == 0)
-                    sRect = nullptr;
-                SDL_SetRenderDrawColor(windowInfo.renderer, item.color.r, item.color.g, item.color.b, item.color.a);
-                SDL_RenderDrawRect(windowInfo.renderer, sRect);
-#endif
                 break;
             }
-#if (OPENGLMODE==0)
-            case RenderType::DebugFill:
-            {
-
-                const SDL_Rect* dRect = &item.dRect;
-                if (item.sRect.w == 0 && item.dRect.h == 0)
-                    dRect = nullptr;
-                SDL_SetRenderDrawColor(windowInfo.renderer, item.color.r, item.color.g, item.color.b, item.color.a);
-                SDL_RenderFillRect(windowInfo.renderer, dRect);
-                break;
-
-            }
-#endif
         }
     }
     drawCalls.clear();
 }
 
+
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
 {
 	int32 colorChannels;
-	Sprite* result = new Sprite;
+	Sprite* result = new Sprite();
 	unsigned char* image = stbi_load(name, &result->width, &result->height, &colorChannels, STBI_rgb_alpha);
 
 	if (image == nullptr)
 		return nullptr;
 
-
-#if (OPENGLMODE==1)
-
-    glGenTextures(1, &result->texture);
-    glBindTexture(GL_TEXTURE_2D, result->texture);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, result->width, result->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-
-#else 
-
-	result->texture = SDL_CreateTexture(windowInfo.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, result->width, result->height);
-	SDL_SetTextureBlendMode(result->texture, blendMode);
-	uint32 stride = STBI_rgb_alpha * result->width;
-
-	void* pixels;
-	int32 pitch;
-	SDL_LockTexture(result->texture, NULL, &pixels, &pitch);
-
-	for (int32 y = 0; y < result->height; y++)
-	{
-		memcpy((uint8*)pixels + (size_t(y) * pitch), image + (size_t(y) * stride), stride);
-	}
-
-	SDL_UnlockTexture(result->texture);
-#endif
-
+    result->texture= JMP_CreateTexture(result->width, result->height, image);
 	stbi_image_free(image);
 	return result;
 }
@@ -721,6 +662,9 @@ void RenderActor(Actor* actor, float rotation)
     {
         xPos = actor->animationList->colRect.bottomLeft.x;
     }
+
+    if (sprite == nullptr)
+        sprite = actor->animationList->GetAnyValidAnimation()->anime[0];
 
     destRect = CameraOffset({ actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio()))),
                               actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio()))) },

@@ -56,8 +56,11 @@ int main(int argc, char* argv[])
     running = true;
 
 	gameState = GameState::game;
+
     CreateOpenGLWindow();
     InitializeOpenGL();
+	camera.size.x = 16;
+	camera.size.y = camera.size.x * ((float)windowInfo.height / (float)windowInfo.width);
 
     double freq = double(SDL_GetPerformanceFrequency()); //HZ
     double totalTime = SDL_GetPerformanceCounter() / freq; //sec
@@ -206,7 +209,29 @@ int main(int argc, char* argv[])
                 mouseLocation.x = SDLEvent.motion.x;
                 mouseLocation.y = SDLEvent.motion.y;
                 break;
+
+            case SDL_MOUSEWHEEL:
+            {
+                int32 wheel = SDLEvent.wheel.y;
+                if (wheel < 0)
+                    camera.size.x *= 1.1f;
+                else if (wheel > 0)
+                    camera.size.x *= 0.9f;
+                camera.size.x = Clamp(camera.size.x, 5.0f, 100.0f);
+				camera.size.y = camera.size.x * ((float)windowInfo.height / (float)windowInfo.width);
+                break;
             }
+
+            case SDL_WINDOWEVENT:
+                if (SDLEvent.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+                {
+                    windowInfo.width = SDLEvent.window.data1;
+                    windowInfo.height = SDLEvent.window.data2;
+                    camera.size.y = camera.size.x * ((float)windowInfo.height / (float)windowInfo.width);
+                }
+
+            }
+
         }
 
         /*********************

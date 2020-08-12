@@ -14,7 +14,6 @@ struct WindowInfo
     int32 width;
     int32 height;
     SDL_Window* SDLWindow;
-    SDL_Renderer* renderer;
 };
 
 WindowInfo& GetWindowInfo();
@@ -70,6 +69,12 @@ enum class RenderPrio
     Debug,
 };
 
+enum class CoordinateSpace
+{
+    UI,
+    World,
+};
+
 struct Vertex
 {
 	float x, y;
@@ -91,9 +96,10 @@ struct RenderInformation
 {
     RenderType renderType;
     SDL_Rect sRect = {};
-    SDL_Rect dRect = {};
+    Rectangle dRect = {};
     RenderPrio prio;
     SDL_Color color = {};
+    CoordinateSpace coordSpace;
     union
     {
         TextureRenderUnion texture;
@@ -102,6 +108,7 @@ struct RenderInformation
 
 struct Camera {
     Vector position;
+    Vector size;
 };
 
 extern std::unordered_map<std::string, Sprite*> sprites;
@@ -114,12 +121,12 @@ struct Actor;
 struct Block;
 
 
-void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority,
+void AddTextureToRender(SDL_Rect sRect, Rectangle dRect, RenderPrio priority,
     Sprite* sprite, SDL_Color colorMod, float rotation,
-    const SDL_Point* rotationPoint, SDL_RendererFlip flippage);
+    const SDL_Point* rotationPoint, SDL_RendererFlip flippage, CoordinateSpace coordSpace);
 void InitializeOpenGL();
-void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPrio prio);
-void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio);
+void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPrio prio, CoordinateSpace coordSpace);
+void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio, CoordinateSpace coordSpace);
 void RenderDrawCalls();
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode);
 FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 actualCharWidth, int32 charPerRow);
@@ -146,4 +153,3 @@ void RenderBlocks();
 void RenderMovingPlatforms();
 void RenderLaser();
 void RenderActor(Actor* actor, float rotation);
-void GameSpaceRectRender(Rectangle rect, SDL_Color color);

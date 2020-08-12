@@ -34,18 +34,8 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame) ||
 		keyStates[SDLK_q].downThisFrame)
 		QuitApp();
-		//
-	AddTextureToRender({}, {}, RenderPrio::Background, sprites["MainMenuBackground"], {}, 0, 0, SDL_FLIP_NONE);
 
-	/*********************
-	*
-	* Renderer
-	*
-	********/
-
-	SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
-	SDL_RenderClear(windowInfo.renderer);
-
+	AddTextureToRender({}, {}, RenderPrio::Background, sprites["MainMenuBackground"], {}, 0, 0, SDL_FLIP_NONE, CoordinateSpace::UI);
 }
 
 

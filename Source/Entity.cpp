@@ -290,7 +290,7 @@ void Grapple::Render()
 	SDL_Rect rect = CameraOffset(position, { Pythags(destination - position), PixelToBlock(sprite->height) });
 	static SDL_Point rotationPoint = { 0, rect.h / 2 };
 	
-	AddTextureToRender({}, rect, RenderPrio::Sprites, sprite, {}, rotation, &rotationPoint, SDL_FLIP_NONE);
+	//AddTextureToRender({}, rect, RenderPrio::Sprites, sprite, {}, rotation, &rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
 
 	//RenderActor(this, rotation);
 }
@@ -495,7 +495,6 @@ void SaveLevel(Level* level, Player &player)
 void LoadLevel(Level* level, Player& player)
 {
 	currentLevel->blocks.ClearBlocks();
-	stbi_set_flip_vertically_on_load(true);
 
 	int32 textureHeight, textureWidth, colorChannels;
 	SDL_Color* image = (SDL_Color*)stbi_load(level->filename, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
@@ -578,8 +577,8 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 
 	if (actor->GetActorType() == ActorType::player && debugList[DebugOptions::playerCollision])
 	{
-		AddRectToRender(xRect, transGreen, RenderPrio::Debug);
-		AddRectToRender(yRect, transOrange, RenderPrio::Debug);
+		AddRectToRender(xRect, transGreen, RenderPrio::Debug, CoordinateSpace::World);
+		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);
 	}
 
 
@@ -700,8 +699,8 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 
 	if (debugList[DebugOptions::playerCollision])
 	{
-		AddRectToRender(xRect, transGreen, RenderPrio::Debug);
-		AddRectToRender(yRect, transOrange, RenderPrio::Debug);
+		AddRectToRender(xRect, transGreen, RenderPrio::Debug, CoordinateSpace::World);
+		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);
 	}
 
 	uint32 xCollisionFlags = CollisionWithRect(&player, xRect) & (CollisionLeft | CollisionRight);
@@ -1045,11 +1044,11 @@ void RenderActors()
 //UI or Game space?  Game
 void RenderActorHealthBars(Actor& actor)
 {
-	int32 healthHeight = 8;
+	float healthHeight = 0.25f;
 	Rectangle full = {};
 	Rectangle actual = {};
 	full.bottomLeft.x = actor.position.x;
-	full.bottomLeft.y = actor.position.y + PixelToBlock(int(actor.ScaledHeight() + healthHeight));
+	full.bottomLeft.y = actor.position.y + PixelToBlock(int(actor.ScaledHeight())) + healthHeight;
 	full.topRight.x = full.bottomLeft.x + PixelToBlock(int(actor.animationList->scaledWidth));
 	full.topRight.y = full.bottomLeft.y + healthHeight;
 
@@ -1057,8 +1056,8 @@ void RenderActorHealthBars(Actor& actor)
 	actual.bottomLeft.y = full.bottomLeft.y;
 	actual.topRight = full.topRight;
 
-	GameSpaceRectRender(full, HealthBarBackground);
-	GameSpaceRectRender(actual, Green);
+    AddRectToRender(RenderType::DebugFill, full, HealthBarBackground, RenderPrio::Debug, CoordinateSpace::World);
+    AddRectToRender(RenderType::DebugFill, actual, Green, RenderPrio::Debug, CoordinateSpace::World);
 }
 
 void LoadAllAnimationStates(const std::string& entity)

@@ -64,16 +64,10 @@ WindowInfo& GetWindowInfo()
     return windowInfo;
 }
 
-void CreateSDLWindow()
-{
-    //SDL_Init(SDL_INIT_EVERYTHING);
-    windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, 0);
-    windowInfo.renderer = SDL_CreateRenderer(windowInfo.SDLWindow, -1, SDL_RENDERER_ACCELERATED/*| SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE*/);
-}
 void CreateOpenGLWindow()
 {
     SDL_Init(SDL_INIT_VIDEO);
-    windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+    windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
@@ -109,16 +103,21 @@ struct OpenGLInfo
     GLuint whiteTexture;
 }GLInfo = {};
 
-void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority,
+void AddTextureToRender(SDL_Rect sRect, Rectangle dRect, RenderPrio priority,
     Sprite* sprite, SDL_Color colorMod, float rotation,
-    const SDL_Point* rotationPoint, SDL_RendererFlip flippage)
+    const SDL_Point* rotationPoint, SDL_RendererFlip flippage, CoordinateSpace coordSpace)
 {
     RenderInformation info;
     info.renderType = RenderType::Texture;
 	info.sRect = sRect;
 	info.dRect = dRect;
+    float height = info.dRect.Height();
+	info.dRect.bottomLeft.y += height;
+	info.dRect.topRight.y -= height;
+
     info.prio = priority;
     info.color = colorMod;
+    info.coordSpace = coordSpace;
 
     info.texture.texture = sprite->texture;
     info.texture.rotation = rotation;
@@ -130,26 +129,26 @@ void AddTextureToRender(SDL_Rect sRect, SDL_Rect dRect, RenderPrio priority,
     drawCalls.push_back(info);
 }
 
-void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPrio prio)
+void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPrio prio, CoordinateSpace coordSpace)
 {
+
     RenderInformation renderInformation = {};
-    renderInformation.renderType = type;
-	if (prio == RenderPrio::UI || prio == RenderPrio::foreground)
-		renderInformation.dRect = RectangleToSDL(rect, false);
-	else
-		renderInformation.dRect = CameraOffset(rect.bottomLeft, { rect.Width(), rect.Height() });
+	renderInformation.renderType = type;
+	renderInformation.dRect = rect;
     renderInformation.color = color;
     renderInformation.prio = prio;
+    renderInformation.coordSpace = coordSpace;
+
     renderInformation.texture.width = 1;
     renderInformation.texture.height= 1;
     renderInformation.texture.texture = GLInfo.whiteTexture;
     drawCalls.push_back(renderInformation);
 }
 
-void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio)
+void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio, CoordinateSpace coordSpace)
 {
-    AddRectToRender(RenderType::DebugOutline, rect, color, prio);
-    AddRectToRender(RenderType::DebugFill, rect, color, prio);
+    AddRectToRender(RenderType::DebugOutline, rect, color, prio, coordSpace);
+    AddRectToRender(RenderType::DebugFill, rect, color, prio, coordSpace);
 }
 
 GLuint JMP_CreateTexture(int32 width, int32 height, uint8* data)
@@ -158,10 +157,10 @@ GLuint JMP_CreateTexture(int32 width, int32 height, uint8* data)
     glGenTextures(1, &result);
     glBindTexture(GL_TEXTURE_2D, result);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     return result;
@@ -241,6 +240,21 @@ void RenderDrawCalls()
         return a.prio < b.prio;
     });
 
+    glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(0, 0, windowInfo.width, windowInfo.height);
+
+    //world and UI matrix
+    float windowWidth = (float)windowInfo.width;
+    float windowHeight = (float)windowInfo.height;
+    Vector cameraPixel;
+    //cameraPixel.x = (float)BlockToPixel(camera.position.x);
+    //cameraPixel.y = (float)BlockToPixel(camera.position.y);
+
+    gbMat4 worldMatrix;
+	gb_mat4_ortho2d(&worldMatrix, camera.position.x - camera.size.x / 2, camera.position.x + camera.size.x / 2, camera.position.y - camera.size.y / 2, camera.position.y + camera.size.y / 2);
+    gbMat4 UIMatrix;
+	gb_mat4_ortho2d(&UIMatrix, 0, windowWidth, windowHeight, 0);
+
     for (auto& item : drawCalls)
     {
         switch (item.renderType)
@@ -268,14 +282,14 @@ void RenderDrawCalls()
                     uvyd = (float)item.texture.height;
                 std::swap(uvyo, uvyd);
 
-                float posxo = (float)item.dRect.x;
-                float posyo = (float)item.dRect.y;
-                float posxd = (float)item.dRect.x + (float)item.dRect.w;
-                float posyd = (float)item.dRect.y + (float)item.dRect.h;
-                if (item.dRect.w == 0)
-                    posxd = (float)windowInfo.width;
-                if (item.dRect.h == 0)
-                    posyd = (float)windowInfo.height;
+                float posxo = item.dRect.bottomLeft.x;
+                float posyo = item.dRect.bottomLeft.y;
+                float posxd = item.dRect.topRight.x;
+                float posyd = item.dRect.topRight.y;
+                if (item.dRect.Width() == 0)
+                    posxd = windowWidth;
+                if (item.dRect.Height() == 0)
+                    posyd = windowHeight;
 
                 if (item.texture.flippage)
                     std::swap(posxo, posxd);
@@ -302,7 +316,10 @@ void RenderDrawCalls()
                 glUseProgram(GLInfo.program);
 
                 gbMat4 orthoMatrix;
-                gb_mat4_ortho2d(&orthoMatrix, 0, (float)windowInfo.width, (float)windowInfo.height, 0);
+                if (item.coordSpace == CoordinateSpace::World)
+                    orthoMatrix = worldMatrix;
+                else if (item.coordSpace == CoordinateSpace::UI)
+                    orthoMatrix = UIMatrix;
 				glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
 
 				glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(uint32), GL_UNSIGNED_INT, 0);
@@ -312,10 +329,10 @@ void RenderDrawCalls()
             case RenderType::DebugOutline:
             {
 
-                float L = (float)item.dRect.x;
-                float R = (float)item.dRect.x + item.dRect.w;
-                float T = (float)item.dRect.y;
-                float B = (float)item.dRect.y + item.dRect.h;
+                float L = item.dRect.bottomLeft.x;
+                float R = item.dRect.topRight.x;
+                float T = item.dRect.bottomLeft.y;
+                float B = item.dRect.topRight.y;
                 Vertex vertices[] = {
                     //x, y, u, v
                     {L, T, 1.0f, 1.0f},   //Top Left
@@ -339,7 +356,10 @@ void RenderDrawCalls()
 				glUniform1f(GLInfo.heightLocation, 1);
 
                 gbMat4 orthoMatrix;
-                gb_mat4_ortho2d(&orthoMatrix, 0, (float)windowInfo.width, (float)windowInfo.height, 0);
+                if (item.coordSpace == CoordinateSpace::World)
+                    orthoMatrix = worldMatrix;
+                else if (item.coordSpace == CoordinateSpace::UI)
+                    orthoMatrix = UIMatrix;
 				glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
 
                 if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
@@ -398,16 +418,16 @@ FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize
 
 SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize)
 {
-    VectorInt location = BlockToPixel(gameLocation);
-    VectorInt size = BlockToPixel(gameSize);
-    int32 xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
-    int32 yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
+    //VectorInt location = BlockToPixel(gameLocation);
+    //VectorInt size = BlockToPixel(gameSize);
+    //int32 xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
+    //int32 yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
 
     SDL_Rect result;
-    result.x = location.x - xOffset;
-    result.y = windowInfo.height - (location.y - yOffset) - size.y;
-    result.w = size.x;
-    result.h = size.y;
+    result.x = (int32)gameLocation.x;
+    result.y = (int32)gameLocation.y + (int32)gameSize.y;//windowInfo.height - (location.y) - size.y;
+    result.w = (int32)gameSize.x;
+    result.h = -(int32)gameSize.y;
 
     return result;
 }
@@ -425,7 +445,7 @@ VectorInt CameraToPixelCoord(VectorInt input)
 void BackgroundRender(Sprite* sprite, Camera* camera)
 {
     //HARDCODING FOR NOW UNTIL WINDOW SIZE CHANGES
-    assert(windowInfo.width == 1280 && windowInfo.height == 720);
+    //assert(windowInfo.width == 1280 && windowInfo.height == 720);
 
     SDL_Rect spriteRect = {};
 
@@ -456,7 +476,7 @@ void BackgroundRender(Sprite* sprite, Camera* camera)
     }
 
 
-    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite, {}, 0, NULL, SDL_FLIP_NONE);
+    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite, {}, 0, NULL, SDL_FLIP_NONE, CoordinateSpace::UI);
 }
 
 
@@ -465,13 +485,15 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
     int32 blocksPerRow = sprite->width / itemSize;
     int32 x = uint32(i) % blocksPerRow * itemSize + (itemSize - xCharSize) / 2;
     int32 y = uint32(i) / blocksPerRow * itemSize;
-
+    
     SDL_Rect blockRect = { x, y, xCharSize, itemSize };
     float itemSizeTranslatedx = PixelToBlock(xCharSize);
     float itemSizeTranslatedy = PixelToBlock(itemSize);
-    SDL_Rect destRect = CameraOffset(loc, { itemSizeTranslatedx, itemSizeTranslatedy });
+    //CameraOffset(loc, { itemSizeTranslatedx, itemSizeTranslatedy });
 
-    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite, {}, 0, NULL, SDL_FLIP_NONE);
+    Rectangle destRect = { loc, { loc.x + itemSizeTranslatedx, loc.y +itemSizeTranslatedy } };
+
+    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite, {}, 0, NULL, SDL_FLIP_NONE, CoordinateSpace::World);
 }
 
 
@@ -489,12 +511,14 @@ void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, floa
 
     //Upper Left corner and size
     SDL_Rect SRect = {};
-    SDL_Rect DRect = {};
+    //SDL_Rect DRect = {};
 
     SRect.w = fontSprite->xCharSize;
     SRect.h = fontSprite->charSize;
-    DRect.w = int(SRect.w * size);
-    DRect.h = int(SRect.h * size);
+    float width = (SRect.w * size);
+    float height = (SRect.h * size);
+    //DRect.w = int(SRect.w * size);
+    //DRect.h = int(SRect.h * size);
 
     for (int32 i = 0; i < text.size(); i++)
     {
@@ -503,19 +527,21 @@ void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, floa
         SRect.x = uint32(charKey) % CPR * SRect.h + (SRect.h - SRect.w) / 2;
         SRect.y = uint32(charKey) / CPR * SRect.h;
 
-        DRect.x = loc.x + i * DRect.w - (int32(XLayout) * DRect.w * int32(text.size())) / 2;
-        DRect.y = loc.y - (int32(YLayout) * DRect.h) / 2;
-        AddTextureToRender(SRect, DRect, RenderPrio::UI, fontSprite->sprite, c, 0, NULL, SDL_FLIP_NONE);
-        //SDL_RenderCopyEx(windowInfo.renderer, fontSprite->sprite->texture, &SRect, &DRect, 0, NULL, SDL_FLIP_NONE);
+        Rectangle DRectangle;
+        DRectangle.bottomLeft.x = loc.x + i * width - (int32(XLayout) * width * int32(text.size())) / 2;
+        DRectangle.bottomLeft.y = loc.y - (int32(YLayout) * height) / 2;
+        DRectangle.topRight = { DRectangle.bottomLeft.x + width, DRectangle.bottomLeft.y + height };
+
+        float height2 = DRectangle.Height();
+        DRectangle.bottomLeft.y += height2;
+        DRectangle.topRight.y -= height2;
+        AddTextureToRender(SRect, DRectangle, RenderPrio::UI, fontSprite->sprite, c, 0, NULL, SDL_FLIP_NONE, CoordinateSpace::UI);
     }
 }
 
 SDL_Rect RectangleToSDL(Rectangle rect, bool yFlip)
 {
-    if (yFlip)
-		return { (int32)rect.bottomLeft.x, windowInfo.height - (int32)rect.topRight.y, (int32)rect.Width(), (int32)rect.Height() };
-    else
-		return { (int32)rect.bottomLeft.x, (int32)rect.bottomLeft.y, (int32)rect.Width(), (int32)rect.Height() };
+	return { (int32)rect.bottomLeft.x, (int32)rect.bottomLeft.y, (int32)rect.Width(), (int32)rect.Height() };
 }
 
 //bottom left and top right
@@ -567,20 +593,20 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
     sdlButRect.y = loc.y - yOffset;
 
     Rectangle butRect = SDLToRectangle(sdlButRect);
-    AddRectToRender(RenderType::DebugOutline, butRect, BC, RenderPrio::UI);
+    AddRectToRender(RenderType::DebugOutline, butRect, BC, RenderPrio::UI, CoordinateSpace::UI);
 
     //VectorInt mousePosition;
     //bool leftButtonPressed = (SDL_GetMouseState(&mousePosition.x, &mousePosition.y) & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
 
     if (SDLPointRectangleCollision(mouseLoc, butRect))
     {
-        AddRectToRender(RenderType::DebugFill, butRect, { BC.r, BC.g, BC.b, BC.a / (uint32)2}, RenderPrio::UI);
+        AddRectToRender(RenderType::DebugFill, butRect, { BC.r, BC.g, BC.b, BC.a / (uint32)2}, RenderPrio::UI, CoordinateSpace::UI);
     }
     if (mousePressed)
     {
         if (SDLPointRectangleCollision(mouseLoc, butRect))
         {
-			AddRectToRender(RenderType::DebugFill, butRect, BC, RenderPrio::UI);
+			AddRectToRender(RenderType::DebugFill, butRect, BC, RenderPrio::UI, CoordinateSpace::UI);
             result = true;
         }
     }
@@ -612,7 +638,7 @@ void RenderBlocks()
 					blockRect.bottomLeft = block->location;
 					blockRect.topRight = { block->location.x + 1 , block->location.y + 1 };
 
-					AddRectToRender(blockRect, lightRed, RenderPrio::Debug);
+					AddRectToRender(blockRect, lightRed, RenderPrio::Debug, CoordinateSpace::World);
 				}
 			}
 
@@ -639,9 +665,10 @@ void RenderLaser()
             PC = Red;
         Sprite* sprite = GetSpriteFromAnimation(&laser);
 
-        SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(sprite->height) });
-        static SDL_Point rotationPoint = { 0, rect.h / 2 };
-        AddTextureToRender({}, rect, RenderPrio::Sprites, sprite, PC, laser.rotation, &rotationPoint, SDL_FLIP_NONE);
+        //SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(sprite->height) });
+        Rectangle rectangle = { {laser.position}, {laser.position.x + Pythags(laser.destination - laser.position), laser.position.y + PixelToBlock(sprite->height)} };
+        static SDL_Point rotationPoint = { 0, (int32)rectangle.Height() / 2 };
+        AddTextureToRender({}, rectangle, RenderPrio::Sprites, sprite, PC, laser.rotation, &rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
     }
 }
 
@@ -666,16 +693,14 @@ void RenderActor(Actor* actor, float rotation)
     if (sprite == nullptr)
         sprite = actor->animationList->GetAnyValidAnimation()->anime[0];
 
-    destRect = CameraOffset({ actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio()))),
-                              actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio()))) },
-        PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
-                       (int)(actor->SpriteRatio() * sprite->height) }));
-    AddTextureToRender({}, destRect, RenderPrio::Sprites, sprite, actor->colorMod, rotation, NULL, flippage);
-}
-
-void GameSpaceRectRender(Rectangle rect, SDL_Color color)
-{
-    Vector offset = PixelToBlock({ int32(BlockToPixel(rect.Width())), int32(rect.Height()) });
-    Rectangle tempRect = { {rect.bottomLeft.x, rect.bottomLeft.y}, {rect.bottomLeft.x + offset.x, rect.bottomLeft.y + offset.y} };
-    AddRectToRender(RenderType::DebugFill, tempRect, color, RenderPrio::Debug );
+    //destRect = CameraOffset({ actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio()))),
+    //                          actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio()))) },
+    //    PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
+    //                   (int)(actor->SpriteRatio() * sprite->height) }));
+    Rectangle DR;
+    DR.bottomLeft.x = actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio())));
+    DR.bottomLeft.y = actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
+	DR.topRight = DR.bottomLeft + PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
+			   (int)(actor->SpriteRatio() * sprite->height) });
+    AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, NULL, flippage, CoordinateSpace::World);
 }

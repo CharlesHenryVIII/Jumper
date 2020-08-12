@@ -38,7 +38,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 			|| keyStates[SDLK_RETURN].downThisFrame)
 			SwitchToMenu();
 		deltaTime = 0.0f;
-		AddRectToRender({ {0, (float)windowInfo.height}, { (float)windowInfo.width, 0 } }, lightBlack, RenderPrio::foreground);
+		AddRectToRender({ {0, (float)windowInfo.height}, { (float)windowInfo.width, 0 } }, lightBlack, RenderPrio::foreground, CoordinateSpace::UI);
 	}
 
 	//TODO: fix creating a new player makes a new player ID number;
@@ -303,7 +303,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 
 				//flash screen 
 				if (CollisionWithActor(*player, *actor, *currentLevel))
-					AddRectToRender({ {0, (float)windowInfo.height}, { (float)windowInfo.width, 0 } }, lightWhite, RenderPrio::foreground);
+					AddRectToRender({ {0, (float)windowInfo.height}, { (float)windowInfo.width, 0 } }, lightWhite, RenderPrio::foreground, CoordinateSpace::UI);
 				break;
 			}
 			case ActorType::portal:
@@ -437,9 +437,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 					|| keyStates[SDLK_ESCAPE].downThisFrame)
 		paused = !paused;
 
-	SDL_SetRenderDrawColor(windowInfo.renderer, 0, 0, 0, 255);
-	SDL_RenderClear(windowInfo.renderer);
-	
 	//Present Screen
 	std::erase_if(currentLevel->actors, [](Actor* p) {
 		if (!p->inUse)

@@ -130,7 +130,6 @@ void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio, Coordinat
 void RenderDrawCalls();
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode);
 FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 actualCharWidth, int32 charPerRow);
-SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize);
 //difference between the player and the center of the screen
 VectorInt CameraToPixelCoord(VectorInt input);
 void BackgroundRender(Sprite* sprite, Camera* camera);

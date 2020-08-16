@@ -67,24 +67,24 @@ struct VectorInt {
 
 
 struct Rectangle {
-    Vector bottomLeft;
+    Vector botLeft;
     Vector topRight;
 
     float Width()
     {
-        return topRight.x - bottomLeft.x;
+        return topRight.x - botLeft.x;
     }
 
     float Height()
     {
-        return topRight.y - bottomLeft.y;
+        return topRight.y - botLeft.y;
     }
 
     bool Collision(VectorInt loc)
     {
         bool result = false;
-        if (loc.y > bottomLeft.x && loc.y < topRight.x)
-            if (loc.x > bottomLeft.x && loc.x < topRight.x)
+        if (loc.y > botLeft.x && loc.y < topRight.x)
+            if (loc.x > botLeft.x && loc.x < topRight.x)
                 result = true;
         return result;
     }

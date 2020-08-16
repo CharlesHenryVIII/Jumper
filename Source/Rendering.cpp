@@ -112,7 +112,7 @@ void AddTextureToRender(SDL_Rect sRect, Rectangle dRect, RenderPrio priority,
 	info.sRect = sRect;
 	info.dRect = dRect;
     float height = info.dRect.Height();
-	info.dRect.bottomLeft.y += height;
+	info.dRect.botLeft.y += height;
 	info.dRect.topRight.y -= height;
 
     info.prio = priority;
@@ -282,8 +282,8 @@ void RenderDrawCalls()
                     uvyd = (float)item.texture.height;
                 std::swap(uvyo, uvyd);
 
-                float posxo = item.dRect.bottomLeft.x;
-                float posyo = item.dRect.bottomLeft.y;
+                float posxo = item.dRect.botLeft.x;
+                float posyo = item.dRect.botLeft.y;
                 float posxd = item.dRect.topRight.x;
                 float posyd = item.dRect.topRight.y;
                 if (item.dRect.Width() == 0)
@@ -329,9 +329,9 @@ void RenderDrawCalls()
             case RenderType::DebugOutline:
             {
 
-                float L = item.dRect.bottomLeft.x;
+                float L = item.dRect.botLeft.x;
                 float R = item.dRect.topRight.x;
-                float T = item.dRect.bottomLeft.y;
+                float T = item.dRect.botLeft.y;
                 float B = item.dRect.topRight.y;
                 Vertex vertices[] = {
                     //x, y, u, v
@@ -415,26 +415,8 @@ FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize
     return result;
 }
 
-
-SDL_Rect CameraOffset(Vector gameLocation, Vector gameSize)
-{
-    //VectorInt location = BlockToPixel(gameLocation);
-    //VectorInt size = BlockToPixel(gameSize);
-    //int32 xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
-    //int32 yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
-
-    SDL_Rect result;
-    result.x = (int32)gameLocation.x;
-    result.y = (int32)gameLocation.y + (int32)gameSize.y;//windowInfo.height - (location.y) - size.y;
-    result.w = (int32)gameSize.x;
-    result.h = -(int32)gameSize.y;
-
-    return result;
-}
-
-
 //difference between the player and the center of the screen
-VectorInt CameraToPixelCoord(VectorInt input)
+Vector CameraToPixelCoord(Vector input)
 {
     int32 xOffset = BlockToPixel(camera.position.x) - windowInfo.width / 2;
     int32 yOffset = BlockToPixel(camera.position.y) - windowInfo.height / 2;
@@ -489,7 +471,6 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
     SDL_Rect blockRect = { x, y, xCharSize, itemSize };
     float itemSizeTranslatedx = PixelToBlock(xCharSize);
     float itemSizeTranslatedy = PixelToBlock(itemSize);
-    //CameraOffset(loc, { itemSizeTranslatedx, itemSizeTranslatedy });
 
     Rectangle destRect = { loc, { loc.x + itemSizeTranslatedx, loc.y +itemSizeTranslatedy } };
 
@@ -528,12 +509,12 @@ void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, floa
         SRect.y = uint32(charKey) / CPR * SRect.h;
 
         Rectangle DRectangle;
-        DRectangle.bottomLeft.x = loc.x + i * width - (int32(XLayout) * width * int32(text.size())) / 2;
-        DRectangle.bottomLeft.y = loc.y - (int32(YLayout) * height) / 2;
-        DRectangle.topRight = { DRectangle.bottomLeft.x + width, DRectangle.bottomLeft.y + height };
+        DRectangle.botLeft.x = loc.x + i * width - (int32(XLayout) * width * int32(text.size())) / 2;
+        DRectangle.botLeft.y = loc.y - (int32(YLayout) * height) / 2;
+        DRectangle.topRight = { DRectangle.botLeft.x + width, DRectangle.botLeft.y + height };
 
         float height2 = DRectangle.Height();
-        DRectangle.bottomLeft.y += height2;
+        DRectangle.botLeft.y += height2;
         DRectangle.topRight.y -= height2;
         AddTextureToRender(SRect, DRectangle, RenderPrio::UI, fontSprite->sprite, c, 0, NULL, SDL_FLIP_NONE, CoordinateSpace::UI);
     }
@@ -541,7 +522,7 @@ void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, floa
 
 SDL_Rect RectangleToSDL(Rectangle rect, bool yFlip)
 {
-	return { (int32)rect.bottomLeft.x, (int32)rect.bottomLeft.y, (int32)rect.Width(), (int32)rect.Height() };
+	return { (int32)rect.botLeft.x, (int32)rect.botLeft.y, (int32)rect.Width(), (int32)rect.Height() };
 }
 
 //bottom left and top right
@@ -553,21 +534,19 @@ Rectangle SDLToRectangle(SDL_Rect rect)
 //camera space
 bool pointRectangleCollision(VectorInt point, Rectangle rect)
 {
-    bool result = false;
-    if (point.x > rect.bottomLeft.x && point.x < rect.topRight.x)
-        if (point.y > rect.bottomLeft.y && point.y < rect.topRight.y)
-            result = true;
-    return result;
+    if (point.x > rect.botLeft.x && point.x < rect.topRight.x)
+        if (point.y > rect.botLeft.y && point.y < rect.topRight.y)
+            return true;
+    return false;
 }
 
 
 bool SDLPointRectangleCollision(VectorInt point, Rectangle rect)
 {
-    bool result = false;
-    if (point.x > rect.bottomLeft.x && point.x < rect.topRight.x)
-        if (point.y < rect.bottomLeft.y && point.y > rect.topRight.y)
-            result = true;
-    return result;
+    if ((float)point.x > rect.botLeft.x && (float)point.x < rect.topRight.x)
+        if ((float)point.y > rect.botLeft.y && (float)point.y < rect.topRight.y)
+            return true;
+    return false;
 }
 
 
@@ -580,37 +559,35 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
     //Copied from DrawText()
     //TODO(choman): change this to be more fluid and remove most of the dependancies.
 
-    SDL_Rect sdlButRect = {};
-    int32 widthOffset = 5;
-    int32 heightOffset = 5;
+    Rectangle rect = {};
+    float widthOffset = 5;
+    float heightOffset = 5;
+    float width = textSprite->xCharSize * float(text.size()) + widthOffset * 2;
+    float height = (textSprite->charSize + heightOffset * 2);
 
-    sdlButRect.w = textSprite->xCharSize * int32(text.size()) + widthOffset * 2;
-    sdlButRect.h = (textSprite->charSize + heightOffset * 2);
-    int32 xOffset = (int32(XLayout) * sdlButRect.w) / 2;
-    int32 yOffset = (int32(YLayout) * sdlButRect.h) / 2; //top, mid, bot
+    rect.botLeft.x = loc.x - ((float(XLayout) * width) / 2);
+    rect.botLeft.y = loc.y - ((float(YLayout) * height) / 2);//top, mid, bot
+    rect.topRight.x = rect.botLeft.x + width;
+    rect.topRight.y = rect.botLeft.y + height;
 
-    sdlButRect.x = loc.x - xOffset;
-    sdlButRect.y = loc.y - yOffset;
-
-    Rectangle butRect = SDLToRectangle(sdlButRect);
-    AddRectToRender(RenderType::DebugOutline, butRect, BC, RenderPrio::UI, CoordinateSpace::UI);
+    AddRectToRender(RenderType::DebugOutline, rect, BC, RenderPrio::UI, CoordinateSpace::UI);
 
     //VectorInt mousePosition;
     //bool leftButtonPressed = (SDL_GetMouseState(&mousePosition.x, &mousePosition.y) & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
 
-    if (SDLPointRectangleCollision(mouseLoc, butRect))
+    if (SDLPointRectangleCollision(mouseLoc, rect))
     {
-        AddRectToRender(RenderType::DebugFill, butRect, { BC.r, BC.g, BC.b, BC.a / (uint32)2}, RenderPrio::UI, CoordinateSpace::UI);
+        AddRectToRender(RenderType::DebugFill, rect, { BC.r, BC.g, BC.b, BC.a / (uint32)2}, RenderPrio::UI, CoordinateSpace::UI);
     }
     if (mousePressed)
     {
-        if (SDLPointRectangleCollision(mouseLoc, butRect))
+        if (SDLPointRectangleCollision(mouseLoc, rect))
         {
-			AddRectToRender(RenderType::DebugFill, butRect, BC, RenderPrio::UI, CoordinateSpace::UI);
+			AddRectToRender(RenderType::DebugFill, rect, BC, RenderPrio::UI, CoordinateSpace::UI);
             result = true;
         }
     }
-    DrawText(textSprite, TC, text, 1.0f, { sdlButRect.x + sdlButRect.w / 2, sdlButRect.y + sdlButRect.h / 2 }, UIX::mid, UIY::mid);
+    DrawText(textSprite, TC, text, 1.0f, { int32(rect.botLeft.x + rect.Width() / 2), int32(rect.botLeft.y + rect.Height() / 2) }, UIX::mid, UIY::mid);
     return result;
 }
 
@@ -621,7 +598,7 @@ Sprite* GetSpriteFromAnimation(Actor* actor)
 
 void RenderBlocks()
 {
-	Vector offset = { float(windowInfo.width / blockSize / 2) + 1, float(windowInfo.height / blockSize / 2) + 1 };
+	Vector offset = { float(camera.size.x / 2) + 1, float(camera.size.y / 2) + 1 };
 
 	for (float y = camera.position.y - offset.y; y < (camera.position.y + offset.y); y++)
 	{
@@ -633,15 +610,8 @@ void RenderBlocks()
 				SpriteMapRender(sprites["spriteMap"], *block);
 
 				if (debugList[DebugOptions::blockCollision] && block->tileType != TileType::invalid)
-				{
-					Rectangle blockRect;
-					blockRect.bottomLeft = block->location;
-					blockRect.topRight = { block->location.x + 1 , block->location.y + 1 };
-
-					AddRectToRender(blockRect, lightRed, RenderPrio::Debug, CoordinateSpace::World);
-				}
+                    AddRectToRender({ block->location, { block->location.x + 1 , block->location.y + 1 } }, lightRed, RenderPrio::Debug, CoordinateSpace::World);
 			}
-
 		}
 	}
 }
@@ -665,7 +635,6 @@ void RenderLaser()
             PC = Red;
         Sprite* sprite = GetSpriteFromAnimation(&laser);
 
-        //SDL_Rect rect = CameraOffset(laser.position, { Pythags(laser.destination - laser.position), PixelToBlock(sprite->height) });
         Rectangle rectangle = { {laser.position}, {laser.position.x + Pythags(laser.destination - laser.position), laser.position.y + PixelToBlock(sprite->height)} };
         static SDL_Point rotationPoint = { 0, (int32)rectangle.Height() / 2 };
         AddTextureToRender({}, rectangle, RenderPrio::Sprites, sprite, PC, laser.rotation, &rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
@@ -693,14 +662,10 @@ void RenderActor(Actor* actor, float rotation)
     if (sprite == nullptr)
         sprite = actor->animationList->GetAnyValidAnimation()->anime[0];
 
-    //destRect = CameraOffset({ actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio()))),
-    //                          actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio()))) },
-    //    PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
-    //                   (int)(actor->SpriteRatio() * sprite->height) }));
     Rectangle DR;
-    DR.bottomLeft.x = actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio())));
-    DR.bottomLeft.y = actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
-	DR.topRight = DR.bottomLeft + PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
+    DR.botLeft.x = actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio())));
+    DR.botLeft.y = actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
+	DR.topRight = DR.botLeft + PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
 			   (int)(actor->SpriteRatio() * sprite->height) });
     AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, NULL, flippage, CoordinateSpace::World);
 }

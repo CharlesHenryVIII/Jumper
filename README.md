@@ -3,6 +3,12 @@
 
 ### TODO:
 #### Current
+- [ ] Impliment OpenGL Renderer
+	- [x] Replace SDL Renderer
+	- [x] Replace SDL variables with floats
+	- [x] Add zoom
+	- [x] Fix clicking location with zoom distance and rendering
+	- [ ] Clean up, improve, and optimize the OpenGL rendering code
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [ ] Grappling
 	- [ ] Moving Platforms 

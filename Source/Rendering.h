@@ -86,7 +86,7 @@ struct TextureRenderUnion
 
     GLuint texture;
     float rotation;
-    SDL_RendererFlip flippage;
+    bool flippage;
     const SDL_Point* rotationPoint;
     int32 width;
     int32 height;
@@ -95,11 +95,11 @@ struct TextureRenderUnion
 struct RenderInformation
 {
     RenderType renderType;
-    SDL_Rect sRect = {};
+    Rectangle sRect = {};
     Rectangle dRect = {};
     RenderPrio prio;
     uint32 prioIndex;
-    SDL_Color color = {};
+    Color color = {};
     CoordinateSpace coordSpace;
     int32 vertexIndex;
     int32 vertexLength;
@@ -124,31 +124,27 @@ struct Actor;
 struct Block;
 
 
-void AddTextureToRender(SDL_Rect sRect, Rectangle dRect, RenderPrio priority,
-    Sprite* sprite, SDL_Color colorMod, float rotation,
-    const SDL_Point* rotationPoint, SDL_RendererFlip flippage, CoordinateSpace coordSpace);
+void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
+    Sprite* sprite, Color colorMod, float rotation,
+    const SDL_Point* rotationPoint, bool flippage, CoordinateSpace coordSpace);
 void InitializeOpenGL();
-void AddRectToRender(RenderType type, Rectangle rect, SDL_Color color, RenderPrio prio, CoordinateSpace coordSpace);
-void AddRectToRender(Rectangle rect, SDL_Color color, RenderPrio prio, CoordinateSpace coordSpace);
+void AddRectToRender(RenderType type, Rectangle rect, Color color, RenderPrio prio, CoordinateSpace coordSpace);
+void AddRectToRender(Rectangle rect, Color color, RenderPrio prio, CoordinateSpace coordSpace);
 void RenderDrawCalls();
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode);
 FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 actualCharWidth, int32 charPerRow);
 //difference between the player and the center of the screen
-VectorInt CameraToPixelCoord(VectorInt input);
 void BackgroundRender(Sprite* sprite, Camera* camera);
 void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc);
 void SpriteMapRender(Sprite* sprite, const Block& block);
-void DrawText(FontSprite* fontSprite, SDL_Color c, const std::string& text, 
+void DrawText(FontSprite* fontSprite, Color c, const std::string& text, 
               float size, VectorInt loc, UIX XLayout, UIY YLayout);
-SDL_Rect RectangleToSDL(Rectangle rect, bool yFlip);
-//bottom left and top right
-Rectangle SDLToRectangle(SDL_Rect rect);
 //camera space
 bool pointRectangleCollision(VectorInt point, Rectangle rect);
 bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);
 //top left 0,0
 bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc, 
-                UIX XLayout, UIY YLayout, SDL_Color BC, SDL_Color TC, 
+                UIX XLayout, UIY YLayout, Color BC, Color TC, 
                 VectorInt mouseLoc, bool mousePressed);
 Sprite* GetSpriteFromAnimation(Actor* actor);
 void RenderBlocks();

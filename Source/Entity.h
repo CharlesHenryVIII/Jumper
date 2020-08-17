@@ -117,7 +117,7 @@ public:
     Vector terminalVelocity = { 10 , 300 };
     Vector acceleration;
     int32 jumpCount = 2;
-    SDL_Color colorMod = White;
+    Color colorMod = White;
     float health = 100;
     float damage;
     bool lastInputWasLeft = false;
@@ -329,7 +329,7 @@ extern std::unordered_map<std::string, AnimationList> actorAnimations;
 
 
 TileType CheckColor(SDL_Color color);
-SDL_Color GetTileMapColor(const Block& block);
+Color GetTileMapColor(const Block& block);
 void SaveLevel(Level* level, Player& player);
 void LoadLevel(Level* level, Player& player);
 void UpdateAllNeighbors(Block* block);

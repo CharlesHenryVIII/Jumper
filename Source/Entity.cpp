@@ -427,8 +427,12 @@ TileType CheckColor(SDL_Color color)
 		return TileType::invalid;
 }
 
+SDL_Color FloatToSDL_Color(Color c)
+{
+	return { uint8(c.r * 255), uint8(c.g * 255), uint8(c.b * 255), uint8(c.a * 255) };
+}
 
-SDL_Color GetTileMapColor(const Block& block)
+Color GetTileMapColor(const Block& block)
 {
 	if (block.tileType == TileType::filled)
 		return Brown;
@@ -477,13 +481,13 @@ void SaveLevel(Level* level, Player &player)
 		if (block.second.tileType == TileType::invalid)
 			continue;
 
-		memBuff[size_t((block.second.location.x - left) + ((block.second.location.y - bot) * size_t(width)))] = GetTileMapColor(block.second);
+		memBuff[size_t((block.second.location.x - left) + ((block.second.location.y - bot) * size_t(width)))] = FloatToSDL_Color(GetTileMapColor(block.second));
 	}
 
 	//TODO(choman):  When new entity system is done change this to include other Actors
 	int32 playerBlockPositionX = int32(player.position.x);
 	int32 playerBlockPositionY = int32(player.position.y);
-	memBuff[size_t((playerBlockPositionX - left) + ((playerBlockPositionY - bot) * size_t(width)))] = Blue;
+	memBuff[size_t((playerBlockPositionX - left) + ((playerBlockPositionY - bot) * size_t(width)))] = FloatToSDL_Color(Blue);
 
 	//Saving written memory to file
 	int32 stride_in_bytes = 4 * width;

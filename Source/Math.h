@@ -17,34 +17,65 @@ using uint64 = uint64_t;
 //typedef uint64_t uint64;
 //#define uint64_t uint64
 
+struct Color {
+    float r;
+    float g;
+    float b;
+    float a;
+};
+
+const Color Red = { 1.0f, 0.0f, 0.0f, 1.0f };
+const Color Green = { 0.0f, 1.0f, 0.0f, 1.0f };
+const Color Blue = { 0.0f, 0.0f, 1.0f, 1.0f };
+
+const Color transRed = { 1.0f, 0.0f, 0.0f, 0.5f };
+const Color transGreen = { 0.0f, 1.0f, 0.0f, 0.5f };
+const Color transBlue = { 0.0f, 0.0f, 1.0f, 0.5f };
+const Color transOrange = { 1.0f, 0.5f, 0.0f, 0.5f };
+
+const Color lightRed = { 1.0f, 0.0f, 0.0f, 0.25f };
+const Color lightGreen = { 0.0f, 1.0f, 0.0f, 0.25f };
+const Color lightBlue = { 0.0f, 0.0f, 1.0f, 0.25f };
+
+const Color White = { 1.0f, 1.0f, 1.0f, 1.0f };
+const Color lightWhite = { 0.58f, 0.58f, 0.58f, 0.58f };
+const Color Black = { 0.0f, 0.0f, 0.0f, 1.0f };
+const Color lightBlack = { 0.0f, 0.0f, 0.0f, 0.58f };
+const Color Brown = { 0.5f, 0.4f, 0.25f, 1.0f };  //used for dirt block
+const Color Mint = { 0.0f, 1.0f, 0.5f, 1.0f };   //used for corner block
+const Color Orange = { 1.0f, 0.5f, 0.0f, 1.0f };   //used for edge block
+const Color Grey = { 0.5f, 0.5f, 0.5f, 1.0f }; //used for floating block
+
+const Color HealthBarBackground = { 0.25f, 0.33f, 0.25f, 1.0f};
 constexpr int32 blockSize = 32;
 
 const float pi = 3.14159f;
 const float tau = 2 * pi;
-
-const SDL_Color Red = { 255, 0, 0, 255 };
-const SDL_Color Green = { 0, 255, 0, 255 };
-const SDL_Color Blue = { 0, 0, 255, 255 };
-
-const SDL_Color transRed = { 255, 0, 0, 127 };
-const SDL_Color transGreen = { 0, 255, 0, 127 };
-const SDL_Color transBlue = { 0, 0, 255, 127 };
-const SDL_Color transOrange = { 255, 128, 0, 127 };
-
-const SDL_Color lightRed = { 255, 0, 0, 63 };
-const SDL_Color lightGreen = { 0, 255, 0, 63 };
-const SDL_Color lightBlue = { 0, 0, 255, 63 };
-
-const SDL_Color White = { 255, 255, 255, 255 };
-const SDL_Color lightWhite = { 150, 150, 150, 150 };
-const SDL_Color Black = { 0, 0, 0, 255 };
-const SDL_Color lightBlack = { 0, 0, 0, 150 };
-const SDL_Color Brown = { 130, 100, 70, 255 };  //used for dirt block
-const SDL_Color Mint = { 0, 255, 127, 255 };   //used for corner block
-const SDL_Color Orange = { 255, 127, 0, 255 };   //used for edge block
-const SDL_Color Grey = { 127, 127, 127, 255 }; //used for floating block
-
-const SDL_Color HealthBarBackground = { 58, 85, 58, 255 };
+//
+//const SDL_Color Red = { 255, 0, 0, 255 };
+//const SDL_Color Green = { 0, 255, 0, 255 };
+//const SDL_Color Blue = { 0, 0, 255, 255 };
+//
+//
+//const SDL_Color transRed = { 255, 0, 0, 127 };
+//const SDL_Color transGreen = { 0, 255, 0, 127 };
+//const SDL_Color transBlue = { 0, 0, 255, 127 };
+//const SDL_Color transOrange = { 255, 128, 0, 127 };
+//
+//const SDL_Color lightRed = { 255, 0, 0, 63 };
+//const SDL_Color lightGreen = { 0, 255, 0, 63 };
+//const SDL_Color lightBlue = { 0, 0, 255, 63 };
+//
+//const SDL_Color White = { 255, 255, 255, 255 };
+//const SDL_Color lightWhite = { 150, 150, 150, 150 };
+//const SDL_Color Black = { 0, 0, 0, 255 };
+//const SDL_Color lightBlack = { 0, 0, 0, 150 };
+//const SDL_Color Brown = { 130, 100, 70, 255 };  //used for dirt block
+//const SDL_Color Mint = { 0, 255, 127, 255 };   //used for corner block
+//const SDL_Color Orange = { 255, 127, 0, 255 };   //used for edge block
+//const SDL_Color Grey = { 127, 127, 127, 255 }; //used for floating block
+//
+//const SDL_Color HealthBarBackground = { 58, 85, 58, 255 };
 
 
 const uint32 CollisionNone = 0;

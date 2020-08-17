@@ -272,11 +272,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     laser.inUse = false;
     if (debugList[DebugOptions::editBlocks] && (keyStates[SDL_BUTTON_LEFT].down || keyStates[SDL_BUTTON_RIGHT].down) && player != nullptr)
     {
-
-        
-        //PixelToBlock(mouseLocationFlipped);
-        //Vector mouseLocationTranslated = /*{ mousePixelCoord.x * blocksPerPixel, mousePixelCoord.y * blocksPerPixel};*/PixelToBlock(CameraToPixelCoord(mouseLocation));
-
         Rectangle clickRect = {};
         clickRect.botLeft = { mouseLocBlocks.x - 0.5f, mouseLocBlocks.y - 0.5f };
         clickRect.topRight = { mouseLocBlocks.x + 0.5f, mouseLocBlocks.y + 0.5f };

@@ -55,9 +55,7 @@ void main()
 }
 )term";
 
-uint32 indices[] = {
-    0, 1, 2, 1, 2, 3,
-};
+std::vector<Vertex> vertexBuffer;
 
 WindowInfo& GetWindowInfo()
 {
@@ -98,7 +96,6 @@ struct OpenGLInfo
     GLuint heightLocation;
     GLuint colorLocation;
     GLuint vao;
-    GLuint ebo;
     GLuint vertexBuffer;
     GLuint whiteTexture;
 }GLInfo = {};
@@ -225,20 +222,96 @@ void InitializeOpenGL()
 	GLInfo.heightLocation = glGetUniformLocation(GLInfo.program, "u_textureHeight");
     GLInfo.colorLocation = glGetUniformLocation(GLInfo.program, "u_color");
 
-    glGenBuffers(1, &GLInfo.ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GLInfo.ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 	glGenBuffers(1, &GLInfo.vertexBuffer);
 
 	Uint8 image[] = {255, 255, 255, 255,};
     GLInfo.whiteTexture = JMP_CreateTexture(1, 1, image);
+	glLineWidth(1.0f);
 }
+
+int32 size = 0;
 
 void RenderDrawCalls()
 {
-    std::stable_sort(drawCalls.begin(), drawCalls.end(), [](const RenderInformation &a, const RenderInformation &b) {
-        return a.prio < b.prio;
-    });
+    PROFILE_FUNCTION();
+
+    vertexBuffer.clear();
+    {
+
+		PROFILE_SCOPE("Vertex Buffer Update");
+		uint32 i = 0;
+		for (auto& item : drawCalls)
+		{
+			item.vertexIndex = (int32)vertexBuffer.size();
+			item.vertexLength = 4;
+			item.prioIndex = i++;
+			if (item.renderType != RenderType::Texture)
+			{
+
+				float L = item.dRect.botLeft.x;
+				float R = item.dRect.topRight.x;
+				float T = item.dRect.botLeft.y;
+				float B = item.dRect.topRight.y;
+				vertexBuffer.push_back({ L, T, 1.0f, 1.0f });
+				vertexBuffer.push_back({ R, T, 1.0f, 1.0f });
+				vertexBuffer.push_back({ R, B, 1.0f, 1.0f });
+				vertexBuffer.push_back({ L, B, 1.0f, 1.0f });
+			}
+			else
+			{
+
+				float uvxo = (float)item.sRect.x;
+				float uvyo = (float)item.sRect.y;
+				float uvxd = (float)item.sRect.x + (float)item.sRect.w;
+				float uvyd = (float)item.sRect.y + (float)item.sRect.h;
+				if (item.sRect.w == 0)
+					uvxd = (float)item.texture.width;
+				if (item.sRect.h == 0)
+					uvyd = (float)item.texture.height;
+				std::swap(uvyo, uvyd);
+
+				float posxo = item.dRect.botLeft.x;
+				float posyo = item.dRect.botLeft.y;
+				float posxd = item.dRect.topRight.x;
+				float posyd = item.dRect.topRight.y;
+				if (item.dRect.Width() == 0)
+					posxd = (float)windowInfo.width;
+				if (item.dRect.Height() == 0)
+					posyd = (float)windowInfo.height;
+
+				if (item.texture.flippage)
+					std::swap(posxo, posxd);
+
+				vertexBuffer.push_back({ posxo, posyd, uvxo, uvyo });
+				vertexBuffer.push_back({ posxo, posyo, uvxo, uvyd });
+				vertexBuffer.push_back({ posxd, posyd, uvxd, uvyo });
+				vertexBuffer.push_back({ posxd, posyo, uvxd, uvyd });
+			}
+		}
+
+	}
+	{
+
+        PROFILE_SCOPE("Buffer Upload");
+		int32 newSize = (int32)vertexBuffer.size() * sizeof(vertexBuffer[0]);
+		glBindBuffer(GL_ARRAY_BUFFER, GLInfo.vertexBuffer);
+		if (newSize > size)
+		{
+			size = newSize * 2;
+			glBufferData(GL_ARRAY_BUFFER, size, 0, GL_DYNAMIC_DRAW);
+		}
+		glBufferSubData(GL_ARRAY_BUFFER, 0, newSize, vertexBuffer.data());
+	}
+	{
+
+        PROFILE_SCOPE("Sort");
+		std::sort(drawCalls.begin(), drawCalls.end(), [](const RenderInformation& a, const RenderInformation& b) {
+			if (a.prio == b.prio)
+				return (a.prioIndex < b.prioIndex);
+			else
+				return (a.prio < b.prio);
+		});
+	}
 
     glClear(GL_COLOR_BUFFER_BIT);
     glViewport(0, 0, windowInfo.width, windowInfo.height);
@@ -255,122 +328,70 @@ void RenderDrawCalls()
     gbMat4 UIMatrix;
 	gb_mat4_ortho2d(&UIMatrix, 0, windowWidth, windowHeight, 0);
 
-    for (auto& item : drawCalls)
+	glBindBuffer(GL_ARRAY_BUFFER, GLInfo.vertexBuffer);
+	glBindVertexArray(GLInfo.vao);
+	glEnableVertexArrayAttrib(GLInfo.vao, 0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
+	glEnableVertexArrayAttrib(GLInfo.vao, 1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
+	glUseProgram(GLInfo.program);
+
     {
-        switch (item.renderType)
+        PROFILE_SCOPE("RenderCalls");
+        for (auto& item : drawCalls)
         {
+            switch (item.renderType)
+            {
             case RenderType::DebugFill:
             case RenderType::Texture:
             {
+
                 float width = (float)item.texture.width;
                 float height = (float)item.texture.height;
                 glUniform1f(GLInfo.widthLocation, width);
-				glUniform1f(GLInfo.heightLocation, height);
-
+                glUniform1f(GLInfo.heightLocation, height);
                 if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
                     glUniform4f(GLInfo.colorLocation, item.color.r / 255.0f, item.color.g / 255.0f, item.color.b / 255.0f, item.color.a / 255.0f);
                 else
                     glUniform4f(GLInfo.colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
 
-                float uvxo = (float)item.sRect.x;
-                float uvyo = (float)item.sRect.y;
-                float uvxd = (float)item.sRect.x + (float)item.sRect.w;
-                float uvyd = (float)item.sRect.y + (float)item.sRect.h;
-                if (item.sRect.w == 0)
-                    uvxd = (float)item.texture.width;
-                if (item.sRect.h == 0)
-                    uvyd = (float)item.texture.height;
-                std::swap(uvyo, uvyd);
-
-                float posxo = item.dRect.botLeft.x;
-                float posyo = item.dRect.botLeft.y;
-                float posxd = item.dRect.topRight.x;
-                float posyd = item.dRect.topRight.y;
-                if (item.dRect.Width() == 0)
-                    posxd = windowWidth;
-                if (item.dRect.Height() == 0)
-                    posyd = windowHeight;
-
-                if (item.texture.flippage)
-                    std::swap(posxo, posxd);
-
-				Vertex vertices[] = {
-					//x, y, u, v,
-                    { posxo, posyd, uvxo, uvyo }, //top left
-                    { posxo, posyo, uvxo, uvyd }, //bot left
-                    { posxd, posyd, uvxd, uvyo }, //top right
-                    { posxd, posyo, uvxd, uvyd } //bot right
-				};
-
-                glBindBuffer(GL_ARRAY_BUFFER, GLInfo.vertexBuffer);
-                glBindVertexArray(GLInfo.vao);
-                glEnableVertexArrayAttrib(GLInfo.vao, 0);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
-                glEnableVertexArrayAttrib(GLInfo.vao, 1);
-                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
-
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GLInfo.ebo);
-				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STREAM_DRAW);
-				glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
-				glBindTexture(GL_TEXTURE_2D, item.texture.texture);
-                glUseProgram(GLInfo.program);
+                glBindTexture(GL_TEXTURE_2D, item.texture.texture);
 
                 gbMat4 orthoMatrix;
                 if (item.coordSpace == CoordinateSpace::World)
                     orthoMatrix = worldMatrix;
                 else if (item.coordSpace == CoordinateSpace::UI)
                     orthoMatrix = UIMatrix;
-				glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
+                glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
 
-				glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(uint32), GL_UNSIGNED_INT, 0);
+                glDrawArrays(GL_TRIANGLE_STRIP, item.vertexIndex, item.vertexLength);
 
                 break;
             }
             case RenderType::DebugOutline:
-            {
+			{
 
-                float L = item.dRect.botLeft.x;
-                float R = item.dRect.topRight.x;
-                float T = item.dRect.botLeft.y;
-                float B = item.dRect.topRight.y;
-                Vertex vertices[] = {
-                    //x, y, u, v
-                    {L, T, 1.0f, 1.0f},   //Top Left
-                    {R, T, 1.0f, 1.0f},   //Top Right
-                    {R, B, 1.0f, 1.0f},   //Bot Right
-                    {L, B, 1.0f, 1.0f},   //Bot Left
-                };
+				glBindTexture(GL_TEXTURE_2D, GLInfo.whiteTexture);
 
-                glBindBuffer(GL_ARRAY_BUFFER, GLInfo.vertexBuffer);
-                glBindVertexArray(GLInfo.vao);
-                glEnableVertexArrayAttrib(GLInfo.vao, 0);
-                glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
-                glEnableVertexArrayAttrib(GLInfo.vao, 1);
-                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
-                
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
-                glBindTexture(GL_TEXTURE_2D, GLInfo.whiteTexture);
-
-                glUseProgram(GLInfo.program);
-                glUniform1f(GLInfo.widthLocation, 1);
+				glUniform1f(GLInfo.widthLocation, 1);
 				glUniform1f(GLInfo.heightLocation, 1);
 
-                gbMat4 orthoMatrix;
-                if (item.coordSpace == CoordinateSpace::World)
-                    orthoMatrix = worldMatrix;
-                else if (item.coordSpace == CoordinateSpace::UI)
-                    orthoMatrix = UIMatrix;
+				gbMat4 orthoMatrix;
+				if (item.coordSpace == CoordinateSpace::World)
+					orthoMatrix = worldMatrix;
+				else if (item.coordSpace == CoordinateSpace::UI)
+					orthoMatrix = UIMatrix;
 				glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
 
-                if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
-                    glUniform4f(GLInfo.colorLocation, item.color.r / 255.0f, item.color.g / 255.0f, item.color.b / 255.0f, item.color.a / 255.0f);
-                else
-                    glUniform4f(GLInfo.colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
-                glLineWidth(1.0f);
-                glDrawArrays(GL_LINE_LOOP, 0, sizeof(vertices) / sizeof(Vertex));
+				if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
+					glUniform4f(GLInfo.colorLocation, item.color.r / 255.0f, item.color.g / 255.0f, item.color.b / 255.0f, item.color.a / 255.0f);
+				else
+					glUniform4f(GLInfo.colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
 
-                break;
-            }
+				glDrawArrays(GL_LINE_LOOP, item.vertexIndex, item.vertexLength);
+				break;
+			}
+			}
         }
     }
     drawCalls.clear();
@@ -598,8 +619,9 @@ Sprite* GetSpriteFromAnimation(Actor* actor)
 
 void RenderBlocks()
 {
-	Vector offset = { float(camera.size.x / 2) + 1, float(camera.size.y / 2) + 1 };
+    PROFILE_FUNCTION();
 
+	Vector offset = { float(camera.size.x / 2) + 1, float(camera.size.y / 2) + 1 };
 	for (float y = camera.position.y - offset.y; y < (camera.position.y + offset.y); y++)
 	{
 		for (float x = camera.position.x - offset.x; x < (camera.position.x + offset.x); x++)

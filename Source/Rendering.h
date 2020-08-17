@@ -98,8 +98,11 @@ struct RenderInformation
     SDL_Rect sRect = {};
     Rectangle dRect = {};
     RenderPrio prio;
+    uint32 prioIndex;
     SDL_Color color = {};
     CoordinateSpace coordSpace;
+    int32 vertexIndex;
+    int32 vertexLength;
     union
     {
         TextureRenderUnion texture;

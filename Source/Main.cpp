@@ -164,10 +164,10 @@ int main(int argc, char* argv[])
         float deltaTime = float(totalTime - previousTime);// / 10;
         previousTime = totalTime;
 
-        if (deltaTime > 1 / 30.0f)
-        {
-            deltaTime = 1 / 30.0f;
-        }
+        //if (deltaTime > 1 / 30.0f)
+        //{
+        //    deltaTime = 1 / 30.0f;
+        //}
 
         /*********************
          *

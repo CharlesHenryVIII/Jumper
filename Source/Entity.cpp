@@ -849,7 +849,7 @@ Projectile* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
 
 	float playerBulletRadius = 0.5f; //half a block
 	bullet.destination = mouseLoc;
-	bullet.rotation = Atan2fToDegreeDiff(atan2f(bullet.destination.y - adjustedPlayerPosition.y, bullet.destination.x - adjustedPlayerPosition.x));
+	bullet.rotation = RadToDeg(atan2f(bullet.destination.y - adjustedPlayerPosition.y, bullet.destination.x - adjustedPlayerPosition.x));
 
 	float speed = 50.0f;
 	Vector ToDest = bullet.destination - playerPosAdjusted;
@@ -874,7 +874,7 @@ void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 
 	float playerBulletRadius = 0.5f; //half a block
 	laser.destination = mouseLoc;
-	laser.rotation = Atan2fToDegreeDiff(atan2f(laser.destination.y - adjustedPlayerPosition.y, laser.destination.x - adjustedPlayerPosition.x));
+	laser.rotation = RadToDeg(atan2f(laser.destination.y - adjustedPlayerPosition.y, laser.destination.x - adjustedPlayerPosition.x));
 
 	Vector ToDest = Normalize(laser.destination - adjustedPlayerPosition);
 	laser.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);

@@ -236,10 +236,6 @@ Atan2f return value:
 -3pi/4    -pi/2        pi/4
 */
 
-
-float Atan2fToDegreeDiff(float theta);
-
-
 inline float DotProduct(Vector a, Vector b)
 {
     return a.x * b.x + a.y * b.y;

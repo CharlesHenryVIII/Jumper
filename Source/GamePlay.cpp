@@ -199,7 +199,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                 Vector adjustedPlayerPosition = { player->position.x, player->position.y + 1 };
                 Vector playerPosAdjusted = { adjustedPlayerPosition.x + (player->GameWidth() / 2), adjustedPlayerPosition.y };
                 //grapple->destination = PixelToBlock(CameraToPixelCoord(mouseLocation));
-                grapple->rotation = Atan2fToDegreeDiff(atan2f(grapple->destination.y - adjustedPlayerPosition.y, grapple->destination.x - adjustedPlayerPosition.x));
+                grapple->rotation = RadToDeg(atan2f(grapple->destination.y - adjustedPlayerPosition.y, grapple->destination.x - adjustedPlayerPosition.x));
 
                 float speed = 10.0f;
                 Vector ToDest = grapple->destination - playerPosAdjusted;

@@ -31,15 +31,34 @@ layout(location = 1) in vec2 i_uv;
 uniform mat4 u_ortho;
 uniform float u_textureWidth;
 uniform float u_textureHeight;
+uniform float u_sinValue;
+uniform float u_cosValue;
+uniform float u_center;
 
 out vec2 o_uv;
 void main()
 {
     o_uv.x = i_uv.x / u_textureWidth;
     o_uv.y = i_uv.y / u_textureHeight;
-    gl_Position = u_ortho * vec4(i_position, 0, 1);
+    vec2 position;
+    float sinVal = sin(u_center);
+    float cosVal = cos(u_center);
+    //position.x = ((i_position.x - center.x)*cosValue - (i_position.y - center.y)*sinValue) + center.x;
+    //position.y = ((i_position.x - center.x)*sinValue + (i_position.y - center.y)*cosValue) + center.y;
+
+    position.x = i_position.x * cosVal - i_position.y * sinVal;
+    position.y = i_position.x * sinVal + i_position.y * cosVal;
+
+    gl_Position = u_ortho * vec4(position, 0, 1);
 }
 )term";
+
+/*
+    position.x = ((i_position.x - center.x)*cosVal - (i_position.y - center.y)*sinVal) + center.x;
+    position.y = ((i_position.x - center.x)*sinVal + (i_position.y - center.y)*cosVal) + center.y;
+
+*/
+
 
 const char* pixelShaderText = R"term(
 #version 330
@@ -95,6 +114,9 @@ struct OpenGLInfo
     GLuint widthLocation;
     GLuint heightLocation;
     GLuint colorLocation;
+    GLuint sinValueLocation;
+    GLuint cosValueLocation;
+    GLuint centerRotateLocation;
     GLuint vao;
     GLuint vertexBuffer;
     GLuint whiteTexture;
@@ -102,7 +124,7 @@ struct OpenGLInfo
 
 void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
     Sprite* sprite, Color colorMod, float rotation,
-    const SDL_Point* rotationPoint, bool flippage, CoordinateSpace coordSpace)
+    Vector rotationPoint, bool flippage, CoordinateSpace coordSpace)
 {
     RenderInformation info;
     info.renderType = RenderType::Texture;
@@ -221,6 +243,10 @@ void InitializeOpenGL()
 	GLInfo.widthLocation = glGetUniformLocation(GLInfo.program, "u_textureWidth");
 	GLInfo.heightLocation = glGetUniformLocation(GLInfo.program, "u_textureHeight");
     GLInfo.colorLocation = glGetUniformLocation(GLInfo.program, "u_color");
+    GLInfo.sinValueLocation = glGetUniformLocation(GLInfo.program, "u_sinValue");
+    GLInfo.cosValueLocation = glGetUniformLocation(GLInfo.program, "u_cosValue");
+    GLInfo.centerRotateLocation = glGetUniformLocation(GLInfo.program, "u_center");
+
 
 	glGenBuffers(1, &GLInfo.vertexBuffer);
 
@@ -346,6 +372,7 @@ void RenderDrawCalls()
             case RenderType::Texture:
             {
 
+                
                 float width = (float)item.texture.width;
                 float height = (float)item.texture.height;
                 glUniform1f(GLInfo.widthLocation, width);
@@ -363,6 +390,17 @@ void RenderDrawCalls()
                 else if (item.coordSpace == CoordinateSpace::UI)
                     orthoMatrix = UIMatrix;
                 glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
+     //           if (item.texture.rotation == 0)
+					//gb_mat4_rotate(&rotationMatrix, gbVec3({}), item.texture.rotation);
+     //           else
+					//gb_mat4_rotate(&rotationMatrix, gbVec3({ item.texture.rotationPoint.x, item.texture.rotationPoint.y, 0 }), item.texture.rotation);
+                //glUniformMatrix4fv(GLInfo.rotationLocation, 1, GL_FALSE, rotationMatrix.e);
+    //            glUniform1f(GLInfo.sinValueLocation, sinf(DegToRad(item.texture.rotation)));
+    //            glUniform1f(GLInfo.cosValueLocation, cosf(DegToRad(item.texture.rotation)));
+    //            //if (item.rotat)
+				//glUniform1f(GLInfo.centerRotateLocation, );
+                gb_mat4_translate(gbMat4 *out, gbVec3 v);
+                glUniform1f(GLInfo.centerRotateLocation, DegToRad(item.texture.rotation));
 
                 glDrawArrays(GL_TRIANGLE_STRIP, item.vertexIndex, item.vertexLength);
 
@@ -467,7 +505,10 @@ void BackgroundRender(Sprite* sprite, Camera* camera)
     }
 
 
-    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite, {}, 0, NULL, false, CoordinateSpace::UI);
+    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite, {}, 0, {}, false, CoordinateSpace::UI);
+
+    
+    
 }
 
 
@@ -483,7 +524,7 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
 
     Rectangle destRect = { loc, { loc.x + itemSizeTranslatedx, loc.y +itemSizeTranslatedy } };
 
-    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite, {}, 0, NULL, false, CoordinateSpace::World);
+    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite, {}, 0, {}, false, CoordinateSpace::World);
 }
 
 
@@ -524,7 +565,7 @@ void DrawText(FontSprite* fontSprite, Color c, const std::string& text, float si
         float height2 = DRectangle.Height();
         DRectangle.botLeft.y += height2;
         DRectangle.topRight.y -= height2;
-        AddTextureToRender(SRect, DRectangle, RenderPrio::UI, fontSprite->sprite, c, 0, NULL, false, CoordinateSpace::UI);
+        AddTextureToRender(SRect, DRectangle, RenderPrio::UI, fontSprite->sprite, c, 0, {}, false, CoordinateSpace::UI);
     }
 }
 
@@ -634,8 +675,7 @@ void RenderLaser()
         Sprite* sprite = GetSpriteFromAnimation(&laser);
 
         Rectangle rectangle = { {laser.position}, {laser.position.x + Pythags(laser.destination - laser.position), laser.position.y + PixelToBlock(sprite->height)} };
-        static SDL_Point rotationPoint = { 0, (int32)rectangle.Height() / 2 };
-        AddTextureToRender({}, rectangle, RenderPrio::Sprites, sprite, PC, laser.rotation, &rotationPoint, false, CoordinateSpace::World);
+        AddTextureToRender({}, rectangle, RenderPrio::Sprites, sprite, PC, laser.rotation, { 0, rectangle.Height() / 2 }, false, CoordinateSpace::World);
     }
 }
 
@@ -664,5 +704,5 @@ void RenderActor(Actor* actor, float rotation)
     DR.botLeft.y = actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
 	DR.topRight = DR.botLeft + PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
 			   (int)(actor->SpriteRatio() * sprite->height) });
-    AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, NULL, flippage, CoordinateSpace::World);
+    AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, {}, flippage, CoordinateSpace::World);
 }

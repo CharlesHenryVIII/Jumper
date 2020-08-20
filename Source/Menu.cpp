@@ -35,7 +35,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		keyStates[SDLK_q].downThisFrame)
 		QuitApp();
 
-	AddTextureToRender({}, {}, RenderPrio::Background, sprites["MainMenuBackground"], {}, 0, 0, false, CoordinateSpace::UI);
+	AddTextureToRender({}, {}, RenderPrio::Background, sprites["MainMenuBackground"], {}, 0, {}, false, CoordinateSpace::UI);
 }
 
 

@@ -5,22 +5,25 @@
 #### Current
 - [ ] Tuesday with Chris TODO:
 	- [ ] Write a heap alloc
-	- [ ] write a sort algorithm (bubble sort)
-	- [ ] write an unordered map implimentation (faster for debug)
+	- [ ] Write a sort algorithm (bubble sort) DO ON OWN
+		- [ ] look at all sortation methods
+	- [ ] Write an unordered map implimentation (faster for debug)
 - [ ] Impliment OpenGL Renderer
 	- [x] Replace SDL Renderer
 	- [x] Replace SDL variables with floats
 	- [x] Add zoom
 	- [x] Fix clicking location with zoom distance and rendering
-	- [ ] Add rotations
+	- [x] Add rotations
+	- [ ] Fix rotations
 	- [x] Bright pink render color for debug
-	- [ ] fix background render
-	- [ ] fix tile sprites rendering outside their UV's
+	- [ ] Fix rectangle renderer
+	- [ ] Fix background render
+	- [ ] Fix tile sprites rendering outside their UV's
 	- [x] remove SDL_FLIPPAGE
 	- [x] impliment floats for colors
 	- [x] Remove SDL_Rects
 	- [ ] Clean up, improve, and optimize the OpenGL rendering code
-- [ ] fix the debug print string that is getting generated when it isnt finding a animation for a specific animation
+- [ ] Fix the debug print string that is getting generated when it isnt finding a animation for a specific animation
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [ ] Grappling
 	- [ ] Moving Platforms 

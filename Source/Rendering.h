@@ -87,7 +87,7 @@ struct TextureRenderUnion
     GLuint texture;
     float rotation;
     bool flippage;
-    const SDL_Point* rotationPoint;
+    Vector rotationPoint;
     int32 width;
     int32 height;
 };
@@ -103,10 +103,11 @@ struct RenderInformation
     CoordinateSpace coordSpace;
     int32 vertexIndex;
     int32 vertexLength;
-    union
-    {
-        TextureRenderUnion texture;
-    };
+    TextureRenderUnion texture;
+    //union
+    //{
+    //    TextureRenderUnion texture;
+    //};
 };
 
 struct Camera {
@@ -126,7 +127,7 @@ struct Block;
 
 void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
     Sprite* sprite, Color colorMod, float rotation,
-    const SDL_Point* rotationPoint, bool flippage, CoordinateSpace coordSpace);
+    Vector rotationPoint, bool flippage, CoordinateSpace coordSpace);
 void InitializeOpenGL();
 void AddRectToRender(RenderType type, Rectangle rect, Color color, RenderPrio prio, CoordinateSpace coordSpace);
 void AddRectToRender(Rectangle rect, Color color, RenderPrio prio, CoordinateSpace coordSpace);

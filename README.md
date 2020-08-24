@@ -5,8 +5,8 @@
 #### Current
 - [ ] Tuesday with Chris TODO:
 	- [ ] Write a heap alloc
-	- [ ] Write a sort algorithm (bubble sort) DO ON OWN
-		- [ ] look at all sortation methods
+	- [x] Write a sort algorithm (bubble sort) DO ON OWN
+		- [x] look at all sortation methods
 	- [ ] Write an unordered map implimentation (faster for debug)
 - [ ] Impliment OpenGL Renderer
 	- [x] Replace SDL Renderer

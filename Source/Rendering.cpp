@@ -31,9 +31,7 @@ layout(location = 1) in vec2 i_uv;
 uniform mat4 u_ortho;
 uniform float u_textureWidth;
 uniform float u_textureHeight;
-uniform float u_sinValue;
-uniform float u_cosValue;
-uniform float u_center;
+uniform mat4 u_rotationMatrix;
 
 out vec2 o_uv;
 void main()
@@ -41,24 +39,17 @@ void main()
     o_uv.x = i_uv.x / u_textureWidth;
     o_uv.y = i_uv.y / u_textureHeight;
     vec2 position;
-    float sinVal = sin(u_center);
-    float cosVal = cos(u_center);
+
+    //float sinVal = sin(u_center);
+    //float cosVal = cos(u_center);
     //position.x = ((i_position.x - center.x)*cosValue - (i_position.y - center.y)*sinValue) + center.x;
     //position.y = ((i_position.x - center.x)*sinValue + (i_position.y - center.y)*cosValue) + center.y;
+    //position.x = i_position.x * cosVal - i_position.y * sinVal;
+    //position.y = i_position.x * sinVal + i_position.y * cosVal;
 
-    position.x = i_position.x * cosVal - i_position.y * sinVal;
-    position.y = i_position.x * sinVal + i_position.y * cosVal;
-
-    gl_Position = u_ortho * vec4(position, 0, 1);
+    gl_Position = u_ortho * u_rotationMatrix * vec4(i_position, 0, 1);
 }
 )term";
-
-/*
-    position.x = ((i_position.x - center.x)*cosVal - (i_position.y - center.y)*sinVal) + center.x;
-    position.y = ((i_position.x - center.x)*sinVal + (i_position.y - center.y)*cosVal) + center.y;
-
-*/
-
 
 const char* pixelShaderText = R"term(
 #version 330
@@ -114,9 +105,7 @@ struct OpenGLInfo
     GLuint widthLocation;
     GLuint heightLocation;
     GLuint colorLocation;
-    GLuint sinValueLocation;
-    GLuint cosValueLocation;
-    GLuint centerRotateLocation;
+    GLuint rotationLocation;
     GLuint vao;
     GLuint vertexBuffer;
     GLuint whiteTexture;
@@ -131,6 +120,7 @@ void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
 	info.sRect = sRect;
 	info.dRect = dRect;
     float height = info.dRect.Height();
+    //flipping height so top is 0 and bottom is max height//
 	info.dRect.botLeft.y += height;
 	info.dRect.topRight.y -= height;
 
@@ -210,12 +200,12 @@ GLuint JMP_CreateShaderProgram()
 {
     GLuint vertexShaderID = JMP_CreateShader(GL_VERTEX_SHADER, vertexShaderText);
     GLuint pixelShaderID = JMP_CreateShader(GL_FRAGMENT_SHADER, pixelShaderText);
-    
+
     GLuint result = glCreateProgram();
     glAttachShader(result , vertexShaderID);
     glAttachShader(result, pixelShaderID);
     glLinkProgram(result);
-    
+
     GLint status;
 	glGetProgramiv(result, GL_LINK_STATUS, &status);
 	if (status == GL_FALSE)
@@ -243,9 +233,7 @@ void InitializeOpenGL()
 	GLInfo.widthLocation = glGetUniformLocation(GLInfo.program, "u_textureWidth");
 	GLInfo.heightLocation = glGetUniformLocation(GLInfo.program, "u_textureHeight");
     GLInfo.colorLocation = glGetUniformLocation(GLInfo.program, "u_color");
-    GLInfo.sinValueLocation = glGetUniformLocation(GLInfo.program, "u_sinValue");
-    GLInfo.cosValueLocation = glGetUniformLocation(GLInfo.program, "u_cosValue");
-    GLInfo.centerRotateLocation = glGetUniformLocation(GLInfo.program, "u_center");
+    GLInfo.rotationLocation = glGetUniformLocation(GLInfo.program, "u_rotationMatrix");
 
 
 	glGenBuffers(1, &GLInfo.vertexBuffer);
@@ -307,11 +295,15 @@ void RenderDrawCalls()
 
 				if (item.texture.flippage)
 					std::swap(posxo, posxd);
-
 				vertexBuffer.push_back({ posxo, posyd, uvxo, uvyo });
 				vertexBuffer.push_back({ posxo, posyo, uvxo, uvyd });
 				vertexBuffer.push_back({ posxd, posyd, uvxd, uvyo });
 				vertexBuffer.push_back({ posxd, posyo, uvxd, uvyd });
+
+				//vertexBuffer.push_back({ posxo, posyo, uvxo, uvyo });
+				//vertexBuffer.push_back({ posxd, posyo, uvxo, uvyd });
+				//vertexBuffer.push_back({ posxo, posyd, uvxd, uvyo });
+				//vertexBuffer.push_back({ posxd, posyd, uvxd, uvyd });
 			}
 		}
 
@@ -353,6 +345,10 @@ void RenderDrawCalls()
 	gb_mat4_ortho2d(&worldMatrix, camera.position.x - camera.size.x / 2, camera.position.x + camera.size.x / 2, camera.position.y - camera.size.y / 2, camera.position.y + camera.size.y / 2);
     gbMat4 UIMatrix;
 	gb_mat4_ortho2d(&UIMatrix, 0, windowWidth, windowHeight, 0);
+    gbMat4 rotationMatrix;
+    gbMat4 toZeroMatrix;
+    gbMat4 fromZeroMatrix;
+
 
 	glBindBuffer(GL_ARRAY_BUFFER, GLInfo.vertexBuffer);
 	glBindVertexArray(GLInfo.vao);
@@ -372,7 +368,7 @@ void RenderDrawCalls()
             case RenderType::Texture:
             {
 
-                
+
                 float width = (float)item.texture.width;
                 float height = (float)item.texture.height;
                 glUniform1f(GLInfo.widthLocation, width);
@@ -390,17 +386,21 @@ void RenderDrawCalls()
                 else if (item.coordSpace == CoordinateSpace::UI)
                     orthoMatrix = UIMatrix;
                 glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
-     //           if (item.texture.rotation == 0)
-					//gb_mat4_rotate(&rotationMatrix, gbVec3({}), item.texture.rotation);
-     //           else
-					//gb_mat4_rotate(&rotationMatrix, gbVec3({ item.texture.rotationPoint.x, item.texture.rotationPoint.y, 0 }), item.texture.rotation);
-                //glUniformMatrix4fv(GLInfo.rotationLocation, 1, GL_FALSE, rotationMatrix.e);
+				gb_mat4_rotate(&rotationMatrix, { 0, 0, 1 }, DegToRad(item.texture.rotation));
+                if (item.texture.rotation != 0)
+				{
+					gb_mat4_translate(&toZeroMatrix, { 0,0,0 });
+					gb_mat4_translate(&fromZeroMatrix, { item.dRect.botLeft.x + item.dRect.Width(), item.dRect.botLeft.y - item.dRect.Height(), 0 });
+					rotationMatrix = fromZeroMatrix * rotationMatrix * toZeroMatrix;
+				}
+
+                glUniformMatrix4fv(GLInfo.rotationLocation, 1, GL_FALSE, rotationMatrix.e);
     //            glUniform1f(GLInfo.sinValueLocation, sinf(DegToRad(item.texture.rotation)));
     //            glUniform1f(GLInfo.cosValueLocation, cosf(DegToRad(item.texture.rotation)));
     //            //if (item.rotat)
 				//glUniform1f(GLInfo.centerRotateLocation, );
-                gb_mat4_translate(gbMat4 *out, gbVec3 v);
-                glUniform1f(GLInfo.centerRotateLocation, DegToRad(item.texture.rotation));
+                //gb_mat4_translate(gbMat4 *out, gbVec3 v);
+                //glUniform1f(GLInfo.centerRotateLocation, DegToRad(item.texture.rotation));
 
                 glDrawArrays(GL_TRIANGLE_STRIP, item.vertexIndex, item.vertexLength);
 
@@ -507,8 +507,8 @@ void BackgroundRender(Sprite* sprite, Camera* camera)
 
     AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite, {}, 0, {}, false, CoordinateSpace::UI);
 
-    
-    
+
+
 }
 
 
@@ -517,7 +517,7 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
     int32 blocksPerRow = sprite->width / itemSize;
     uint32 x = uint32(i) % blocksPerRow * itemSize + (itemSize - xCharSize) / 2;
     uint32 y = uint32(i) / blocksPerRow * itemSize;
-    
+
     Rectangle blockRect = { (float)x, (float)y, (float)(x + xCharSize), (float)(y + itemSize) };
     float itemSizeTranslatedx = PixelToBlock(xCharSize);
     float itemSizeTranslatedy = PixelToBlock(itemSize);

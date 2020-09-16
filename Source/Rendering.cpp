@@ -167,9 +167,10 @@ GLuint JMP_CreateTexture(int32 width, int32 height, uint8* data)
     glBindTexture(GL_TEXTURE_2D, result);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //TODO: impliment a way to switch between GL_CLAMP_TO_EDGE and GL_REPEAT
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     return result;
@@ -259,21 +260,9 @@ void RenderDrawCalls()
 			item.vertexIndex = (int32)vertexBuffer.size();
 			item.vertexLength = 4;
 			item.prioIndex = i++;
-			if (item.renderType != RenderType::Texture)
+			if (item.renderType == RenderType::Texture)
 			{
-
-				float L = item.dRect.botLeft.x;
-				float R = item.dRect.topRight.x;
-				float T = item.dRect.botLeft.y;
-				float B = item.dRect.topRight.y;
-				vertexBuffer.push_back({ L, T, 1.0f, 1.0f });
-				vertexBuffer.push_back({ R, T, 1.0f, 1.0f });
-				vertexBuffer.push_back({ R, B, 1.0f, 1.0f });
-				vertexBuffer.push_back({ L, B, 1.0f, 1.0f });
-			}
-			else
-			{
-
+                
 				float uvxo = item.sRect.botLeft.x;
 				float uvyo = item.sRect.botLeft.y;
 				float uvxd = item.sRect.topRight.x;
@@ -300,11 +289,35 @@ void RenderDrawCalls()
 				vertexBuffer.push_back({ posxd, posyd, uvxd, uvyo });
 				vertexBuffer.push_back({ posxd, posyo, uvxd, uvyd });
 
-				//vertexBuffer.push_back({ posxo, posyo, uvxo, uvyo });
-				//vertexBuffer.push_back({ posxd, posyo, uvxo, uvyd });
-				//vertexBuffer.push_back({ posxo, posyd, uvxd, uvyo });
-				//vertexBuffer.push_back({ posxd, posyd, uvxd, uvyd });
 			}
+            else if (item.renderType == RenderType::DebugFill)
+            {
+
+				float L = item.dRect.botLeft.x;
+				float R = item.dRect.topRight.x;
+				float T = item.dRect.botLeft.y;
+				float B = item.dRect.topRight.y;
+				vertexBuffer.push_back({ R, B, 1.0f, 1.0f });
+				vertexBuffer.push_back({ L, B, 1.0f, 1.0f });
+				vertexBuffer.push_back({ R, T, 1.0f, 1.0f });
+				vertexBuffer.push_back({ L, T, 1.0f, 1.0f });
+            }
+			else if (item.renderType == RenderType::DebugOutline)
+			{
+
+				float L = item.dRect.botLeft.x;
+				float R = item.dRect.topRight.x;
+				float T = item.dRect.botLeft.y;
+				float B = item.dRect.topRight.y;
+				vertexBuffer.push_back({ R, B, 1.0f, 1.0f });
+				vertexBuffer.push_back({ L, B, 1.0f, 1.0f });
+				vertexBuffer.push_back({ L, T, 1.0f, 1.0f });
+				vertexBuffer.push_back({ R, T, 1.0f, 1.0f });
+			}
+            else
+            {
+                assert(false);
+            }
 		}
 
 	}
@@ -389,8 +402,10 @@ void RenderDrawCalls()
 				gb_mat4_rotate(&rotationMatrix, { 0, 0, 1 }, DegToRad(item.texture.rotation));
                 if (item.texture.rotation != 0)
 				{
-					gb_mat4_translate(&toZeroMatrix, { 0,0,0 });
-					gb_mat4_translate(&fromZeroMatrix, { item.dRect.botLeft.x + item.dRect.Width(), item.dRect.botLeft.y - item.dRect.Height(), 0 });
+
+                    gbVec3 vec = { item.dRect.botLeft.x + item.texture.rotationPoint.x, item.dRect.botLeft.y - item.texture.rotationPoint.y, 0 };
+					gb_mat4_translate(&toZeroMatrix, -vec);
+					gb_mat4_translate(&fromZeroMatrix, vec);
 					rotationMatrix = fromZeroMatrix * rotationMatrix * toZeroMatrix;
 				}
 
@@ -476,39 +491,27 @@ FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize
 
 void BackgroundRender(Sprite* sprite, Camera* camera)
 {
-    Rectangle spriteRect = {};
+    Rectangle mainRect = {};
+    Rectangle lastRect = {};
+    Vector backgroundSize = { 720.0f , 360.0f };
+    Vector scaleFactor = { 1.0f, 2.0f };
+    Vector distanceFromCenter = { sprite->width / 2.0f + camera->position.x / scaleFactor.x, (sprite->height / 2.0f) + camera->position.y / scaleFactor.y};
 
-    //topLeft
-    spriteRect.botLeft.x = 0;
-    spriteRect.botLeft.y = float(sprite->height - windowInfo.height / 2);
-    spriteRect.topRight.x = spriteRect.botLeft.x + windowInfo.width / 2;    //360
-    spriteRect.topRight.y = spriteRect.botLeft.y + windowInfo.height / 2;   //640
+    mainRect.botLeft.y = Clamp<float>(distanceFromCenter.y - backgroundSize.y / 2.0f, 0, sprite->height - backgroundSize.y);
+    mainRect.topRight.y = mainRect.botLeft.y + backgroundSize.y;
 
+#if 0
+    //Jumpy looking background with integers:
+    mainRect.botLeft.x = float(int(distanceFromCenter.x - backgroundSize.x / 2.0f + 0.5f) % sprite->width);
 
-    //checking to make sure the sprite doesnt go further left than the actual sprite and go beyond the border on the right;
-    if (camera->position.x > 0)
-    {
-        float spriteRectXOffset = camera->position.x * 2;
-        if (spriteRectXOffset < sprite->width - spriteRect.Width())
-            spriteRect.botLeft.x = spriteRectXOffset;
-        else
-            spriteRect.botLeft.x = sprite->width - spriteRect.Width();
-    }
+#else 
+    //Smooth looking background with floats:
+    mainRect.botLeft.x = distanceFromCenter.x - backgroundSize.x / 2.0f;
 
-    if (camera->position.y > 0)
-    {
-        float spriteRectYOffset = spriteRect.Height() + camera->position.y / 2;
-        if (spriteRectYOffset < sprite->height)
-            spriteRect.botLeft.y = sprite->height - spriteRectYOffset;
-        else
-            spriteRect.botLeft.y = 0;
-    }
+#endif
+    mainRect.topRight.x = mainRect.botLeft.x + backgroundSize.x;
 
-
-    AddTextureToRender(spriteRect, {}, RenderPrio::Sprites, sprite, {}, 0, {}, false, CoordinateSpace::UI);
-
-
-
+    AddTextureToRender(mainRect, {}, RenderPrio::Sprites, sprite, {}, 0, {}, false, CoordinateSpace::UI);
 }
 
 
@@ -659,7 +662,7 @@ void RenderMovingPlatforms()
 {
     for (int32 i = 0; i < currentLevel->movingPlatforms.size(); i++)
     {
-        currentLevel->movingPlatforms[i]->Render();
+        FindActor(currentLevel->movingPlatforms[i], *currentLevel)->Render();
     }
 }
 
@@ -704,5 +707,5 @@ void RenderActor(Actor* actor, float rotation)
     DR.botLeft.y = actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
 	DR.topRight = DR.botLeft + PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
 			   (int)(actor->SpriteRatio() * sprite->height) });
-    AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, {}, flippage, CoordinateSpace::World);
+    AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, {actor->GameWidth() / 2.0f, actor->GameHeight() / 2.0f}, flippage, CoordinateSpace::World);
 }

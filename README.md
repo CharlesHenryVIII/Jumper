@@ -3,6 +3,8 @@
 
 ### TODO:
 #### Current
+- [ ] Level* on each actor, get rid of "curentLevel"
+- [ ] cleanup actor creation Code (use Chris' method?)
 - [ ] Tuesday with Chris TODO:
 	- [ ] Write a heap alloc
 	- [x] Write a sort algorithm (bubble sort) DO ON OWN
@@ -14,10 +16,11 @@
 	- [x] Add zoom
 	- [x] Fix clicking location with zoom distance and rendering
 	- [x] Add rotations
-	- [ ] Fix rotations
+	- [x] Fix rotations
 	- [x] Bright pink render color for debug
-	- [ ] Fix rectangle renderer
-	- [ ] Fix background render
+	- [x] Fix rectangle renderer
+	- [x] Fix background render
+		- [ ] change between linear and nearest depending on the sprite/texture
 	- [ ] Fix tile sprites rendering outside their UV's
 	- [x] remove SDL_FLIPPAGE
 	- [x] impliment floats for colors
@@ -26,10 +29,10 @@
 - [ ] Fix the debug print string that is getting generated when it isnt finding a animation for a specific animation
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [ ] Grappling
-	- [ ] Moving Platforms 
+	- [x] Moving Platforms 
 		- [x] Loading Moving platforms
 		- [x] Integrate the platform movement/pathing correctly
-		- [ ] Review code and determine what improvments could be made
+		- [x] Review code and determine what improvments could be made
 	- [ ] Power Ups (health, movement, jumping height, extra jump, etc) 
 	- [ ] Wall jump 
 	- [ ] Explosions 

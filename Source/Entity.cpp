@@ -12,13 +12,10 @@
 
 ActorID Actor::lastID = 0;
 
-//TileMap tileMap;
 Projectile laser = {};
-//std::vector<Actor*> actorList= {};
 std::unordered_map<std::string, Level> levels;
 Level* currentLevel = nullptr;
 std::unordered_map<std::string, AnimationList> actorAnimations;
-//static const Vector terminalVelocity = { 10 , 300 };
 
 /*********************
  *
@@ -250,6 +247,9 @@ void MovingPlatform::Update(float deltaTime)
 		velocity = directionVector * speed;
 	}
 	UpdateAnimationIndex(this, deltaTime);
+
+
+
 }
 void MovingPlatform::Render()
 {
@@ -610,17 +610,16 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	return result;
 }
 
-void CollisionWithBlocksSubFuntion(bool& grounded, Rectangle rect, Actor* actor, bool isEnemy)
+bool CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* actor, bool isEnemy)
 {
 
 	uint32 collisionFlags = CollisionWithRect(actor, rect);
 	if (collisionFlags > 0)
 	{
-
 		ActorType actorType = actor->GetActorType();
 		if (collisionFlags & CollisionRight)
 		{
-			actor->position.x = rect.botLeft.x - actor->GameWidth();// PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
+			actor->position.x = rect.botLeft.x - actor->GameWidth();
 			if (isEnemy)
 				actor->velocity.x = -1 * actor->velocity.x;
 			else
@@ -629,7 +628,7 @@ void CollisionWithBlocksSubFuntion(bool& grounded, Rectangle rect, Actor* actor,
 
 		if (collisionFlags & CollisionLeft)
 		{
-			actor->position.x = (rect.botLeft.x + 1);// - actor->colOffset.x * PixelToBlock(int32(actor->colRect.Width() * actor->GoldenRatio()));
+			actor->position.x = (rect.botLeft.x + 1);
 			if (isEnemy)
 				actor->velocity.x = -1 * actor->velocity.x;
 			else
@@ -638,7 +637,6 @@ void CollisionWithBlocksSubFuntion(bool& grounded, Rectangle rect, Actor* actor,
 
 		if (collisionFlags & CollisionTop)
 		{
-			//actor->position.y = block->location.y - actor->GameHeight();//PixelToBlock(int32(actor->colRect.Height() * actor->GoldenRatio()));
 			if (actor->velocity.y > 0)
 				actor->velocity.y = 0;
 		}
@@ -651,10 +649,14 @@ void CollisionWithBlocksSubFuntion(bool& grounded, Rectangle rect, Actor* actor,
 			actor->jumpCount = 2;
 			grounded = true;
 		}
+		return true;
 	}
+	return false;
 }
 
-void CollisionWithBlocks(Actor* actor, bool isEnemy) {
+
+void CollisionWithBlocks(Actor* actor, bool isEnemy) 
+{
 	bool grounded = false;
 	float checkOffset = 1;
 	float yMax = floorf(actor->position.y + actor->GameHeight() + checkOffset + 0.5f);
@@ -662,6 +664,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy) {
 	float xMax = actor->position.x + actor->GameWidth() + checkOffset + 0.5f;
 	float xMin = actor->position.x - checkOffset + 0.5f;
 
+	//Checking Blocks
 	for (float y = yMin; y <= yMax; y++)
 	{
 		for (float x = xMin; x < xMax; x++)
@@ -670,20 +673,50 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy) {
 			if (block == nullptr || block->tileType == TileType::invalid)
 				continue;
 
-			CollisionWithBlocksSubFuntion(grounded, { block->location, { block->location + Vector({ 1, 1 }) } }, actor, isEnemy);
+			CollisionWithBlocksSubFunction(grounded, { block->location, { block->location + Vector({ 1, 1 }) } }, actor, isEnemy);
 		}
 	}
 
+
+	//Checking Moving Platforms
+	ActorID collisionID = 0;
+	MovingPlatform* collidedPlatform = nullptr;
 	for (int32 i = 0; i < currentLevel->movingPlatforms.size(); i++)
 	{
-		MovingPlatform* MP = currentLevel->movingPlatforms[i];
-		if (MP == nullptr)
-			continue;
-			
-		Rectangle MPRect = { MP->position, { MP->position.x + MP->GameWidth(), MP->position.y + MP->GameHeight() } };
-		CollisionWithBlocksSubFuntion(grounded, MPRect, actor, isEnemy);
+		Actor* actorTwo = FindActor(currentLevel->movingPlatforms[i], *currentLevel);
+		if (actorTwo && actorTwo->GetActorType() == ActorType::movingPlatform)
+		{
+			MovingPlatform* MP = (MovingPlatform*)actorTwo;
+
+			Rectangle MPRect = { MP->position, { MP->position.x + MP->GameWidth(), MP->position.y + MP->GameHeight() } };
+			if (CollisionWithBlocksSubFunction(grounded, MPRect, actor, isEnemy))
+			{
+				collisionID = currentLevel->movingPlatforms[i];
+				collidedPlatform = MP;
+			}
+		}
 	}
 
+	//new parent is different from old parent
+	//need to remove child on old parent and put onto new parent
+	if (collidedPlatform)
+	{
+
+		collidedPlatform->childList.push_back(actor->id);
+		actor->parent = collisionID;
+	}
+	else
+	{
+
+		if (MovingPlatform* MP = FindActorType<MovingPlatform>(actor->parent, *currentLevel))
+		{
+			actor->velocity += MP->velocity;
+			actor->parent = 0;
+		}
+	}
+	
+
+	//Grounded Logic
 	if (actor->grounded != grounded)
 	{
 		if (!grounded && (actor->GetActorType() == ActorType::player || actor->GetActorType() == ActorType::enemy))
@@ -740,6 +773,7 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 
 	return result;
 }
+
 
 Player* CreatePlayer(Level& level)
 {
@@ -799,7 +833,8 @@ MovingPlatform* CreateMovingPlatform(Level& level)
 	MovingPlatform* MP = new MovingPlatform();
 	AttachAnimation(MP);
 	PlayAnimation(MP, ActorState::idle);
-	level.movingPlatforms.push_back(MP);
+	level.actors.push_back(MP);
+	level.movingPlatforms.push_back(MP->id);
 	return MP;
 }
 
@@ -881,7 +916,7 @@ void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 	PlayAnimation(&laser, ActorState::idle);
 }
 
-Actor* FindActor(ActorID actorID,Level& level)
+Actor* FindActor(ActorID actorID, Level& level)
 {
 	for (auto& actor : level.actors)
 	{
@@ -1007,7 +1042,8 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 
 	actor->velocity.x += actor->acceleration.x * deltaTime;
 	//actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
-	actor->position += actor->velocity * deltaTime;
+	actor->deltaPosition = actor->velocity * deltaTime;
+	actor->position += actor->deltaPosition;
 
 	ActorType actorType = actor->GetActorType();
 	if (actor->velocity.x == 0 && actor->velocity.y == 0 &&

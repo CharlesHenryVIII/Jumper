@@ -113,10 +113,10 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         //Set player velocity to the block they are on so they can be moved on a moving platform...
         //if the player is grounded and velocity is greater than terminal velocity then decelerate to the terminal velocity.
         //else continue to accelerate the player;
-        if (playerParent)
-        {
-            xVelOffset = playerParent->velocity.x;
-        }
+        //if (playerParent)
+        //{
+        //    xVelOffset = playerParent->velocity.x;
+        //}
         if ((lDown && rUpThisFrame) || (rDown && lUpThisFrame))
         {
             player->velocity.x = xVelOffset + 0;
@@ -348,74 +348,24 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                 }
                 break;
             }
-            //case ActorType::movingPlatform:
-            //{
-
-            //	//TODO: determine how to update the actors x position with the moving platform
-            //	uint32 result = CollisionWithActor(*player, *actor, *currentLevel);
-            //	if (result > 0)
-            //	{
-
-            //		player->parent = actor->id;
-            //		actor->children.push_back(player->id);
-            //		MovingPlatform* MP = (MovingPlatform*)actor;
-            //		if (CollisionBot & result)
-            //		{
-
-            //			player->grounded = true;
-            //			player->jumpCount = 2;
-            //			player->position.y = MP->position.y + MP->GameHeight();
-            //			player->velocity.y = MP->velocity.y;
-
-            //			//if (player->velocity.x != 0)
-            //			//	PlayAnimation(player, ActorState::run);
-            //			//else
-            //			//	PlayAnimation(player, ActorState::idle);
-            //		}
-
-            //		if (CollisionLeft & result)
-            //		{
-            //			player->position.x = MP->position.x + MP->GameWidth();
-            //			player->velocity.x = MP->velocity.x;
-            //		}
-            //		if (CollisionRight & result)
-            //		{
-            //			player->position.x = MP->position.x - player->GameWidth();
-            //			player->velocity.x = MP->velocity.x;
-            //		}
-            //		if (CollisionTop & result)
-            //		{
-            //			player->position.y = MP->position.y - player->GameHeight();
-            //			if (actor->velocity.y > 0)
-            //				actor->velocity.y = 0;
-            //		}
-            //	}
-            //	else
-            //	{
-            //		if (player->parent == actor->id)
-            //		{
-
-            //			player->parent = 0;
-            //			for (int32 i = 0; i < actor->children.size(); i++)
-            //			{
-            //				if (actor->children[i] == player->id)
-            //					actor->children[i] = 0;
-            //			}
-            //			player->grounded = false;
-            //		}
-            //	}
-            //	break;
-            //}
             }
         }
-        
-        for (int32 i = 0; i < currentLevel->movingPlatforms.size(); i++)
-        {
-            currentLevel->movingPlatforms[i]->Update(deltaTime);
-        }
     }
+    for (ActorID ID : currentLevel->movingPlatforms)
+    {
+        if (MovingPlatform* MP = FindActorType<MovingPlatform>(ID, *currentLevel))
+        {
+			for (ActorID item : MP->childList)
+			{
 
-
+				Actor* child = FindActor(item, *currentLevel);
+				assert(child);
+				if (child)
+					child->position += MP->deltaPosition;
+			}
+			MP->childList.clear();
+		}
+	}
 
     /*********************
      *

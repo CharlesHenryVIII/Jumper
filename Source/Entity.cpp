@@ -22,13 +22,12 @@ std::unordered_map<std::string, AnimationList> actorAnimations;
  * Player
  *
  ********/
-
-Player::Player(ActorID* playerID)
+void Player::OnInit()
 {
+
 	damage = 100;
 	inUse = true;
 	AttachAnimation(this);
-	*playerID = id;
 }
 
 void Player::Update(float deltaTime)
@@ -64,15 +63,9 @@ void Player::UpdateHealth(Level& level, float deltaHealth)
  *
  ********/
 
-Enemy::Enemy(EnemyType type, ActorID* enemyID)
+void Enemy::OnInit()
 {
-	position = { 28, 1 };
-	velocity.x = 4;
-	damage = 25;
-	inUse = true;
-	enemyType = type;
-	AttachAnimation(this);
-	*enemyID = id;
+
 }
 
 void Enemy::Update(float deltaTime)
@@ -107,6 +100,11 @@ void Enemy::UpdateHealth(Level& level, float deltaHealth)
  *
  ********/
 
+void Projectile::OnInit()
+{
+
+}
+
 void Projectile::Update(float deltaTime)
 {
 	UpdateLocation(this, 0, deltaTime);
@@ -139,11 +137,9 @@ void Projectile::Render()
  *
  ********/
 
-Dummy::Dummy(ActorID* dummyID)
+void Dummy::OnInit()
 {
-	*dummyID = id;
-	inUse = true;
-	health = 0;
+
 }
 
 void Dummy::Update(float deltaTime)
@@ -165,15 +161,10 @@ void Dummy::Render()
  *
  ********/
 
-Portal::Portal(int32 PID, const std::string& LP, int32 LPID)
+void Portal::OnInit()
 {
-	inUse = true;
-    levelPointer = LP;
-    portalPointerID = LPID;
-    portalID = PID;
-	damage = 0;
-}
 
+}
 void Portal::Update(float deltaTime)
 {
 	UpdateAnimationIndex(this, deltaTime);
@@ -190,12 +181,10 @@ void Portal::Render()
  *
  ********/
 
-Spring::Spring()
+void Spring::OnInit()
 {
-	inUse = true;
-	damage = 0;
-}
 
+}
 void Spring::Update(float deltaTime)
 {
 	UpdateAnimationIndex(this, deltaTime);
@@ -212,15 +201,10 @@ void Spring::Render()
  *
  ********/
 
-MovingPlatform::MovingPlatform()
+void MovingPlatform::OnInit()
 {
-	nextLocationIndex = 1;
-	incrimentPositivePathIndex = true;
-	acceleration = { 0, 0 };
-	inUse = true;
-	damage = 0;
-}
 
+}
 void MovingPlatform::Update(float deltaTime)
 {
 	UpdateLocation(this, 0, deltaTime);
@@ -263,6 +247,10 @@ void MovingPlatform::Render()
  *
  ********/
 
+void Grapple::OnInit()
+{
+
+}
 void Grapple::Update(float deltaTime)
 {
 	UpdateLocation(this, 0, deltaTime);
@@ -301,6 +289,10 @@ void Grapple::Render()
  *
  ********/
 
+void Item::OnInit()
+{
+
+}
 Item::Item(float healthChange)
 {
 	inUse = true;
@@ -441,6 +433,84 @@ Color GetTileMapColor(const Block& block)
 
 }
 
+Enemy* CreateEnemy(Level& level)
+{
+
+    Enemy* enemy = new Enemy();
+	enemy->position = { 28, 1 };
+	enemy->velocity.x = 4;
+	enemy->damage = 25;
+	enemy->enemyType = EnemyType::head;
+	enemy->inUse = true;
+	AttachAnimation(enemy);
+    PlayAnimation(enemy, ActorState::walk);
+    level.actors.push_back(enemy);
+    return enemy;
+}
+
+
+Dummy* CreateDummy(ActorType mimicType, Level& level)
+{
+	Dummy* dummy = new Dummy();
+	dummy->health = 0;
+	//dummy->actorState = ActorState::dead;
+	dummy->inUse = true;
+	AttachAnimation(dummy, mimicType);
+	PlayAnimation(dummy, ActorState::dead);
+	level.actors.push_back(dummy);
+	return dummy;
+}
+
+Portal* CreatePortal(int32 PortalID, const std::string& levelName, int32 levelPortalID, Level& level)
+{
+
+	Portal* portal = new Portal();
+    portal->levelPointer = levelName;
+    portal->portalPointerID = levelPortalID;
+    portal->portalID = PortalID;
+	portal->damage = 0;
+	portal->inUse = true;
+	AttachAnimation(portal);
+	PlayAnimation(portal, ActorState::idle);
+	level.actors.push_back(portal);
+	return portal;
+}
+
+Spring* CreateSpring(Level& level)
+{
+
+	Spring* spring = new Spring();
+	spring->damage = 0;
+	spring->inUse = true;
+	AttachAnimation(spring);
+	PlayAnimation(spring, ActorState::idle);
+	level.actors.push_back(spring);
+	return spring;
+}
+
+
+MovingPlatform* CreateMovingPlatform(Level& level)
+{
+
+	MovingPlatform* MP = new MovingPlatform();
+	MP->nextLocationIndex = 1;
+	MP->incrimentPositivePathIndex = true;
+	MP->acceleration = { 0, 0 };
+	MP->damage = 0;
+	MP->inUse = true;
+	AttachAnimation(MP);
+	PlayAnimation(MP, ActorState::idle);
+	level.actors.push_back(MP);
+	level.movingPlatforms.push_back(MP->id);
+	//t->m_level = this;
+	return MP;
+}
+
+Item* CreateItem(Level& level)
+{
+
+	return new Item(0);
+}
 
 void SaveLevel(Level* level, Player &player)
 {
@@ -772,76 +842,6 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 	}
 
 	return result;
-}
-
-
-Player* CreatePlayer(Level& level)
-{
-
-	ActorID playerID = {};
-	Player* player = new Player(&playerID);
-	level.actors.push_back(player);
-	return player;
-}
-
-Enemy* CreateEnemy(Level& level)
-{
-
-    ActorID enemyID = {};
-    Enemy* enemy = new Enemy(EnemyType::head, &enemyID);
-    PlayAnimation(enemy, ActorState::walk);
-    level.actors.push_back(enemy);
-    return enemy;
-}
-
-
-Dummy* CreateDummy(ActorType mimicType, Level& level)
-{
-	ActorID dummyID = {};
-	Dummy* dummy = new Dummy(&dummyID);
-	AttachAnimation(dummy, mimicType);
-	PlayAnimation(dummy, ActorState::dead);
-	dummy->actorState = ActorState::dead;
-	level.actors.push_back(dummy);
-	return dummy;
-}
-
-Portal* CreatePortal(int32 PortalID, const std::string& levelName, int32 levelPortalID, Level& level)
-{
-
-	Portal* portal = new Portal(PortalID, levelName, levelPortalID);
-	AttachAnimation(portal);
-	PlayAnimation(portal, ActorState::idle);
-	level.actors.push_back(portal);
-	return portal;
-}
-
-Spring* CreateSpring(Level& level)
-{
-
-	Spring* spring = new Spring();
-	AttachAnimation(spring);
-	PlayAnimation(spring, ActorState::idle);
-	level.actors.push_back(spring);
-	return spring;
-}
-
-
-MovingPlatform* CreateMovingPlatform(Level& level)
-{
-
-	MovingPlatform* MP = new MovingPlatform();
-	AttachAnimation(MP);
-	PlayAnimation(MP, ActorState::idle);
-	level.actors.push_back(MP);
-	level.movingPlatforms.push_back(MP->id);
-	return MP;
-}
-
-Item* CreateItem(Level& level)
-{
-
-	return new Item(0);
 }
 
 Portal* GetPortalsPointer(Portal* basePortal)

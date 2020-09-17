@@ -126,6 +126,7 @@ public:
     bool grounded = true;
     float invinciblityTime = false;
     ActorState actorState = ActorState::none;
+    Level* level;
 
     ActorID parent = 0;
 
@@ -134,6 +135,7 @@ public:
     int32 index = 0;
     float animationCountdown = 0;
 
+    virtual void OnInit() = 0;
     virtual void Update(float deltaTime) = 0;
     virtual void Render() = 0;
     virtual void UpdateHealth(Level& level, float deltaHealth) = 0;
@@ -166,8 +168,8 @@ struct Enemy : public Actor
 {
     ACTOR_TYPE(enemy);
 
-    Enemy(EnemyType type, ActorID* enemyID = nullptr);
     EnemyType enemyType;
+    void OnInit() override;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override;
@@ -177,10 +179,10 @@ struct Player : public Actor
 {
     ACTOR_TYPE(player);
 
-    Player(ActorID* playerID = nullptr);
     bool grappleEnabled = false;
     bool grappleReady = true;
     bool grappleDeployed = false;
+    void OnInit() override;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override;
@@ -201,6 +203,7 @@ struct Projectile : public Actor
     TileType paintType;
     float rotation = 0;
 
+    void OnInit() override;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -210,7 +213,7 @@ struct Dummy : public Actor
 {
     ACTOR_TYPE(dummy);
 
-    Dummy(ActorID* dummyID = nullptr);
+    void OnInit() override;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -219,11 +222,11 @@ struct Dummy : public Actor
 struct Portal : public Actor
 {
     ACTOR_TYPE(portal);
-    Portal(int32 PID, const std::string& LP, int32 LPID);
     std::string levelPointer;
     int32 portalPointerID = 0;
     int32 portalID = 0;
 
+    void OnInit() override;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -233,9 +236,9 @@ struct Spring : public Actor
 {
     ACTOR_TYPE(spring);
 
-    Spring();
     Vector springVelocity = { 0.0f, 30.0f };
 
+    void OnInit() override;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -246,13 +249,14 @@ struct MovingPlatform : public Actor
 {
     ACTOR_TYPE(movingPlatform);
 
-    MovingPlatform();
     std::vector<Vector> locations;
     Vector dest;
     int32 nextLocationIndex;
     float speed = 2;
     bool incrimentPositivePathIndex;
 	std::vector<ActorID> childList;
+
+    void OnInit() override;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -265,6 +269,7 @@ struct Grapple : public Actor
     float rotation = 0;
     ActorID attachedActor = 0;
 
+    void OnInit() override;
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -274,6 +279,7 @@ struct Item : public Actor
 {
     ACTOR_TYPE(item);
 
+    void OnInit() override;
     Item(float healthChange);
     void Update(float deltaTime) override;
     void Render() override;
@@ -328,10 +334,11 @@ struct Level
     {
         T* t = new T();
         actors.push_back(t);
-        t->m_level = this;
+        t->level = this;
         t->OnInit();
         return t;
     }
+
 };
 
 
@@ -360,7 +367,7 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
 uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level);
 //ActorID CreateActor(ActorType actorType, ActorType dummyType, Level& level);
-Player* CreatePlayer(Level& level);
+//Player* CreatePlayer(Level& level);
 Enemy* CreateEnemy(Level& level);
 Dummy* CreateDummy(ActorType mimicType, Level& level);
 Actor* FindActor(ActorID actorID, Level& level);

@@ -634,6 +634,7 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
 
 Sprite* GetSpriteFromAnimation(Actor* actor)
 {
+    assert(actor->currentSprite);
     return actor->currentSprite;
 }
 

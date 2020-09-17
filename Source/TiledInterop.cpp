@@ -147,7 +147,7 @@ Level* LoadLevel(const std::string& name)
 		{
 			// Do Player Stuff
 
-			Actor* player = CreatePlayer(*level);
+			Player* player = level->CreateActor<Player>();
 			player->position = loc;
 			int32 a = 0;
 		}

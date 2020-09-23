@@ -101,9 +101,6 @@ T GetActorProperty(const picojson::value& props, const std::string& propertyName
 	}
 	DebugPrint("GetActorProperty failed to return a value for %s\n", propertyName.c_str());
 	return {};
-	//assert(false);
-	//DebugPrint("GetActorProperty failed to return a value for %s\n", propertyName.c_str());
-	//return {};
 }
 
 Level* LoadLevel(const std::string& name)
@@ -156,7 +153,7 @@ Level* LoadLevel(const std::string& name)
 			// Do Enemy Stuff
 
 			const picojson::value& props = actorProperties.get("properties");
-			Enemy* enemy = CreateEnemy(*level);
+			Enemy* enemy = level->CreateActor<Enemy>();
 			enemy->position = loc;
 			enemy->damage = (float)GetActorProperty<double>(props, "Damage");
 		}
@@ -165,8 +162,9 @@ Level* LoadLevel(const std::string& name)
 			// Do Dummy Stuff
 			const picojson::value& props = actorProperties.get("properties");
 
-			ActorType mimic = (ActorType)GetActorProperty<double>(props, "ActorType");
-			Dummy* dummy = CreateDummy(mimic, *level);
+			DummyInfo info;
+			info.mimicType = (ActorType)GetActorProperty<double>(props, "ActorType");
+			Dummy* dummy = level->CreateActor<Dummy>(info);
 			dummy->position = loc;
 		}
 		else if (type == "PortalType")
@@ -174,10 +172,12 @@ Level* LoadLevel(const std::string& name)
 			// Do Portal Stuff
 
 			const picojson::value& props = actorProperties.get("properties");
-			Portal* portal = CreatePortal((int32)GetActorProperty<double>(props, "PortalID"),
-				GetActorProperty<std::string>(props, "PortalPointerLevel"),
-				(int32)GetActorProperty<double>(props, "PortalPointerID"),
-				*level);
+
+			PortalInfo info;
+			info.PortalID = (int32)GetActorProperty<double>(props, "PortalID");
+			info.levelName = GetActorProperty<std::string>(props, "PortalPointerLevel"); 
+			info.levelPortalID = (int32)GetActorProperty<double>(props, "PortalPointerID");
+			Portal* portal = level->CreateActor<Portal>(info);
 			portal->position = loc;
 
 		}
@@ -185,13 +185,13 @@ Level* LoadLevel(const std::string& name)
 		{
 			// Do Spring Stuff
 			
-			Spring* spring = CreateSpring(*level);
+			Spring* spring = level->CreateActor<Spring>();
 			spring->position = loc;
 		}
 		else if (type == "MovingPlatformType")
 		{
 			// Do Spring Stuff
-			MovingPlatform* MP = CreateMovingPlatform(*level);
+			MovingPlatform* MP = level->CreateActor<MovingPlatform>();
 			MP->position = loc;
 			MP->locations.push_back(loc);
 
@@ -226,5 +226,6 @@ Level* GetLevel(const std::string& name)
 	{
 		return &levels[name];
 	}
+
 	return LoadLevel(name);
 }

@@ -20,11 +20,11 @@ void SwitchToGame()
     cacheLevel = {};
     cacheLevel.filename = "Level.PNG";
     playerAccelerationAmount = 50;
+    actorPlayer = nullptr;
+    actorPlayer = FindPlayer(*currentLevel);
     currentLevel = GetLevel("Default");
     currentLevel->blocks.UpdateAllBlocks();
     gameState = GameState::game;
-    actorPlayer = nullptr;
-    actorPlayer = FindPlayer(*currentLevel);
     paused = false;
     mouseLocBlocks = {};
 }
@@ -191,9 +191,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 
                 AttachAnimation(grapple);
                 PlayAnimation(grapple, ActorState::idle);
-                Sprite* sprite = GetSpriteFromAnimation(grapple);
-                grapple->animationList->colRect = { {0,0}, {sprite->width,sprite->height} };
-                grapple->animationList->scaledWidth = (float)sprite->width;
                 grapple->terminalVelocity = { 1000, 1000 };
 
                 Vector adjustedPlayerPosition = { player->position.x, player->position.y + 1 };
@@ -241,16 +238,20 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         Level* oldLevel = currentLevel;
         currentLevel = GetLevel(levelChangePortal->levelPointer);
 
-        std::erase_if(currentLevel->actors, [](Actor* actor)
+        Level* playerLevel = player->level;
+        if (playerLevel)
         {
-            if (actor->GetActorType() == ActorType::player)
-            {
-                delete actor;
-                return true;
-            }
-            else
-                return false;
-        });
+			std::erase_if(playerLevel->actors, [](Actor* actor)
+			{
+				if (actor->GetActorType() == ActorType::player)
+				{
+					delete actor;
+					return true;
+				}
+				else
+					return false;
+			});
+		}
 
         currentLevel->actors.push_back(player);
         std::erase_if(oldLevel->actors, [](Actor* actor)
@@ -295,7 +296,15 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         else if (keyStates[SDL_BUTTON_LEFT].downThisFrame || keyStates[SDL_BUTTON_RIGHT].downThisFrame)
         {
             // TODO: remove the cast
-            currentLevel->actors.push_back(CreateBullet(player, mouseLocBlocks, paintType));
+            //InitInfo info = {};
+            //info._projectile.player = player;
+            //info._projectile.mouseLoc = mouseLocBlocks;
+            //info._projectile.blockToBeType = paintType;
+            ProjectileInfo info;
+			info.player = player;
+			info.mouseLoc = mouseLocBlocks;
+			info.blockToBeType = paintType;
+            currentLevel->CreateActor<Projectile>(info);
         }
     }
 
@@ -351,7 +360,8 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             }
         }
     }
-    for (ActorID ID : currentLevel->movingPlatforms)
+    
+    for (ActorID ID : player->level->movingPlatforms)
     {
         if (MovingPlatform* MP = FindActorType<MovingPlatform>(ID, *currentLevel))
         {
@@ -398,7 +408,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         DrawText(fonts["1"], Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
         DrawText(fonts["1"], Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, windowInfo.height - 20 }, UIX::left, UIY::bot);
         DrawText(fonts["1"], Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, windowInfo.height }, UIX::left, UIY::bot);
-
     }
 
     if (DrawButton(fonts["1"], "ESC", { windowInfo.width, windowInfo.height }, 
@@ -406,13 +415,17 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                     || keyStates[SDLK_ESCAPE].downThisFrame)
         paused = !paused;
 
-    //Present Screen
-    std::erase_if(currentLevel->actors, [](Actor* p) {
-        if (!p->inUse)
-        {
-            delete p;
-            return true;
-        }
-        return false;
-    });
+	//Present Screen
+	Level* playerLevel = player->level;
+	if (playerLevel)
+	{
+		std::erase_if(playerLevel->actors, [](Actor* p) {
+			if (!p->inUse)
+			{
+				delete p;
+				return true;
+			}
+			return false;
+		});
+	}
 }

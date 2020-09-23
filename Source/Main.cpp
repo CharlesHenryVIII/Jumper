@@ -55,6 +55,7 @@ int main(int argc, char* argv[])
     VectorInt mouseLocation;
     running = true;
 
+
 	gameState = GameState::game;
 
     CreateOpenGLWindow();
@@ -99,6 +100,12 @@ int main(int argc, char* argv[])
 		headMinion.colRect = { { 4, spriteHeight - 32 }, { 27, spriteHeight - 9 } };
 		headMinion.scaledWidth = (float)headMinion.colRect.Width();
 
+		AnimationList& bullet = actorAnimations["Bullet"];
+		Sprite* bulletSprite = bullet.GetAnyValidAnimation()->anime[0];
+        bullet.colRect = { {0,0}, {bulletSprite->width, bulletSprite->height} };
+		bullet.scaledWidth = (float)bullet.colRect.Width();
+	    bullet.scaledWidth = (float)bulletSprite->width;
+
 		AnimationList& portal = actorAnimations["Portal"];
 		spriteHeight = portal.GetAnyValidAnimation()->anime[0]->height;
 		portal.GetAnimation(ActorState::idle)->fps = 20.0f;
@@ -125,6 +132,11 @@ int main(int argc, char* argv[])
         MP.colOffset = {};
 		MP.colRect = { { 0, 0 }, { spriteWidth, spriteHeight } };
 		MP.scaledWidth = 32;
+
+		AnimationList& grapple = actorAnimations["Bullet"];
+		Sprite* grappleSprite = grapple.GetAnyValidAnimation()->anime[0];
+        grapple.colRect = { {0,0}, {grappleSprite->width, grappleSprite->height} };
+	    grapple.scaledWidth = (float)grappleSprite->width;
 
 		AnimationList& K = actorAnimations["Knight"];
 		spriteHeight = K.GetAnyValidAnimation()->anime[0]->height;

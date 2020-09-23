@@ -14,7 +14,7 @@ ActorID Actor::lastID = 0;
 
 Projectile laser = {};
 std::unordered_map<std::string, Level> levels;
-Level* currentLevel = nullptr;
+//Level* currentLevel = nullptr;
 std::unordered_map<std::string, AnimationList> actorAnimations;
 
 /*********************
@@ -22,6 +22,7 @@ std::unordered_map<std::string, AnimationList> actorAnimations;
  * Player
  *
  ********/
+
 void Player::OnInit()
 {
 
@@ -66,6 +67,12 @@ void Player::UpdateHealth(Level& level, float deltaHealth)
 void Enemy::OnInit()
 {
 
+	position = { 28, 1 };
+	velocity.x = 4;
+	damage = 25;
+	enemyType = EnemyType::head;
+	AttachAnimation(this);
+    PlayAnimation(this, ActorState::walk);
 }
 
 void Enemy::Update(float deltaTime)
@@ -100,9 +107,31 @@ void Enemy::UpdateHealth(Level& level, float deltaHealth)
  *
  ********/
 
-void Projectile::OnInit()
+void Projectile::OnInit(const ProjectileInfo& info)
 {
 
+	assert(info.player);
+	assert(info.blockToBeType != TileType::invalid);
+
+	paintType = info.blockToBeType;
+	AttachAnimation(this);
+	PlayAnimation(this, ActorState::idle);
+	terminalVelocity = { 1000, 1000 };
+	Vector adjustedPlayerPosition = { info.player->position.x/* + 0.5f*/, 
+									  info.player->position.y + 1 };
+	Vector playerPosAdjusted = { adjustedPlayerPosition.x + (info.player->GameWidth() / 2), 
+							     adjustedPlayerPosition.y };
+
+	float playerBulletRadius = 0.5f; //half a block
+	destination = info.mouseLoc;
+	rotation = RadToDeg(atan2f(destination.y - adjustedPlayerPosition.y, destination.x - adjustedPlayerPosition.x));
+
+	float speed = 50.0f;
+	Vector ToDest = destination - playerPosAdjusted;
+	ToDest = Normalize(ToDest);
+	velocity = ToDest * speed;
+	Vector gameSize = { GameWidth(), GameHeight() };
+	position = adjustedPlayerPosition + (ToDest * playerBulletRadius)/* + gameSize*/;
 }
 
 void Projectile::Update(float deltaTime)
@@ -137,9 +166,14 @@ void Projectile::Render()
  *
  ********/
 
-void Dummy::OnInit()
+void Dummy::OnInit(const DummyInfo& info)
 {
 
+	assert(info.mimicType != ActorType::none);
+	health = 0;
+	inUse = true;
+	AttachAnimation(this, info.mimicType);
+	PlayAnimation(this, ActorState::dead);
 }
 
 void Dummy::Update(float deltaTime)
@@ -161,10 +195,20 @@ void Dummy::Render()
  *
  ********/
 
-void Portal::OnInit()
+void Portal::OnInit(const PortalInfo& info)
 {
 
+	assert(info.levelPortalID);
+	assert(info.PortalID);
+	assert(info.levelName.size());
+	levelPointer = info.levelName;
+    portalPointerID = info.levelPortalID;
+    portalID = info.PortalID;
+	damage = 0;
+	AttachAnimation(this);
+	PlayAnimation(this, ActorState::idle);
 }
+
 void Portal::Update(float deltaTime)
 {
 	UpdateAnimationIndex(this, deltaTime);
@@ -184,6 +228,9 @@ void Portal::Render()
 void Spring::OnInit()
 {
 
+	damage = 0;
+	AttachAnimation(this);
+	PlayAnimation(this, ActorState::idle);
 }
 void Spring::Update(float deltaTime)
 {
@@ -204,6 +251,14 @@ void Spring::Render()
 void MovingPlatform::OnInit()
 {
 
+	nextLocationIndex = 1;
+	incrimentPositivePathIndex = true;
+	acceleration = { 0, 0 };
+	damage = 0;
+	inUse = true;
+	AttachAnimation(this);
+	PlayAnimation(this, ActorState::idle);
+	level->movingPlatforms.push_back(id);
 }
 void MovingPlatform::Update(float deltaTime)
 {
@@ -259,7 +314,7 @@ void Grapple::Update(float deltaTime)
 	if (DotProduct(velocity, destination - realPosition) < 0)
 	{
 		//paint block and remove bullet
-		Block* blockPointer = &currentLevel->blocks.GetBlock(destination);
+		Block* blockPointer = &level->blocks.GetBlock(destination);
 		Player* actor = (Player*)FindActor(attachedActor, *currentLevel);
 		if (actor != nullptr)
 		{
@@ -433,78 +488,19 @@ Color GetTileMapColor(const Block& block)
 
 }
 
-Enemy* CreateEnemy(Level& level)
-{
-
-    Enemy* enemy = new Enemy();
-	enemy->position = { 28, 1 };
-	enemy->velocity.x = 4;
-	enemy->damage = 25;
-	enemy->enemyType = EnemyType::head;
-	enemy->inUse = true;
-	AttachAnimation(enemy);
-    PlayAnimation(enemy, ActorState::walk);
-    level.actors.push_back(enemy);
-    return enemy;
-}
-
-
-Dummy* CreateDummy(ActorType mimicType, Level& level)
-{
-	Dummy* dummy = new Dummy();
-	dummy->health = 0;
-	//dummy->actorState = ActorState::dead;
-	dummy->inUse = true;
-	AttachAnimation(dummy, mimicType);
-	PlayAnimation(dummy, ActorState::dead);
-	level.actors.push_back(dummy);
-	return dummy;
-}
-
-Portal* CreatePortal(int32 PortalID, const std::string& levelName, int32 levelPortalID, Level& level)
-{
-
-	Portal* portal = new Portal();
-    portal->levelPointer = levelName;
-    portal->portalPointerID = levelPortalID;
-    portal->portalID = PortalID;
-	portal->damage = 0;
-	portal->inUse = true;
-	AttachAnimation(portal);
-	PlayAnimation(portal, ActorState::idle);
-	level.actors.push_back(portal);
-	return portal;
-}
-
-Spring* CreateSpring(Level& level)
-{
-
-	Spring* spring = new Spring();
-	spring->damage = 0;
-	spring->inUse = true;
-	AttachAnimation(spring);
-	PlayAnimation(spring, ActorState::idle);
-	level.actors.push_back(spring);
-	return spring;
-}
-
-
-MovingPlatform* CreateMovingPlatform(Level& level)
-{
-
-	MovingPlatform* MP = new MovingPlatform();
-	MP->nextLocationIndex = 1;
-	MP->incrimentPositivePathIndex = true;
-	MP->acceleration = { 0, 0 };
-	MP->damage = 0;
-	MP->inUse = true;
-	AttachAnimation(MP);
-	PlayAnimation(MP, ActorState::idle);
-	level.actors.push_back(MP);
-	level.movingPlatforms.push_back(MP->id);
-	//t->m_level = this;
-	return MP;
-}
+//Portal* CreatePortal(int32 PortalID, const std::string& levelName, int32 levelPortalID, Level& level)
+//{
+//
+//	Portal* portal = new Portal();
+//    portal->levelPointer = levelName;
+//    portal->portalPointerID = levelPortalID;
+//    portal->portalID = PortalID;
+//	portal->damage = 0;
+//	AttachAnimation(portal);
+//	PlayAnimation(portal, ActorState::idle);
+//	level.actors.push_back(portal);
+//	return portal;
+//}
 
 Item* CreateItem(Level& level)
 {
@@ -516,7 +512,7 @@ void SaveLevel(Level* level, Player &player)
 {
 	//Setup
 	stbi_flip_vertically_on_write(true);
-	currentLevel->blocks.CleanBlocks();
+	level->blocks.CleanBlocks();
 
 	//Finding the edges of the "picture"/level
 	int32 left = int32(player.position.x);
@@ -524,7 +520,7 @@ void SaveLevel(Level* level, Player &player)
 	int32 top = int32(player.position.y);
 	int32 bot = int32(player.position.y);
 
-	for (auto& block : *currentLevel->blocks.blockList())
+	for (auto& block : *level->blocks.blockList())
 	{
 		if (block.second.location.x < left)
 			left = int32(block.second.location.x);
@@ -546,7 +542,7 @@ void SaveLevel(Level* level, Player &player)
 
 	//writing to memory
 	SDL_Color tileColor = {};
-	for (auto& block : *currentLevel->blocks.blockList())
+	for (auto& block : *level->blocks.blockList())
 	{
 		if (block.second.tileType == TileType::invalid)
 			continue;
@@ -568,7 +564,7 @@ void SaveLevel(Level* level, Player &player)
 
 void LoadLevel(Level* level, Player& player)
 {
-	currentLevel->blocks.ClearBlocks();
+	level->blocks.ClearBlocks();
 
 	int32 textureHeight, textureWidth, colorChannels;
 	SDL_Color* image = (SDL_Color*)stbi_load(level->filename, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
@@ -583,46 +579,47 @@ void LoadLevel(Level* level, Player& player)
 			if (image[index].r == Blue.r && image[index].g == Blue.g && image[index].b == Blue.b && image[index].a == Blue.a)
 				player.position = { float(x + 0.5f), float(y + 0.5f) };
 			else if (tileColor != TileType::invalid)
-				currentLevel->blocks.AddBlock({ float(x), float(y) }, tileColor);
+				level->blocks.AddBlock({ float(x), float(y) }, tileColor);
 		}
 	}
-	currentLevel->blocks.UpdateAllBlocks();
+	level->blocks.UpdateAllBlocks();
 	stbi_image_free(image);
 }
 
 
-void UpdateAllNeighbors(Block* block)
+void UpdateAllNeighbors(Block* block, Level* level)
 {
 	for (int32 y = -1; y <= 1; y++)
 	{
 		for (int32 x = -1; x <= 1; x++)
 		{
-			if (currentLevel->blocks.TryGetBlock({ float(block->location.x + x), float(block->location.y + y) }) != nullptr)
-				currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ float(block->location.x + x), float(block->location.y + y) }));
+			assert(level);
+			if (level->blocks.TryGetBlock({ float(block->location.x + x), float(block->location.y + y) }) != nullptr)
+				level->blocks.UpdateBlock(&level->blocks.GetBlock({ float(block->location.x + x), float(block->location.y + y) }));
 		}
 	}
 }
 
 
-void SurroundBlockUpdate(Block* block, bool updateTop)
+void SurroundBlockUpdate(Block* block, bool updateTop, Level* level)
 {
 	//update block below
-	if (currentLevel->blocks.CheckForBlock({ block->location.x, block->location.y - 1 }))
-		currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ block->location.x, block->location.y - 1 }));
+	if (level->blocks.CheckForBlock({ block->location.x, block->location.y - 1 }))
+		level->blocks.UpdateBlock(&level->blocks.GetBlock({ block->location.x, block->location.y - 1 }));
 	//update block to the left
-	if (currentLevel->blocks.CheckForBlock({ block->location.x - 1, block->location.y }))
-		currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ block->location.x - 1, block->location.y }));
+	if (level->blocks.CheckForBlock({ block->location.x - 1, block->location.y }))
+		level->blocks.UpdateBlock(&level->blocks.GetBlock({ block->location.x - 1, block->location.y }));
 	//update block to the right
-	if (currentLevel->blocks.CheckForBlock({ block->location.x + 1, block->location.y }))
-		currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ block->location.x + 1, block->location.y }));
-	if (updateTop && currentLevel->blocks.CheckForBlock({ block->location.x, block->location.y - 1 }))
-		currentLevel->blocks.UpdateBlock(&currentLevel->blocks.GetBlock({ block->location.x, block->location.y + 1 }));
+	if (level->blocks.CheckForBlock({ block->location.x + 1, block->location.y }))
+		level->blocks.UpdateBlock(&level->blocks.GetBlock({ block->location.x + 1, block->location.y }));
+	if (updateTop && level->blocks.CheckForBlock({ block->location.x, block->location.y - 1 }))
+		level->blocks.UpdateBlock(&level->blocks.GetBlock({ block->location.x, block->location.y + 1 }));
 }
 
 
-void ClickUpdate(Block* block, bool updateTop)
+void ClickUpdate(Block* block, bool updateTop, Level* level)
 {
-	currentLevel->blocks.UpdateBlock(block);
+	level->blocks.UpdateBlock(block);
 	SurroundBlockUpdate(block, updateTop);
 }
 
@@ -862,39 +859,10 @@ Portal* GetPortalsPointer(Portal* basePortal)
 	}
 
 	assert(false);
-	DebugPrint("Failed to get Portal from %s at portalID %d", basePortal->levelPointer.c_str(), basePortal->portalPointerID);
+	//DebugPrint("Failed to get Portal from %s at portalID %d", basePortal->levelPointer.c_str(), basePortal->portalPointerID);
+	DebugPrint("Failed to get Portal from %s at portalID %d", basePortal->levelPointer, basePortal->portalPointerID);
 	return nullptr;
 }
-
-Projectile* CreateBullet(Actor* player, Vector mouseLoc, TileType blockToBeType)
-{
-	Projectile* bullet_a = new Projectile();
-	Projectile& bullet = *bullet_a;
-
-	bullet.paintType = blockToBeType;
-	bullet.inUse = true;
-	AttachAnimation(&bullet);
-	PlayAnimation(&bullet, ActorState::idle);
-	Sprite* sprite = GetSpriteFromAnimation(&bullet);
-	bullet.animationList->colRect = { {0,0}, {sprite->width,sprite->height} };
-	bullet.animationList->scaledWidth = (float)sprite->width;
-	bullet.terminalVelocity = { 1000, 1000 };
-	Vector adjustedPlayerPosition = { player->position.x/* + 0.5f*/, player->position.y + 1 };
-	Vector playerPosAdjusted = { adjustedPlayerPosition.x + (player->GameWidth() / 2), adjustedPlayerPosition.y };
-
-	float playerBulletRadius = 0.5f; //half a block
-	bullet.destination = mouseLoc;
-	bullet.rotation = RadToDeg(atan2f(bullet.destination.y - adjustedPlayerPosition.y, bullet.destination.x - adjustedPlayerPosition.x));
-
-	float speed = 50.0f;
-	Vector ToDest = bullet.destination - playerPosAdjusted;
-	ToDest = Normalize(ToDest);
-	bullet.velocity = ToDest * speed;
-	Vector gameSize = { bullet.GameWidth(), bullet.GameHeight() };
-	bullet.position = adjustedPlayerPosition + (ToDest * playerBulletRadius)/* + gameSize*/;
-	return bullet_a;
-}
-
 
 void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime)
 {
@@ -902,9 +870,6 @@ void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 	laser.inUse = true;
 	AttachAnimation(&laser);
 	PlayAnimation(&laser, ActorState::idle);
-	Sprite* sprite = GetSpriteFromAnimation(&laser);
-	laser.animationList->colRect = { {0,0}, {sprite->width, sprite->height} };
-	laser.animationList->scaledWidth = (float)sprite->width;
 	Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block
@@ -916,26 +881,6 @@ void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 	PlayAnimation(&laser, ActorState::idle);
 }
 
-Actor* FindActor(ActorID actorID, Level& level)
-{
-	for (auto& actor : level.actors)
-	{
-		if (actor->id == actorID)
-			return actor;
-	}
-	return nullptr;
-}
-
-//returns first find of that type
-Player* FindPlayer(Level& level)
-{
-	for (auto& actor : level.actors)
-	{
-		if (actor->GetActorType() == ActorType::player)
-			return (Player*)actor;
-	}
-	return nullptr;
-}
 
 void UpdateAnimationIndex(Actor* actor, float deltaTime)
 {
@@ -1022,13 +967,11 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 		if (actor->health == 0)
 		{
 			//TODO: put a level pointer onto each actor
-			Dummy* dummy = CreateDummy(actor->GetActorType(), level);
-
-			dummy->position						= actor->position;
-			dummy->animationList->colOffset		= actor->animationList->colOffset;
-			dummy->animationList->colRect		= actor->animationList->colRect;
-			dummy->animationList->scaledWidth	= actor->animationList->scaledWidth;
-			dummy->lastInputWasLeft				= actor->lastInputWasLeft;
+			DummyInfo info;
+			info.mimicType = actor->GetActorType();
+			Dummy* dummy = level.CreateActor<Dummy>(info);
+			dummy->position			= actor->position;
+			dummy->lastInputWasLeft	= actor->lastInputWasLeft;
 			PlayAnimation(dummy, ActorState::dead);
 			actor->inUse = false;
 		}

@@ -125,12 +125,12 @@ struct Rectangle_Int {
     VectorInt bottomLeft;
     VectorInt topRight;
 
-    int32 Width()
+    int32 Width() const
     {
         return topRight.x - bottomLeft.x;
     }
 
-    int32 Height()
+    int32 Height() const
     {
         return topRight.y - bottomLeft.y;
     }

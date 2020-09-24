@@ -142,7 +142,7 @@ void Projectile::Update(float deltaTime)
 	if (DotProduct(velocity, destination - realPosition) < 0)
 	{
 		//paint block and remove bullet
-		Block* blockPointer = &currentLevel->blocks.GetBlock(destination);
+		Block* blockPointer = &level->blocks.GetBlock(destination);
 		blockPointer->tileType = paintType;
 		UpdateAllNeighbors(blockPointer);
 		inUse = false;
@@ -315,11 +315,11 @@ void Grapple::Update(float deltaTime)
 	{
 		//paint block and remove bullet
 		Block* blockPointer = &level->blocks.GetBlock(destination);
-		Player* actor = (Player*)FindActor(attachedActor, *currentLevel);
-		if (actor != nullptr)
+		Player* player = level->FindActor<Player>(attachedActor);
+		if (player != nullptr)
 		{
-			actor->grappleDeployed = false;
-			actor->grappleReady = true;
+			player->grappleDeployed = false;
+			player->grappleReady = true;
 		}
 		inUse = false;
 
@@ -446,7 +446,7 @@ void TileMap::UpdateAllBlocks()
 }
 
 //returns &blocks
-const std::unordered_map<uint64, Block>* TileMap::blockList()
+const std::unordered_map<uint64, Block>* TileMap::BlockList()
 {
 	return &blocks;
 }
@@ -465,6 +465,29 @@ void TileMap::CleanBlocks()
 	}
 }
 
+//std::unordered_map<std::string, Level> levels;
+Player* FindPlayerGlobal()
+{
+	for (auto& level : levels)
+	{
+		Player* ptr = level.second.FindPlayer();
+		if (ptr)
+			return ptr;
+	}
+	return nullptr;
+}
+
+template <typename T>
+T* FindPlayerGlobal(ActorID id)
+{
+	for (auto& level : levels)
+	{
+		T* a = level.second.FindActor<T>(id);
+		if (a)
+			return a;
+	}
+	return nullptr;
+}
 
 TileType CheckColor(SDL_Color color)
 {
@@ -488,26 +511,6 @@ Color GetTileMapColor(const Block& block)
 
 }
 
-//Portal* CreatePortal(int32 PortalID, const std::string& levelName, int32 levelPortalID, Level& level)
-//{
-//
-//	Portal* portal = new Portal();
-//    portal->levelPointer = levelName;
-//    portal->portalPointerID = levelPortalID;
-//    portal->portalID = PortalID;
-//	portal->damage = 0;
-//	AttachAnimation(portal);
-//	PlayAnimation(portal, ActorState::idle);
-//	level.actors.push_back(portal);
-//	return portal;
-//}
-
-Item* CreateItem(Level& level)
-{
-
-	return new Item(0);
-}
-
 void SaveLevel(Level* level, Player &player)
 {
 	//Setup
@@ -520,7 +523,7 @@ void SaveLevel(Level* level, Player &player)
 	int32 top = int32(player.position.y);
 	int32 bot = int32(player.position.y);
 
-	for (auto& block : *level->blocks.blockList())
+	for (auto& block : *level->blocks.BlockList())
 	{
 		if (block.second.location.x < left)
 			left = int32(block.second.location.x);
@@ -542,7 +545,7 @@ void SaveLevel(Level* level, Player &player)
 
 	//writing to memory
 	SDL_Color tileColor = {};
-	for (auto& block : *level->blocks.blockList())
+	for (auto& block : *level->blocks.BlockList())
 	{
 		if (block.second.tileType == TileType::invalid)
 			continue;
@@ -736,7 +739,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	{
 		for (float x = xMin; x < xMax; x++)
 		{
-			Block* block = currentLevel->blocks.TryGetBlock({ x, y });
+			Block* block = actor->level->blocks.TryGetBlock({ x, y });
 			if (block == nullptr || block->tileType == TileType::invalid)
 				continue;
 
@@ -748,17 +751,17 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	//Checking Moving Platforms
 	ActorID collisionID = 0;
 	MovingPlatform* collidedPlatform = nullptr;
-	for (int32 i = 0; i < currentLevel->movingPlatforms.size(); i++)
+
+	for (int32 i = 0; i < actor->level->movingPlatforms.size(); i++)
 	{
-		Actor* actorTwo = FindActor(currentLevel->movingPlatforms[i], *currentLevel);
-		if (actorTwo && actorTwo->GetActorType() == ActorType::movingPlatform)
+		if (Actor* actorTwo = actor->level->FindActor<MovingPlatform>(actor->level->movingPlatforms[i]))
 		{
 			MovingPlatform* MP = (MovingPlatform*)actorTwo;
 
 			Rectangle MPRect = { MP->position, { MP->position.x + MP->GameWidth(), MP->position.y + MP->GameHeight() } };
 			if (CollisionWithBlocksSubFunction(grounded, MPRect, actor, isEnemy))
 			{
-				collisionID = currentLevel->movingPlatforms[i];
+				collisionID = actor->level->movingPlatforms[i];
 				collidedPlatform = MP;
 			}
 		}
@@ -775,7 +778,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	else
 	{
 
-		if (MovingPlatform* MP = FindActorType<MovingPlatform>(actor->parent, *currentLevel))
+		if (MovingPlatform* MP = actor->level->FindActor<MovingPlatform>(actor->parent))
 		{
 			actor->velocity += MP->velocity;
 			actor->parent = 0;
@@ -1003,11 +1006,11 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 }
 
 
-void UpdateEnemiesPosition(float gravity, float deltaTime)
+void UpdateEnemiesPosition(std::vector<Actor*>* actors, float gravity, float deltaTime)
 {
-	for (int32 i = 0; i < currentLevel->actors.size(); i++)
+	for (int32 i = 0; i < actors->size(); i++)
 	{
-		Actor* actor = currentLevel->actors[i];
+		Actor* actor = (*actors)[i];
 		if (actor->GetActorType() == ActorType::enemy)
 		{
 			UpdateLocation(actor, gravity, deltaTime);
@@ -1016,15 +1019,14 @@ void UpdateEnemiesPosition(float gravity, float deltaTime)
 	}
 }
 
-void RenderActors()
+void RenderActors(std::vector<Actor*>* actors)
 {
-	for (int32 i = 0; i < currentLevel->actors.size(); i++)
+	for (int32 i = 0; i < actors->size(); i++)
 	{
-		currentLevel->actors[i]->Render();
+		(*actors)[i]->Render();
 	}
 }
 
-//UI or Game space?  Game
 void RenderActorHealthBars(Actor& actor)
 {
 	float healthHeight = 0.25f;

@@ -20,10 +20,7 @@ void SwitchToGame()
     cacheLevel = {};
     cacheLevel.filename = "Level.PNG";
     playerAccelerationAmount = 50;
-    actorPlayer = nullptr;
-    actorPlayer = FindPlayer(*currentLevel);
-    currentLevel = GetLevel("Default");
-    currentLevel->blocks.UpdateAllBlocks();
+    actorPlayer = FindPlayerGlobal();
     gameState = GameState::game;
     paused = false;
     mouseLocBlocks = {};
@@ -44,14 +41,14 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     }
 
     //TODO: fix creating a new player makes a new player ID number;
-    if (FindPlayer(*currentLevel) == nullptr)
+    if (FindPlayerGlobal() == nullptr)
     {
         DebugPrint("player not found");
         //playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
         //LoadLevel(currentLevel, *(Player*)FindActor(playerID));
     }
 
-    Player* player = FindPlayer(*currentLevel);
+    Player* player = FindPlayerGlobal();
 
 
 	/*********************
@@ -98,7 +95,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         //bool rDownThisFrame = keyStates[SDLK_d].downThisFrame || keyStates[SDLK_RIGHT].downThisFrame;
         bool rUpThisFrame = keyStates[SDLK_d].upThisFrame || keyStates[SDLK_RIGHT].upThisFrame;
 
-        Actor* playerParent = FindActor(player->parent, *currentLevel); //needs nullptr check when using
         float xVelOffset = 0;
 
         if (lDown != rDown)
@@ -113,10 +109,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         //Set player velocity to the block they are on so they can be moved on a moving platform...
         //if the player is grounded and velocity is greater than terminal velocity then decelerate to the terminal velocity.
         //else continue to accelerate the player;
-        //if (playerParent)
-        //{
-        //    xVelOffset = playerParent->velocity.x;
-        //}
         if ((lDown && rUpThisFrame) || (rDown && lUpThisFrame))
         {
             player->velocity.x = xVelOffset + 0;
@@ -205,7 +197,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                 Vector gameSize = { grapple->GameWidth(), grapple->GameHeight() };
                 float playerBulletRadius = 0.5f; //half a block
                 grapple->position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
-                currentLevel->actors.push_back(grapple);
+                player->level->actors.push_back(grapple);
 
                 player->grappleReady = false;
                 player->grappleDeployed = true;
@@ -231,7 +223,42 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         debugList[DebugOptions::paintMethod] = !debugList[DebugOptions::paintMethod];
     if (keyStates[SDLK_5].downThisFrame)
         debugList[DebugOptions::editBlocks] = !debugList[DebugOptions::editBlocks];
+#if 1
 
+    if (levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
+    {
+        //remove player from new level, load player from old level, delete player from old level.
+        Level* oldLevel = levelChangePortal->level;
+        Level* newLevel = GetLevel(levelChangePortal->levelPointer);
+        if (oldLevel && newLevel)
+		{
+			if (player->level)
+			{
+
+				std::erase_if(player->level->actors, [](Actor* actor)
+				{
+					if (actor->GetActorType() == ActorType::player)
+					{
+						delete actor;
+						return true;
+					}
+					else
+						return false;
+				});
+			}
+
+			newLevel->actors.push_back(player);
+			std::erase_if(oldLevel->actors, [](Actor* actor)
+			{
+				return actor->GetActorType() == ActorType::player;
+			});
+			player->position = GetPortalsPointer(levelChangePortal)->position;
+		}
+    }
+    levelChangePortal = nullptr;
+
+#else
+    
     if (levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
     {
         //remove player from new level, load player from old level, delete player from old level.
@@ -261,6 +288,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         player->position = GetPortalsPointer(levelChangePortal)->position;
     }
     levelChangePortal = nullptr;
+#endif
 
 
 
@@ -276,7 +304,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         Rectangle clickRect = {};
         clickRect.botLeft = { mouseLocBlocks.x - 0.5f, mouseLocBlocks.y - 0.5f };
         clickRect.topRight = { mouseLocBlocks.x + 0.5f, mouseLocBlocks.y + 0.5f };
-        Block* blockPointer = &currentLevel->blocks.GetBlock(mouseLocBlocks);
+        Block* blockPointer = &player->level->blocks.GetBlock(mouseLocBlocks);
         blockPointer->location = mouseLocBlocks;
         blockPointer->location.x = floorf(blockPointer->location.x);
         blockPointer->location.y = floorf(blockPointer->location.y);
@@ -304,7 +332,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 			info.player = player;
 			info.mouseLoc = mouseLocBlocks;
 			info.blockToBeType = paintType;
-            currentLevel->CreateActor<Projectile>(info);
+            player->level->CreateActor<Projectile>(info);
         }
     }
 
@@ -316,35 +344,35 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 
 
 
-    for (int32 i = 0; i < currentLevel->actors.size(); i++)
-        currentLevel->actors[i]->Update(deltaTime);
+    for (int32 i = 0; i < player->level->actors.size(); i++)
+        player->level->actors[i]->Update(deltaTime);
 
     if (player != nullptr)
     {
-        for (int32 i = 0; i < currentLevel->actors.size(); i++)
+        for (int32 i = 0; i < player->level->actors.size(); i++)
         {
-            Actor* actor =  currentLevel->actors[i];
+            Actor* actor =  player->level->actors[i];
             switch (actor->GetActorType())
             {
             case ActorType::enemy:
             {
 
                 //flash screen 
-                if (CollisionWithActor(*player, *actor, *currentLevel))
+                if (CollisionWithActor(*player, *actor, *player->level))
                     AddRectToRender({ {0, (float)windowInfo.height}, { (float)windowInfo.width, 0 } }, lightWhite, RenderPrio::foreground, CoordinateSpace::UI);
                 break;
             }
             case ActorType::portal:
             {
 
-                if (CollisionWithActor(*player, *actor, *currentLevel))
+                if (CollisionWithActor(*player, *actor, *player->level))
                     levelChangePortal = (Portal*)actor;
                 break;
             }
             case ActorType::spring:
             {
 
-                uint32 result = CollisionWithActor(*player, *actor, *currentLevel);
+                uint32 result = CollisionWithActor(*player, *actor, *player->level);
                 if (result > 0)
                 {
                     Spring* spring = (Spring*)actor;
@@ -363,12 +391,12 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     
     for (ActorID ID : player->level->movingPlatforms)
     {
-        if (MovingPlatform* MP = FindActorType<MovingPlatform>(ID, *currentLevel))
+        if (MovingPlatform* MP = player->level->FindActor<MovingPlatform>(ID))
         {
 			for (ActorID item : MP->childList)
 			{
 
-				Actor* child = FindActor(item, *currentLevel);
+                Actor* child = player->level->FindActor<Actor>(item);
 				assert(child);
 				if (child)
 					child->position += MP->deltaPosition;

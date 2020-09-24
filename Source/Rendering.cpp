@@ -638,7 +638,7 @@ Sprite* GetSpriteFromAnimation(Actor* actor)
     return actor->currentSprite;
 }
 
-void RenderBlocks()
+void RenderBlocks(const TileMap& blocks)
 {
     PROFILE_FUNCTION();
 
@@ -647,8 +647,8 @@ void RenderBlocks()
 	{
 		for (float x = camera.position.x - offset.x; x < (camera.position.x + offset.x); x++)
 		{
-			Block* block = currentLevel->blocks.TryGetBlock({ x, y });
-			if (block != nullptr && block->tileType != TileType::invalid)
+			Block* block = blocks.TryGetBlock({ x, y });
+			if (block && block->tileType != TileType::invalid)
 			{
 				SpriteMapRender(sprites["spriteMap"], *block);
 
@@ -659,11 +659,14 @@ void RenderBlocks()
 	}
 }
 
-void RenderMovingPlatforms()
+void RenderMovingPlatforms(Level* level)
 {
-    for (int32 i = 0; i < currentLevel->movingPlatforms.size(); i++)
-    {
-        FindActor(currentLevel->movingPlatforms[i], *currentLevel)->Render();
+    if (level)
+	{
+		for (int32 i = 0; i < level->movingPlatforms.size(); i++)
+		{
+			level->FindActor<MovingPlatform>(level->movingPlatforms[i])->Render();
+		}
     }
 }
 

@@ -24,30 +24,6 @@
 #include <cmath>
 
 
-//void foo(std::vector<int>* a)
-//{
-//    a[4]; // == std::vector<int>
-//    (*a)[4]; // == int
-//}
-//
-//void bar(std::vector<int>& a)
-//{
-//    a[4];
-//}
-//
-//
-//std::string test(const std::string& a)
-//{
-//}
-//
-//void foo2()
-//{
-//    test("a");
-//
-//    const std::string& a = test("a");
-//}
-
-
 int main(int argc, char* argv[])
 {
     //Window and Program Setups:Key

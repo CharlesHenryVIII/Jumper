@@ -338,12 +338,16 @@ public:
     void UpdateAllBlocks();
 
     //returns &blocks
-    const std::unordered_map<uint64, Block>* blockList();
+    const std::unordered_map<uint64, Block>* BlockList();
     void ClearBlocks();
     void CleanBlocks();
 };
 
 
+extern Projectile laser;
+//extern Level* currentLevel;
+extern std::unordered_map<std::string, Level> levels;
+extern std::unordered_map<std::string, AnimationList> actorAnimations;
 
 struct Level
 {
@@ -403,18 +407,6 @@ public:
 		}
 		return nullptr;
 	}
-    
-        //std::unordered_map<std::string, Level> levels;
-    Player* FindPlayerGlobal()
-    {
-        for (auto& level : levels)
-        {
-            Player* ptr = level.second.FindPlayer();
-            if (ptr)
-                return ptr;
-        }
-        return nullptr;
-    }
 };
 
 enum class CollisionDirection {
@@ -425,12 +417,9 @@ enum class CollisionDirection {
 };
 
 
-extern Projectile laser;
-//extern Level* currentLevel;
-extern std::unordered_map<std::string, Level> levels;
-extern std::unordered_map<std::string, AnimationList> actorAnimations;
 
 
+Player* FindPlayerGlobal();
 TileType CheckColor(SDL_Color color);
 Color GetTileMapColor(const Block& block);
 void SaveLevel(Level* level, Player& player);

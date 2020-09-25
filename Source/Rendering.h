@@ -104,15 +104,13 @@ struct RenderInformation
     int32 vertexIndex;
     int32 vertexLength;
     TextureRenderUnion texture;
-    //union
-    //{
-    //    TextureRenderUnion texture;
-    //};
 };
+struct Level;
 
 struct Camera {
-    Vector position;
-    Vector size;
+    Vector position = {};
+    Vector size = {};
+    Level* level = nullptr;
 };
 
 extern std::unordered_map<std::string, Sprite*> sprites;
@@ -123,6 +121,7 @@ extern WindowInfo windowInfo;
 struct Animation;
 struct Actor;
 struct Block;
+class TileMap;
 
 
 void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
@@ -148,7 +147,7 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
                 UIX XLayout, UIY YLayout, Color BC, Color TC, 
                 VectorInt mouseLoc, bool mousePressed);
 Sprite* GetSpriteFromAnimation(Actor* actor);
-void RenderBlocks();
-void RenderMovingPlatforms();
+void RenderBlocks(TileMap* blocks);
+void RenderMovingPlatforms(Level* level);
 void RenderLaser();
 void RenderActor(Actor* actor, float rotation);

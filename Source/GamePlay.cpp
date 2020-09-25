@@ -319,7 +319,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         {
             UpdateLaser(player, mouseLocBlocks, paintType, deltaTime);
             blockPointer->tileType = paintType;
-            UpdateAllNeighbors(blockPointer);
+            UpdateAllNeighbors(blockPointer, player->level);
         }
         else if (keyStates[SDL_BUTTON_LEFT].downThisFrame || keyStates[SDL_BUTTON_RIGHT].downThisFrame)
         {
@@ -396,7 +396,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 			for (ActorID item : MP->childList)
 			{
 
-                Actor* child = player->level->FindActor<Actor>(item);
+                Actor* child = player->level->FindActorGeneric(item);
 				assert(child);
 				if (child)
 					child->position += MP->deltaPosition;
@@ -414,12 +414,16 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 
     BackgroundRender(sprites["background"], &camera);
     if (player != nullptr)
+    {
+
         camera.position = player->position;
+        camera.level = player->level;
+    }
     
-    RenderBlocks();
-    RenderActors();
+    RenderBlocks(&camera.level->blocks);
+    RenderActors(&camera.level->actors);
     RenderLaser();
-    RenderMovingPlatforms();
+    RenderMovingPlatforms(camera.level);
 
     if (player != nullptr && player->grappleEnabled)
     {

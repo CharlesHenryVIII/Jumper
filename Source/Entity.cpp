@@ -111,7 +111,6 @@ void Projectile::OnInit(const ProjectileInfo& info)
 {
 
 	assert(info.player);
-	assert(info.blockToBeType != TileType::invalid);
 
 	paintType = info.blockToBeType;
 	AttachAnimation(this);
@@ -144,7 +143,7 @@ void Projectile::Update(float deltaTime)
 		//paint block and remove bullet
 		Block* blockPointer = &level->blocks.GetBlock(destination);
 		blockPointer->tileType = paintType;
-		UpdateAllNeighbors(blockPointer);
+		UpdateAllNeighbors(blockPointer, level);
 		inUse = false;
 	}
 	UpdateAnimationIndex(this, deltaTime);
@@ -372,7 +371,6 @@ void Item::Render()
  *
  ********/
 
-
 uint64 TileMap::HashingFunction(Vector loc)
 {
 	int32 x = int32(floorf(loc.x));
@@ -388,7 +386,7 @@ Block& TileMap::GetBlock(Vector loc)
 {
 	loc.x = floorf(loc.x);
 	loc.y = floorf(loc.y);
-	auto& result = blocks[HashingFunction(loc)];
+	Block& result = blocks[HashingFunction(loc)];
 	result.location = loc;
 	return result;
 }
@@ -623,7 +621,7 @@ void SurroundBlockUpdate(Block* block, bool updateTop, Level* level)
 void ClickUpdate(Block* block, bool updateTop, Level* level)
 {
 	level->blocks.UpdateBlock(block);
-	SurroundBlockUpdate(block, updateTop);
+	SurroundBlockUpdate(block, updateTop, level);
 }
 
 

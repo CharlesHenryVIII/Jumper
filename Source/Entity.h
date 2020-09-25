@@ -391,11 +391,18 @@ public:
 	template <typename T>
 	T* FindActor(ActorID id)
 	{
-		Actor* a = FindActorInternal(id);
+        T* a = (T*)FindActorInternal(id);
 		if (a && a->GetActorType() == T::s_type)
 			return static_cast<T*>(a);
 		return nullptr;
 	}
+
+    Actor* FindActorGeneric(ActorID id)
+    {
+		if (Actor* a = FindActorInternal(id))
+			return a;
+		return nullptr;
+    }
 
 	//returns first find of that type
 	Player* FindPlayer()
@@ -424,21 +431,20 @@ TileType CheckColor(SDL_Color color);
 Color GetTileMapColor(const Block& block);
 void SaveLevel(Level* level, Player& player);
 void LoadLevel(Level* level, Player& player);
-void UpdateAllNeighbors(Block* block);
-void SurroundBlockUpdate(Block* block, bool updateTop);
-void ClickUpdate(Block* block, bool updateTop);
+void UpdateAllNeighbors(Block* block, Level* level);
+void SurroundBlockUpdate(Block* block, bool updateTop, Level* level);
+void ClickUpdate(Block* block, bool updateTop, Level* level);
 uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
 uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level);
 void UpdateAnimationIndex(Actor* actor, float deltaTime);
 void PlayAnimation(Actor* actor, ActorState state);
 void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth);
-//Portal* CreatePortal(int32 PortalID, const std::string& levelPointer, int32 levelPortalID, Level& level);
 Portal* GetPortalsPointer(Portal* basePortal);
 void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
 void UpdateLocation(Actor* actor, float gravity, float deltaTime);
-void UpdateEnemiesPosition(float gravity, float deltaTime);
-void RenderActors();
+void UpdateEnemiesPosition(std::vector<Actor*>* actors, float gravity, float deltaTime);
+void RenderActors(std::vector<Actor*>* actors);
 void RenderActorHealthBars(Actor& actor);
 void LoadAllAnimationStates(const std::string& entity);
 void AttachAnimation(Actor* actor, ActorType overrideType = ActorType::none);

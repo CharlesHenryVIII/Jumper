@@ -638,7 +638,7 @@ Sprite* GetSpriteFromAnimation(Actor* actor)
     return actor->currentSprite;
 }
 
-void RenderBlocks(const TileMap& blocks)
+void RenderBlocks(TileMap* blocks)
 {
     PROFILE_FUNCTION();
 
@@ -647,7 +647,7 @@ void RenderBlocks(const TileMap& blocks)
 	{
 		for (float x = camera.position.x - offset.x; x < (camera.position.x + offset.x); x++)
 		{
-			Block* block = blocks.TryGetBlock({ x, y });
+			Block* block = blocks->TryGetBlock({ x, y });
 			if (block && block->tileType != TileType::invalid)
 			{
 				SpriteMapRender(sprites["spriteMap"], *block);

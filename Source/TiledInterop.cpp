@@ -2,9 +2,11 @@
 #include "WinUtilities.h"
 #include "Math.h"
 #include "Entity.h"
-
+#include "TiledInterop.h"
 #include <cassert>
 #include <iostream>
+
+std::unordered_map<std::string, Level> levels_internal;
 
 
 const char* ReadEntireFileAsString(const char* fileName)
@@ -103,11 +105,9 @@ T GetActorProperty(const picojson::value& props, const std::string& propertyName
 	return {};
 }
 
-Level* LoadLevel(const std::string& name)
+void CreateLevel(Level* level, const std::string& name)
 {
 	const picojson::value& v = JsonStruct(name);
-
-	Level* level = &levels[name];
 	const picojson::value& layers = v.get("layers");
 
 	const picojson::value& chunks = FindChildObject("chunks", "tilelayer", layers);
@@ -217,15 +217,38 @@ Level* LoadLevel(const std::string& name)
 		}
 	}
 	level->blocks.UpdateAllBlocks();
-	return level;
 }
 
-Level* GetLevel(const std::string& name)
+void AddAllLevels()
 {
-	if (levels.find(name) != levels.end())
+	std::string names[] = { "Default", "Level 1" };
+	for (std::string name : names)
 	{
-		return &levels[name];
+		CreateLevel(&levels_internal[name], name);
 	}
-
-	return LoadLevel(name);
 }
+
+void LoadLevel(Level* level, const std::string& name)
+{
+	if (levels_internal.find(name) != levels_internal.end())
+	{
+
+		*level = levels_internal[name];
+		level->movingPlatforms.clear();
+		level->actors.clear();
+		level->playerID = 0;
+		for (Actor* actor : levels_internal[name].actors)
+		{
+			Actor* actorCopy = actor->Copy();
+			if (actorCopy->GetActorType() == ActorType::MovingPlatform)
+				level->movingPlatforms.push_back(actorCopy->id);
+			else if (actorCopy->GetActorType() == ActorType::Player)
+				level->playerID = actorCopy->id;
+			level->AddActor(actorCopy);
+		}
+
+		return;
+	}
+	CreateLevel(level, name);
+}
+

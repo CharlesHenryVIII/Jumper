@@ -48,6 +48,7 @@ int main(int argc, char* argv[])
     iconSurface.
     */
 
+#if 0
     //Sprite Creation
     LoadAllAnimationStates("Dino");
     LoadAllAnimationStates("HeadMinion");
@@ -59,7 +60,6 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates("Grapple");
     LoadAllAnimationStates("Knight");
     {
-        Vector basicCollisionOffset = { 0.125f, 0.25f };
 
 		AnimationList& dino = actorAnimations["Dino"];
 		dino.GetAnimation(ActorState::jump)->fps = 30.0f;
@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
 		AnimationList& bullet = actorAnimations["Bullet"];
 		Sprite* bulletSprite = bullet.GetAnyValidAnimation()->anime[0];
         bullet.colRect = { {0,0}, {bulletSprite->width, bulletSprite->height} };
-		bullet.scaledWidth = (float)bullet.colRect.Width();
+		//bullet.scaledWidth = (float)bullet.colRect.Width();
 	    bullet.scaledWidth = (float)bulletSprite->width;
 
 		AnimationList& portal = actorAnimations["Portal"];
@@ -120,6 +120,93 @@ int main(int argc, char* argv[])
 		K.colRect = { { 419, spriteHeight - (44 + 814) }, { 419 + 360, spriteHeight - 44} };
 		K.scaledWidth = 32;
     }
+
+#else 
+
+    std::vector<AnimationData> animationData;
+        {
+
+            AnimationData dino = {};
+            dino.name = "Dino";
+            dino.animationFPS[int(ActorState::jump)] = 30.0f;
+            dino.animationFPS[int(ActorState::run)] = 30.0f;
+            dino.collisionOffset = { 0.2f, 0.3f };
+            dino.collisionRectangle = { { 130, 421 }, { 331, 33 } };
+            animationData.push_back(dino);
+        }
+        {
+
+            AnimationData headMinion = {};
+            headMinion.name = "HeadMinion";
+			headMinion.collisionRectangle = { { 4, 32 }, { 27, 9 } };
+            headMinion.scaledWidth = inf;
+            animationData.push_back(headMinion);
+		}
+
+        {
+
+            AnimationData bullet;
+            bullet.name = "Bullet";
+            bullet.collisionRectangle = { {0,0}, {inf, inf} };
+            bullet.scaledWidth = inf;
+            animationData.push_back(bullet);
+        }
+
+		{
+
+            AnimationData portal;
+            portal.name = "Portal";
+            portal.animationFPS[int(ActorState::idle)] = 20.0f;
+            portal.collisionRectangle = { { 85, spriteHeight - 299 }, { 229, spriteHeight - 19 } }; 
+            animationData.push_back(portal);
+		}
+
+		{
+
+            AnimationData striker;
+            striker.name = "Striker";
+            striker.animationFPS[(int)ActorState::run] = 20.0f;
+			striker.collisionRectangle = { { 36, 67 }, { 55, 35 } };
+			striker.scaledWidth = 40;
+            animationData.push_back(striker);
+		}
+
+		{
+
+            AnimationData spring;
+            spring.name = "Spring";
+			spring.collisionRectangle = { { 0, 31 }, { 31, 0 } };
+            animationData.push_back(bullet);
+		}
+
+		{
+
+			AnimationData MP;
+            MP.name = "MovingPlatform";
+			MP.collisionOffset = {};
+			MP.collisionRectangle = { { 0, 0 }, { inf, inf } };
+            animationData.push_back(MP);
+		}
+
+		{
+
+            AnimationData grapple;
+            grapple.name = "Bullet";
+			grapple.collisionRectangle = { {0,0}, { inf, inf } };
+			grapple.scaledWidth = inf;
+            animationData.push_back(grapple);
+		}
+
+		{
+
+            AnimationData knight;
+            knight.name = "Knight";
+			knight.collisionRectangle = { { 419, (44 + 814) }, { 419 + 360, 44} };
+            animationData.push_back(knight);
+		}
+		LoadAnimationStates(&animationData);
+#endif
+
 	sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
 	sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
 	sprites["MainMenuBackground"] = CreateSprite("MainMenuBackground.png", SDL_BLENDMODE_BLEND);
@@ -134,8 +221,9 @@ int main(int argc, char* argv[])
 	fonts["2"] = CreateFont("Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
 
     //Level instantiations
-    LoadLevel("Level 1");
-    LoadLevel("Default");
+    AddAllLevels();
+    //LoadLevel("Level 1");
+    //LoadLevel("Default");
 
     SwitchToMenu();
 
@@ -152,10 +240,10 @@ int main(int argc, char* argv[])
         float deltaTime = float(totalTime - previousTime);// / 10;
         previousTime = totalTime;
 
-        //if (deltaTime > 1 / 30.0f)
-        //{
-        //    deltaTime = 1 / 30.0f;
-        //}
+        if (deltaTime > 1 / 30.0f)
+        {
+            deltaTime = 1 / 30.0f;
+        }
 
         /*********************
          *
@@ -182,10 +270,12 @@ int main(int argc, char* argv[])
 
             case SDL_KEYDOWN:
                 keyStates[SDLEvent.key.keysym.sym].down = true;
+                DebugPrint("Key down: %f\n", totalTime);
                 break;
 
             case SDL_KEYUP:
                 keyStates[SDLEvent.key.keysym.sym].down = false;
+                DebugPrint("Key up:   %f\n", totalTime);
                 break;
 
             case SDL_MOUSEBUTTONDOWN:
@@ -233,18 +323,32 @@ int main(int argc, char* argv[])
 
             if (key.second.down)
             {
+                key.second.upThisFrame = false;
                 if (key.second.downPrevFrame)
+                {
+                    DebugPrint("KeyDown && DownPreviousFrame: %f\n", totalTime);
                     key.second.downThisFrame = false;
+                }
                 else
+                {
+                    DebugPrint("KeyDown && NotDownPreviousFrame: %f\n", totalTime);
                     key.second.downThisFrame = true;
+                }
             }
 
             else
             {
+                key.second.downThisFrame = false;
                 if (key.second.downPrevFrame)
+                {
+                    DebugPrint("KeyNOTDown && DownPreviousFrame: %f\n", totalTime);
                     key.second.upThisFrame = true;
+                }
                 else
+                {
+                    //DebugPrint("KeyNOTDown && NotDownPreviousFrame: %f\n", totalTime);
                     key.second.upThisFrame = false;
+                }
             }
             key.second.downPrevFrame = key.second.down;
         }

@@ -940,17 +940,6 @@
          "objects":[
                 {
                  "height":32,
-                 "id":1,
-                 "name":"",
-                 "rotation":0,
-                 "type":"PlayerType",
-                 "visible":true,
-                 "width":32,
-                 "x":-1888,
-                 "y":-32
-                }, 
-                {
-                 "height":32,
                  "id":6,
                  "name":"",
                  "properties":[

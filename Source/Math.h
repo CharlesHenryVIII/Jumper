@@ -51,6 +51,7 @@ constexpr int32 blockSize = 32;
 
 const float pi = 3.14159f;
 const float tau = 2 * pi;
+const float inf = 0x7f800000;
 //
 //const SDL_Color Red = { 255, 0, 0, 255 };
 //const SDL_Color Green = { 0, 255, 0, 255 };

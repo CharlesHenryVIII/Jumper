@@ -693,7 +693,7 @@ void RenderActor(Actor* actor, float rotation)
     int32 xPos;
     Sprite* sprite = GetSpriteFromAnimation(actor);
 
-    if (actor->lastInputWasLeft && actor->GetActorType() != ActorType::projectile)
+    if (actor->lastInputWasLeft && actor->GetActorType() != ActorType::Projectile)
     {
         flippage = true;
         xPos = sprite->width - actor->animationList->colRect.topRight.x;

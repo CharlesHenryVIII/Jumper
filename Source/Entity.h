@@ -1,6 +1,5 @@
 #pragma once
 #include "Math.h"
-//#include "Rendering.h"
 #include <unordered_map>
 #include <vector>
 #include <cassert>
@@ -18,17 +17,17 @@ enum class EnemyType
 
 enum class ActorType
 {
-    none,
-    player,
-    enemy,
-    projectile,
-    dummy,
-    portal,
-    spring,
-    movingPlatform,
-    grapple,
-    item,
-    count
+    None,
+    Player,
+    Enemy,
+    Projectile,
+    Dummy,
+    Portal,
+    Spring,
+    MovingPlatform,
+    Grapple,
+    Item,
+    Count
 };
 
 enum class ActorState
@@ -48,6 +47,14 @@ struct Animation
     float fps = 10;
     ActorState type = ActorState::none;
     Animation* fallBack = nullptr;
+};
+
+struct AnimationData {
+	const char* name = nullptr;
+    float animationFPS[int(ActorState::count)] = {};
+	Vector collisionOffset = { 0.125f, 0.25f };
+	Rectangle collisionRectangle = {};
+	float scaledWidth = 32;
 };
 
 struct AnimationList
@@ -109,7 +116,7 @@ enum class TileType {
 //asssert on functions
 struct DummyInfo {
 
-	ActorType mimicType = ActorType::none;
+	ActorType mimicType = ActorType::None;
 };
 
 struct ProjectileInfo {
@@ -139,7 +146,7 @@ public:
     {
     }
 
-    const ActorID id;
+    ActorID id;
     Vector position = {};
     Vector velocity = {};
     Vector terminalVelocity = { 10 , 300 };
@@ -163,6 +170,7 @@ public:
     int32 index = 0;
     float animationCountdown = 0;
 
+    virtual Actor* Copy() = 0;
     virtual void Update(float deltaTime) = 0;
     virtual void Render() = 0;
     virtual void UpdateHealth(Level& level, float deltaHealth) = 0;
@@ -178,7 +186,7 @@ public:
     }
     float GameWidth()
     {
-        return PixelToBlock((int)animationList->scaledWidth);// colRect.Width()* GoldenRatio();
+        return PixelToBlock((int)animationList->scaledWidth);
     }
     float GameHeight()
     {
@@ -189,12 +197,20 @@ public:
 
 #define ACTOR_TYPE(typename__)                                             \
     static const ActorType s_type = ActorType:: typename__;                \
-    ActorType GetActorType() override { return ActorType:: typename__; }
+    ActorType GetActorType() override { return ActorType:: typename__; }   \
+    Actor* Copy() override{                                                \
+        typename__* actor = new typename__();                              \
+        ActorID tempID = actor->id;                                        \
+        *actor = *this;                                                    \
+        actor->id = tempID;                                                \
+        return actor;                                                      \
+    }
+
 
 
 struct Enemy : public Actor
 {
-    ACTOR_TYPE(enemy);
+    ACTOR_TYPE(Enemy);
 
     EnemyType enemyType;
     void OnInit();
@@ -205,7 +221,7 @@ struct Enemy : public Actor
 
 struct Player : public Actor
 {
-    ACTOR_TYPE(player);
+    ACTOR_TYPE(Player);
 
     bool grappleEnabled = false;
     bool grappleReady = true;
@@ -220,7 +236,7 @@ struct Player : public Actor
 
 struct Projectile : public Actor
 {
-    ACTOR_TYPE(projectile);
+    ACTOR_TYPE(Projectile);
 
     Vector destination;
     TileType paintType;
@@ -234,7 +250,7 @@ struct Projectile : public Actor
 
 struct Dummy : public Actor
 {
-    ACTOR_TYPE(dummy);
+    ACTOR_TYPE(Dummy);
 
     void OnInit(const DummyInfo& info);
     void Update(float deltaTime) override;
@@ -244,7 +260,7 @@ struct Dummy : public Actor
 
 struct Portal : public Actor
 {
-    ACTOR_TYPE(portal);
+    ACTOR_TYPE(Portal);
     std::string levelPointer;
     int32 portalPointerID = 0;
     int32 portalID = 0;
@@ -257,7 +273,7 @@ struct Portal : public Actor
 
 struct Spring : public Actor
 {
-    ACTOR_TYPE(spring);
+    ACTOR_TYPE(Spring);
 
     Vector springVelocity = { 0.0f, 30.0f };
 
@@ -270,7 +286,7 @@ struct Spring : public Actor
 //NOTE: moving platform must have atleast 2 locations, the first being the original location
 struct MovingPlatform : public Actor
 {
-    ACTOR_TYPE(movingPlatform);
+    ACTOR_TYPE(MovingPlatform);
 
     std::vector<Vector> locations;
     Vector dest;
@@ -287,7 +303,7 @@ struct MovingPlatform : public Actor
 
 struct Grapple : public Actor
 {
-    ACTOR_TYPE(grapple);
+    ACTOR_TYPE(Grapple);
     Vector destination;
     float rotation = 0;
     ActorID attachedActor = 0;
@@ -300,10 +316,9 @@ struct Grapple : public Actor
 
 struct Item : public Actor
 {
-    ACTOR_TYPE(item);
+    ACTOR_TYPE(Item);
 
     void OnInit();
-    Item(float healthChange);
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -345,8 +360,6 @@ public:
 
 
 extern Projectile laser;
-//extern Level* currentLevel;
-extern std::unordered_map<std::string, Level> levels;
 extern std::unordered_map<std::string, AnimationList> actorAnimations;
 
 struct Level
@@ -369,7 +382,6 @@ public:
     std::vector<Actor*> actors;
     std::vector<ActorID> movingPlatforms;
     TileMap blocks;
-    const char* filename;  //DefaultLevel.PNG;
     ActorID playerID;
 
     struct NullInfo {};
@@ -409,11 +421,17 @@ public:
 	{
 		for (Actor* actor : actors)
 		{
-			if (actor->GetActorType() == ActorType::player)
+			if (actor->GetActorType() == ActorType::Player)
 				return (Player*)actor;
 		}
 		return nullptr;
 	}
+
+    void AddActor(Actor* actor)
+    {
+        actors.push_back(actor);
+        actor->level = this;
+    }
 };
 
 enum class CollisionDirection {
@@ -429,8 +447,8 @@ enum class CollisionDirection {
 Player* FindPlayerGlobal();
 TileType CheckColor(SDL_Color color);
 Color GetTileMapColor(const Block& block);
-void SaveLevel(Level* level, Player& player);
-void LoadLevel(Level* level, Player& player);
+//void SaveLevel(Level* level, Player& player);
+//void LoadLevel(Level* level, Player& player);
 void UpdateAllNeighbors(Block* block, Level* level);
 void SurroundBlockUpdate(Block* block, bool updateTop, Level* level);
 void ClickUpdate(Block* block, bool updateTop, Level* level);
@@ -447,7 +465,6 @@ void UpdateEnemiesPosition(std::vector<Actor*>* actors, float gravity, float del
 void RenderActors(std::vector<Actor*>* actors);
 void RenderActorHealthBars(Actor& actor);
 void LoadAllAnimationStates(const std::string& entity);
-void AttachAnimation(Actor* actor, ActorType overrideType = ActorType::none);
-
-
+void LoadAnimationStates(std::vector<AnimationData>* animationData);
+void AttachAnimation(Actor* actor, ActorType overrideType = ActorType::None);
 

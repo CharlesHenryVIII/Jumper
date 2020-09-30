@@ -1,4 +1,4 @@
 #pragma once
 
-Level* GetLevel(const std::string& name);
-Level* LoadLevel(const std::string& name);
+void AddAllLevels();
+void LoadLevel(Level* level, const std::string& name);

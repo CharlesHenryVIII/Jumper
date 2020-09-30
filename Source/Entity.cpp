@@ -1,6 +1,7 @@
 #include "Entity.h"
 #include "Rendering.h"
 #include "Math.h"
+#include "GamePlay.h"
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
 #include "TiledInterop.h"
@@ -13,7 +14,6 @@
 ActorID Actor::lastID = 0;
 
 Projectile laser = {};
-std::unordered_map<std::string, Level> levels;
 //Level* currentLevel = nullptr;
 std::unordered_map<std::string, AnimationList> actorAnimations;
 
@@ -22,6 +22,7 @@ std::unordered_map<std::string, AnimationList> actorAnimations;
  * Player
  *
  ********/
+
 
 void Player::OnInit()
 {
@@ -168,7 +169,7 @@ void Projectile::Render()
 void Dummy::OnInit(const DummyInfo& info)
 {
 
-	assert(info.mimicType != ActorType::none);
+	assert(info.mimicType != ActorType::None);
 	health = 0;
 	inUse = true;
 	AttachAnimation(this, info.mimicType);
@@ -347,12 +348,6 @@ void Item::OnInit()
 {
 
 }
-Item::Item(float healthChange)
-{
-	inUse = true;
-	damage = -healthChange;
-}
-
 void Item::Update(float deltaTime)
 {
 	UpdateAnimationIndex(this, deltaTime);
@@ -466,7 +461,8 @@ void TileMap::CleanBlocks()
 //std::unordered_map<std::string, Level> levels;
 Player* FindPlayerGlobal()
 {
-	for (auto& level : levels)
+	Gamestate* gs = GetGamestate();
+	for (auto& level : gs->levels)
 	{
 		Player* ptr = level.second.FindPlayer();
 		if (ptr)
@@ -475,17 +471,6 @@ Player* FindPlayerGlobal()
 	return nullptr;
 }
 
-template <typename T>
-T* FindPlayerGlobal(ActorID id)
-{
-	for (auto& level : levels)
-	{
-		T* a = level.second.FindActor<T>(id);
-		if (a)
-			return a;
-	}
-	return nullptr;
-}
 
 TileType CheckColor(SDL_Color color)
 {
@@ -508,7 +493,7 @@ Color GetTileMapColor(const Block& block)
 		return {};
 
 }
-
+#if 0
 void SaveLevel(Level* level, Player &player)
 {
 	//Setup
@@ -559,6 +544,7 @@ void SaveLevel(Level* level, Player &player)
 	//Saving written memory to file
 	int32 stride_in_bytes = 4 * width;
 	int32 colorChannels = 4;
+	assert(false);
 	stbi_write_png(level->filename, width, height, colorChannels, memBuff.data(), stride_in_bytes);
 }
 
@@ -568,6 +554,7 @@ void LoadLevel(Level* level, Player& player)
 	level->blocks.ClearBlocks();
 
 	int32 textureHeight, textureWidth, colorChannels;
+	assert(false);
 	SDL_Color* image = (SDL_Color*)stbi_load(level->filename, &textureWidth, &textureHeight, &colorChannels, STBI_rgb_alpha);
 
 	for (int32 y = 0; y < textureHeight; y++)
@@ -586,7 +573,7 @@ void LoadLevel(Level* level, Player& player)
 	level->blocks.UpdateAllBlocks();
 	stbi_image_free(image);
 }
-
+#endif
 
 void UpdateAllNeighbors(Block* block, Level* level)
 {
@@ -647,7 +634,7 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	Rectangle xRect = CollisionXOffsetToRectangle(actor);
 	Rectangle yRect = CollisionYOffsetToRectangle(actor);
 
-	if (actor->GetActorType() == ActorType::player && debugList[DebugOptions::playerCollision])
+	if (actor->GetActorType() == ActorType::Player && debugList[DebugOptions::playerCollision])
 	{
 		AddRectToRender(xRect, transGreen, RenderPrio::Debug, CoordinateSpace::World);
 		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);
@@ -787,7 +774,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	//Grounded Logic
 	if (actor->grounded != grounded)
 	{
-		if (!grounded && (actor->GetActorType() == ActorType::player || actor->GetActorType() == ActorType::enemy))
+		if (!grounded && (actor->GetActorType() == ActorType::Player || actor->GetActorType() == ActorType::Enemy))
 			PlayAnimation(actor, ActorState::jump);
 	}
 	actor->grounded = grounded;
@@ -812,7 +799,7 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 	uint32 yCollisionFlags = CollisionWithRect(&player, yRect) & (CollisionBot | CollisionTop);
 	float knockBackAmount = 20;
 	result = xCollisionFlags | yCollisionFlags;
-	if (enemy.GetActorType() == ActorType::enemy)
+	if (enemy.GetActorType() == ActorType::Enemy)
 	{
 		if (result & CollisionBot)
 		{//hit enemy, apply damage to enemy
@@ -845,11 +832,11 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 Portal* GetPortalsPointer(Portal* basePortal)
 {
 
-	Level* level = GetLevel(basePortal->levelPointer);
+	Level* level = GetGamestate()->GetLevel(basePortal->levelPointer);
 	for (int32 i = 0; i < level->actors.size(); i++)
 	{
 		Actor* actor = level->actors[i];
-		if (actor->GetActorType() == ActorType::portal)
+		if (actor->GetActorType() == ActorType::Portal)
 		{
 			Portal* result = (Portal*)actor;
 			if (result->portalID == basePortal->portalPointerID)
@@ -991,10 +978,10 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 
 	ActorType actorType = actor->GetActorType();
 	if (actor->velocity.x == 0 && actor->velocity.y == 0 &&
-		(actorType == ActorType::player || actorType == ActorType::enemy))
+		(actorType == ActorType::Player || actorType == ActorType::Enemy))
 		PlayAnimation(actor, ActorState::idle);
 
-	if (actorType != ActorType::player)
+	if (actorType != ActorType::Player)
 	{
 		if (actor->velocity.x < 0)
 			actor->lastInputWasLeft = true;
@@ -1009,7 +996,7 @@ void UpdateEnemiesPosition(std::vector<Actor*>* actors, float gravity, float del
 	for (int32 i = 0; i < actors->size(); i++)
 	{
 		Actor* actor = (*actors)[i];
-		if (actor->GetActorType() == ActorType::enemy)
+		if (actor->GetActorType() == ActorType::Enemy)
 		{
 			UpdateLocation(actor, gravity, deltaTime);
 			CollisionWithBlocks(actor, true);
@@ -1072,49 +1059,85 @@ void LoadAllAnimationStates(const std::string& entity)
 	}
 }
 
+void LoadAnimationStates(std::vector<AnimationData>* animationData)
+{
+	if (animationData = nullptr)
+		return;
+	for (int i = 0; i < animationData->size(); i++)
+	{
+		//flip y for images since top left is origin in image and bottom left is origin in game
+		//handle infinity being the size of the sprite either width or height
+		if (actorAnimations.find((*animationData)[i].name) != actorAnimations.end())
+			return;
+
+		std::string stateStrings[(int32)ActorState::count] = { "error", "Idle", "Walk", "Run", "Jump", "Dead" };
+		actorAnimations[data->name].animations.reserve((int32)ActorState::count);
+
+		for (int32 i = 1; i < (int32)ActorState::count; i++)
+		{
+			Animation* animeP = new Animation();
+			animeP->type = (ActorState)i;
+			animeP->anime.reserve(20);
+			for (int32 j = 1; true; j++)
+			{
+				std::string combinedName = "Assets/" + std::string(data->name) + "/" + stateStrings[i] + " (" + std::to_string(j) + ").png";
+				Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
+				if (sprite == nullptr)
+					break;
+				else
+					animeP->anime.push_back(sprite);
+			}
+			if (animeP->anime.size() > 0)
+				actorAnimations[data->name].animations.push_back(animeP);
+			else
+				delete animeP;
+		}
+	}
+}
+
 void AttachAnimation(Actor* actor, ActorType overrideType)
 {
 	std::string entityName;
 	ActorType actorReferenceType;
 
-	if (overrideType != ActorType::none)
+	if (overrideType != ActorType::None)
 		actorReferenceType = overrideType;
 	else
 		actorReferenceType = actor->GetActorType();
 
 	switch (actorReferenceType)
 	{
-	case ActorType::player:
+	case ActorType::Player:
 	{
 		entityName = "Knight"; //"Dino";
 		break;
 	}
-	case ActorType::enemy:
+	case ActorType::Enemy:
 	{
 		entityName = "Striker";//"HeadMinion";
 		break;
 	}
-	case ActorType::projectile:
+	case ActorType::Projectile:
 	{
 		entityName = "Bullet";
 		break;
 	}
-	case ActorType::portal:
+	case ActorType::Portal:
 	{
 		entityName = "Portal";
 		break;
 	}
-	case ActorType::spring:
+	case ActorType::Spring:
 	{
 		entityName = "Spring";
 		break;
 	}
-	case ActorType::movingPlatform:
+	case ActorType::MovingPlatform:
 	{
 		entityName = "MovingPlatform";
 		break;
 	}
-	case ActorType::grapple:
+	case ActorType::Grapple:
 	{
 		entityName = "Grapple";
 		break;
@@ -1126,3 +1149,4 @@ void AttachAnimation(Actor* actor, ActorType overrideType)
 	}
 	actor->animationList = &actorAnimations[entityName];
 }
+

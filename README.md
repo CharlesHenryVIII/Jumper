@@ -3,9 +3,9 @@
 
 ### TODO:
 #### Current
-- [ ] Level* on each actor, get rid of "curentLevel"
-- [ ] cleanup actor creation Code (use Chris' method?)
-- [ ] Find actor returns correct type, template!?
+- [x] Level* on each actor, get rid of "curentLevel"
+- [x] cleanup actor creation Code (use Chris' method?)
+- [x] Find actor returns correct type, template!?
 - [ ] Tuesday with Chris TODO:
 	- [ ] Write a heap alloc
 	- [x] Write a sort algorithm (bubble sort) DO ON OWN

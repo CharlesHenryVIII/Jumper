@@ -48,83 +48,8 @@ int main(int argc, char* argv[])
     iconSurface.
     */
 
-#if 0
-    //Sprite Creation
-    LoadAllAnimationStates("Dino");
-    LoadAllAnimationStates("HeadMinion");
-    LoadAllAnimationStates("Bullet");
-    LoadAllAnimationStates("Portal");
-    LoadAllAnimationStates("Striker");
-    LoadAllAnimationStates("Spring");
-    LoadAllAnimationStates("MovingPlatform");
-    LoadAllAnimationStates("Grapple");
-    LoadAllAnimationStates("Knight");
-    {
-
-		AnimationList& dino = actorAnimations["Dino"];
-		dino.GetAnimation(ActorState::jump)->fps = 30.0f;
-		dino.GetAnimation(ActorState::run)->fps = 15.0f;
-		int32 spriteHeight = dino.GetAnyValidAnimation()->anime[0]->height;
-		dino.colOffset.x = 0.2f;
-		dino.colOffset.y = 0.3f;
-		dino.colRect = { { 130, spriteHeight - 421 }, { 331, spriteHeight - 33 } };//680 x 472
-		dino.scaledWidth = 32;
-
-		AnimationList& headMinion = actorAnimations["HeadMinion"];
-		spriteHeight = headMinion.GetAnyValidAnimation()->anime[0]->height;
-        headMinion.colOffset = basicCollisionOffset;
-		headMinion.colRect = { { 4, spriteHeight - 32 }, { 27, spriteHeight - 9 } };
-		headMinion.scaledWidth = (float)headMinion.colRect.Width();
-
-		AnimationList& bullet = actorAnimations["Bullet"];
-		Sprite* bulletSprite = bullet.GetAnyValidAnimation()->anime[0];
-        bullet.colRect = { {0,0}, {bulletSprite->width, bulletSprite->height} };
-		//bullet.scaledWidth = (float)bullet.colRect.Width();
-	    bullet.scaledWidth = (float)bulletSprite->width;
-
-		AnimationList& portal = actorAnimations["Portal"];
-		spriteHeight = portal.GetAnyValidAnimation()->anime[0]->height;
-		portal.GetAnimation(ActorState::idle)->fps = 20.0f;
-        portal.colOffset = basicCollisionOffset;
-		portal.colRect = { { 85, spriteHeight - 299 }, { 229, spriteHeight - 19 } };
-		portal.scaledWidth = 32;
-
-		AnimationList& striker = actorAnimations["Striker"];
-		striker.GetAnimation(ActorState::run)->fps = 20.0f;
-		spriteHeight = striker.GetAnyValidAnimation()->anime[0]->height;
-        striker.colOffset = basicCollisionOffset;
-		striker.colRect = { { 36, spriteHeight - 67 }, { 55, spriteHeight - 35 } };
-		striker.scaledWidth = 40;
-
-		AnimationList& spring = actorAnimations["Spring"];
-		spriteHeight = spring.GetAnyValidAnimation()->anime[0]->height;
-        spring.colOffset = basicCollisionOffset;
-		spring.colRect = { { 0, spriteHeight - 31 }, { 31, spriteHeight - 0 } };
-		spring.scaledWidth = 32;
-
-		AnimationList& MP = actorAnimations["MovingPlatform"];
-		spriteHeight = MP.GetAnyValidAnimation()->anime[0]->height;
-		int32 spriteWidth = MP.GetAnyValidAnimation()->anime[0]->width;
-        MP.colOffset = {};
-		MP.colRect = { { 0, 0 }, { spriteWidth, spriteHeight } };
-		MP.scaledWidth = 32;
-
-		AnimationList& grapple = actorAnimations["Bullet"];
-		Sprite* grappleSprite = grapple.GetAnyValidAnimation()->anime[0];
-        grapple.colRect = { {0,0}, {grappleSprite->width, grappleSprite->height} };
-	    grapple.scaledWidth = (float)grappleSprite->width;
-
-		AnimationList& K = actorAnimations["Knight"];
-		spriteHeight = K.GetAnyValidAnimation()->anime[0]->height;
-        K.colOffset = basicCollisionOffset;
-		K.colRect = { { 419, spriteHeight - (44 + 814) }, { 419 + 360, spriteHeight - 44} };
-		K.scaledWidth = 32;
-    }
-
-#else 
-
-    std::vector<AnimationData> animationData;
         {
+	        std::vector<AnimationData> animationData;
 
             AnimationData dino = {};
             dino.name = "Dino";
@@ -133,35 +58,24 @@ int main(int argc, char* argv[])
             dino.collisionOffset = { 0.2f, 0.3f };
             dino.collisionRectangle = { { 130, 421 }, { 331, 33 } };
             animationData.push_back(dino);
-        }
-        {
 
             AnimationData headMinion = {};
             headMinion.name = "HeadMinion";
 			headMinion.collisionRectangle = { { 4, 32 }, { 27, 9 } };
             headMinion.scaledWidth = inf;
             animationData.push_back(headMinion);
-		}
-
-        {
 
             AnimationData bullet;
             bullet.name = "Bullet";
-            bullet.collisionRectangle = { {0,0}, {inf, inf} };
+            bullet.collisionRectangle = { { 0, inf }, { inf, 0 } };
             bullet.scaledWidth = inf;
             animationData.push_back(bullet);
-        }
-
-		{
 
             AnimationData portal;
             portal.name = "Portal";
             portal.animationFPS[int(ActorState::idle)] = 20.0f;
-            portal.collisionRectangle = { { 85, spriteHeight - 299 }, { 229, spriteHeight - 19 } }; 
+            portal.collisionRectangle = { { 85, 299 }, { 229, 19 } }; 
             animationData.push_back(portal);
-		}
-
-		{
 
             AnimationData striker;
             striker.name = "Striker";
@@ -169,43 +83,31 @@ int main(int argc, char* argv[])
 			striker.collisionRectangle = { { 36, 67 }, { 55, 35 } };
 			striker.scaledWidth = 40;
             animationData.push_back(striker);
-		}
-
-		{
-
+            
             AnimationData spring;
             spring.name = "Spring";
 			spring.collisionRectangle = { { 0, 31 }, { 31, 0 } };
-            animationData.push_back(bullet);
-		}
-
-		{
+            animationData.push_back(spring);
 
 			AnimationData MP;
             MP.name = "MovingPlatform";
 			MP.collisionOffset = {};
-			MP.collisionRectangle = { { 0, 0 }, { inf, inf } };
+			MP.collisionRectangle = { { 0, inf }, { inf, 0 } };
             animationData.push_back(MP);
-		}
-
-		{
 
             AnimationData grapple;
             grapple.name = "Bullet";
-			grapple.collisionRectangle = { {0,0}, { inf, inf } };
+			grapple.collisionRectangle = { { 0, inf }, { inf, 0 } };
 			grapple.scaledWidth = inf;
             animationData.push_back(grapple);
-		}
-
-		{
 
             AnimationData knight;
             knight.name = "Knight";
 			knight.collisionRectangle = { { 419, (44 + 814) }, { 419 + 360, 44} };
             animationData.push_back(knight);
+	        LoadAnimationStates(&animationData);
 		}
-		LoadAnimationStates(&animationData);
-#endif
+
 
 	sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
 	sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
@@ -331,7 +233,7 @@ int main(int argc, char* argv[])
                 }
                 else
                 {
-                    DebugPrint("KeyDown && NotDownPreviousFrame: %f\n", totalTime);
+                    DebugPrint("Down this frame: %f\n", totalTime);
                     key.second.downThisFrame = true;
                 }
             }
@@ -341,7 +243,7 @@ int main(int argc, char* argv[])
                 key.second.downThisFrame = false;
                 if (key.second.downPrevFrame)
                 {
-                    DebugPrint("KeyNOTDown && DownPreviousFrame: %f\n", totalTime);
+                    DebugPrint("Up This frame: %f\n", totalTime);
                     key.second.upThisFrame = true;
                 }
                 else

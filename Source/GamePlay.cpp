@@ -87,7 +87,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
      ********/
 
     if (player != nullptr)
-    { 
+    {
         player->acceleration.x = 0;
         if (keyStates[SDLK_w].downThisFrame || keyStates[SDLK_SPACE].downThisFrame || keyStates[SDLK_UP].downThisFrame)
         {
@@ -178,7 +178,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                 }
             }
         }
-    
+
 
         if (player->grappleDeployed)
         {
@@ -189,7 +189,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             if (keyStates[SDL_BUTTON_LEFT].downThisFrame && player->grappleEnabled && player->grappleReady)
             {
                 //spawn grapple
-                
+
                 Grapple* grapple = new Grapple();
                 grapple->inUse = true;
 
@@ -225,6 +225,18 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             LoadLevel(&cacheLevel, *player);
 #endif
     }
+
+	if (keyStates[SDLK_1].downThisFrame)
+		debugList[DebugOptions::playerCollision] = !debugList[DebugOptions::playerCollision];
+	if (keyStates[SDLK_2].downThisFrame)
+		debugList[DebugOptions::blockCollision] = !debugList[DebugOptions::blockCollision];
+	if (keyStates[SDLK_3].downThisFrame)
+		debugList[DebugOptions::clickLocation] = !debugList[DebugOptions::clickLocation];
+	if (keyStates[SDLK_4].downThisFrame)
+		debugList[DebugOptions::paintMethod] = !debugList[DebugOptions::paintMethod];
+	if (keyStates[SDLK_5].downThisFrame)
+		debugList[DebugOptions::editBlocks] = !debugList[DebugOptions::editBlocks];
+
     if (levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
     {
         //remove player from new level, load player from old level, delete player from old level.

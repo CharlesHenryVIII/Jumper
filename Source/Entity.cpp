@@ -1061,23 +1061,28 @@ void LoadAllAnimationStates(const std::string& entity)
 
 void LoadAnimationStates(std::vector<AnimationData>* animationData)
 {
-	if (animationData = nullptr)
-		return;
+	assert(animationData);
+
 	for (int i = 0; i < animationData->size(); i++)
 	{
-		//flip y for images since top left is origin in image and bottom left is origin in game
-		//handle infinity being the size of the sprite either width or height
-		if (actorAnimations.find((*animationData)[i].name) != actorAnimations.end())
-			return;
+		////flip y for images since top left is origin in image and bottom left is origin in game
+		////handle infinity being the size of the sprite either width or height
+		AnimationData* data = &((*animationData)[i]);
+		if (actorAnimations.find(data->name) != actorAnimations.end())
+			continue;
 
 		std::string stateStrings[(int32)ActorState::count] = { "error", "Idle", "Walk", "Run", "Jump", "Dead" };
-		actorAnimations[data->name].animations.reserve((int32)ActorState::count);
+		
+		AnimationList* animationList = &actorAnimations[data->name];
+		animationList->animations.reserve((int32)ActorState::count);
 
 		for (int32 i = 1; i < (int32)ActorState::count; i++)
 		{
 			Animation* animeP = new Animation();
 			animeP->type = (ActorState)i;
 			animeP->anime.reserve(20);
+			if (data->animationFPS[i])
+				animeP->fps = data->animationFPS[i];
 			for (int32 j = 1; true; j++)
 			{
 				std::string combinedName = "Assets/" + std::string(data->name) + "/" + stateStrings[i] + " (" + std::to_string(j) + ").png";
@@ -1088,11 +1093,36 @@ void LoadAnimationStates(std::vector<AnimationData>* animationData)
 					animeP->anime.push_back(sprite);
 			}
 			if (animeP->anime.size() > 0)
-				actorAnimations[data->name].animations.push_back(animeP);
+				animationList->animations.push_back(animeP);
 			else
 				delete animeP;
 		}
+
+		Swap(&data->collisionRectangle.botLeft.y, &data->collisionRectangle.topRight.y, sizeof(data->collisionRectangle.botLeft.y));
+		Sprite* sprite = animationList->GetAnyValidAnimation()->anime[0];
+		assert(sprite);
+		if (data->collisionRectangle.botLeft.x == inf)
+			data->collisionRectangle.botLeft.x = (float)sprite->width;
+		if (data->collisionRectangle.topRight.x == inf)
+			data->collisionRectangle.topRight.x = (float)sprite->width;
+		if (data->collisionRectangle.botLeft.y == inf)
+			data->collisionRectangle.botLeft.y = (float)sprite->height;
+		if (data->collisionRectangle.topRight.y == inf)
+			data->collisionRectangle.topRight.y = (float)sprite->height;
+
+		animationList->colOffset = data->collisionOffset;
+		animationList->colRect.bottomLeft.x = (int32)data->collisionRectangle.botLeft.x;
+		animationList->colRect.bottomLeft.y = (int32)data->collisionRectangle.botLeft.y;
+		animationList->colRect.topRight.x  = (int32)data->collisionRectangle.topRight.x;
+		animationList->colRect.topRight.y  = (int32)data->collisionRectangle.topRight.y;
+
+		if (data->scaledWidth == inf)
+			animationList->scaledWidth = (float)sprite->width;
+		else
+			actorAnimations[data->name].scaledWidth = data->scaledWidth;
+		
 	}
+	DebugPrint("done");
 }
 
 void AttachAnimation(Actor* actor, ActorType overrideType)

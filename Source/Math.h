@@ -52,32 +52,6 @@ constexpr int32 blockSize = 32;
 const float pi = 3.14159f;
 const float tau = 2 * pi;
 const float inf = 0x7f800000;
-//
-//const SDL_Color Red = { 255, 0, 0, 255 };
-//const SDL_Color Green = { 0, 255, 0, 255 };
-//const SDL_Color Blue = { 0, 0, 255, 255 };
-//
-//
-//const SDL_Color transRed = { 255, 0, 0, 127 };
-//const SDL_Color transGreen = { 0, 255, 0, 127 };
-//const SDL_Color transBlue = { 0, 0, 255, 127 };
-//const SDL_Color transOrange = { 255, 128, 0, 127 };
-//
-//const SDL_Color lightRed = { 255, 0, 0, 63 };
-//const SDL_Color lightGreen = { 0, 255, 0, 63 };
-//const SDL_Color lightBlue = { 0, 0, 255, 63 };
-//
-//const SDL_Color White = { 255, 255, 255, 255 };
-//const SDL_Color lightWhite = { 150, 150, 150, 150 };
-//const SDL_Color Black = { 0, 0, 0, 255 };
-//const SDL_Color lightBlack = { 0, 0, 0, 150 };
-//const SDL_Color Brown = { 130, 100, 70, 255 };  //used for dirt block
-//const SDL_Color Mint = { 0, 255, 127, 255 };   //used for corner block
-//const SDL_Color Orange = { 255, 127, 0, 255 };   //used for edge block
-//const SDL_Color Grey = { 127, 127, 127, 255 }; //used for floating block
-//
-//const SDL_Color HealthBarBackground = { 58, 85, 58, 255 };
-
 
 const uint32 CollisionNone = 0;
 const uint32 CollisionTop = 1;
@@ -135,15 +109,6 @@ struct Rectangle_Int {
     {
         return topRight.y - bottomLeft.y;
     }
-
-    //bool Collision(VectorInt loc)
-    //{
-    //    bool result = false;
-    //    if (loc.y > bottomLeft.x && loc.y < topRight.x)
-    //        if (loc.x > bottomLeft.x && loc.x < topRight.x)
-    //            result = true;
-    //    return result;
-    //}
 };
 
 
@@ -242,9 +207,9 @@ inline float DotProduct(Vector a, Vector b)
     return a.x * b.x + a.y * b.y;
 }
 
-
-
 inline float Pythags(Vector a)
 {
     return sqrtf(powf(a.x, 2) + powf(a.y, 2));
 }
+
+void Swap(void* a, void* b, const int size);

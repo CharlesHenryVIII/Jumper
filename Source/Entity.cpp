@@ -1030,36 +1030,7 @@ void RenderActorHealthBars(Actor& actor)
     AddRectToRender(RenderType::DebugFill, actual, Green, RenderPrio::Debug, CoordinateSpace::World);
 }
 
-void LoadAllAnimationStates(const std::string& entity)
-{
-	if (actorAnimations.find(entity) != actorAnimations.end())
-		return;
-
-	std::string stateStrings[(int32)ActorState::count] = {"error", "Idle", "Walk", "Run", "Jump", "Dead"};
-	actorAnimations[entity].animations.reserve((int32)ActorState::count);
-
-	for (int32 i = 1; i < (int32)ActorState::count; i++)
-	{
-		Animation* animeP = new Animation();
-		animeP->type = (ActorState)i;
-		animeP->anime.reserve(20);
-		for (int32 j = 1; true; j++)
-		{
-			std::string combinedName = "Assets/" + entity + "/" + stateStrings[i] + " (" + std::to_string(j) + ").png";
-			Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
-			if (sprite == nullptr)
-				break;
-			else
-				animeP->anime.push_back(sprite);
-		}
-		if (animeP->anime.size() > 0)
-			actorAnimations[entity].animations.push_back(animeP);
-		else
-			delete animeP;
-	}
-}
-
-void LoadAnimationStates(std::vector<AnimationData>* animationData)
+void LoadAnimationStates(std::vector<AnimationData> * animationData)
 {
 	assert(animationData);
 
@@ -1122,8 +1093,69 @@ void LoadAnimationStates(std::vector<AnimationData>* animationData)
 			actorAnimations[data->name].scaledWidth = data->scaledWidth;
 		
 	}
-	DebugPrint("done");
 }
+
+void LoadAllAnimationStates()
+{
+	std::vector<AnimationData> animationData;
+
+	AnimationData dino = {};
+	dino.name = "Dino";
+	dino.animationFPS[int(ActorState::jump)] = 30.0f;
+	dino.animationFPS[int(ActorState::run)] = 30.0f;
+	dino.collisionOffset = { 0.2f, 0.3f };
+	dino.collisionRectangle = { { 130, 421 }, { 331, 33 } };
+	animationData.push_back(dino);
+
+	AnimationData headMinion = {};
+	headMinion.name = "HeadMinion";
+	headMinion.collisionRectangle = { { 4, 32 }, { 27, 9 } };
+	headMinion.scaledWidth = inf;
+	animationData.push_back(headMinion);
+
+	AnimationData bullet;
+	bullet.name = "Bullet";
+	bullet.collisionRectangle = { { 0, inf }, { inf, 0 } };
+	bullet.scaledWidth = inf;
+	animationData.push_back(bullet);
+
+	AnimationData portal;
+	portal.name = "Portal";
+	portal.animationFPS[int(ActorState::idle)] = 20.0f;
+	portal.collisionRectangle = { { 85, 299 }, { 229, 19 } };
+	animationData.push_back(portal);
+
+	AnimationData striker;
+	striker.name = "Striker";
+	striker.animationFPS[(int)ActorState::run] = 20.0f;
+	striker.collisionRectangle = { { 36, 67 }, { 55, 35 } };
+	striker.scaledWidth = 40;
+	animationData.push_back(striker);
+
+	AnimationData spring;
+	spring.name = "Spring";
+	spring.collisionRectangle = { { 0, 31 }, { 31, 0 } };
+	animationData.push_back(spring);
+
+	AnimationData MP;
+	MP.name = "MovingPlatform";
+	MP.collisionOffset = {};
+	MP.collisionRectangle = { { 0, inf }, { inf, 0 } };
+	animationData.push_back(MP);
+
+	AnimationData grapple;
+	grapple.name = "Bullet";
+	grapple.collisionRectangle = { { 0, inf }, { inf, 0 } };
+	grapple.scaledWidth = inf;
+	animationData.push_back(grapple);
+
+	AnimationData knight;
+	knight.name = "Knight";
+	knight.collisionRectangle = { { 419, (44 + 814) }, { 419 + 360, 44} };
+	animationData.push_back(knight);
+	LoadAnimationStates(&animationData);
+}
+
 
 void AttachAnimation(Actor* actor, ActorType overrideType)
 {

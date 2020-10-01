@@ -48,66 +48,7 @@ int main(int argc, char* argv[])
     iconSurface.
     */
 
-        {
-	        std::vector<AnimationData> animationData;
-
-            AnimationData dino = {};
-            dino.name = "Dino";
-            dino.animationFPS[int(ActorState::jump)] = 30.0f;
-            dino.animationFPS[int(ActorState::run)] = 30.0f;
-            dino.collisionOffset = { 0.2f, 0.3f };
-            dino.collisionRectangle = { { 130, 421 }, { 331, 33 } };
-            animationData.push_back(dino);
-
-            AnimationData headMinion = {};
-            headMinion.name = "HeadMinion";
-			headMinion.collisionRectangle = { { 4, 32 }, { 27, 9 } };
-            headMinion.scaledWidth = inf;
-            animationData.push_back(headMinion);
-
-            AnimationData bullet;
-            bullet.name = "Bullet";
-            bullet.collisionRectangle = { { 0, inf }, { inf, 0 } };
-            bullet.scaledWidth = inf;
-            animationData.push_back(bullet);
-
-            AnimationData portal;
-            portal.name = "Portal";
-            portal.animationFPS[int(ActorState::idle)] = 20.0f;
-            portal.collisionRectangle = { { 85, 299 }, { 229, 19 } }; 
-            animationData.push_back(portal);
-
-            AnimationData striker;
-            striker.name = "Striker";
-            striker.animationFPS[(int)ActorState::run] = 20.0f;
-			striker.collisionRectangle = { { 36, 67 }, { 55, 35 } };
-			striker.scaledWidth = 40;
-            animationData.push_back(striker);
-            
-            AnimationData spring;
-            spring.name = "Spring";
-			spring.collisionRectangle = { { 0, 31 }, { 31, 0 } };
-            animationData.push_back(spring);
-
-			AnimationData MP;
-            MP.name = "MovingPlatform";
-			MP.collisionOffset = {};
-			MP.collisionRectangle = { { 0, inf }, { inf, 0 } };
-            animationData.push_back(MP);
-
-            AnimationData grapple;
-            grapple.name = "Bullet";
-			grapple.collisionRectangle = { { 0, inf }, { inf, 0 } };
-			grapple.scaledWidth = inf;
-            animationData.push_back(grapple);
-
-            AnimationData knight;
-            knight.name = "Knight";
-			knight.collisionRectangle = { { 419, (44 + 814) }, { 419 + 360, 44} };
-            animationData.push_back(knight);
-	        LoadAnimationStates(&animationData);
-		}
-
+    LoadAllAnimationStates();
 
 	sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
 	sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);

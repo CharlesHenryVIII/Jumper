@@ -379,7 +379,8 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     if (player != nullptr)
     {
 
-        camera.position = player->position;
+        camera.position.x = player->position.x + (player->GameWidth() / 2.0f);
+        camera.position.y = player->position.y + (player->GameHeight() / 2.0f);
         camera.level = player->level;
     }
     

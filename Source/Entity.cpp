@@ -114,6 +114,7 @@ void Projectile::OnInit(const ProjectileInfo& info)
 	assert(info.player);
 
 	paintType = info.blockToBeType;
+	allowRenderFlip = false;
 	AttachAnimation(this);
 	PlayAnimation(this, ActorState::idle);
 	terminalVelocity = { 1000, 1000 };
@@ -255,7 +256,7 @@ void MovingPlatform::OnInit()
 	incrimentPositivePathIndex = true;
 	acceleration = { 0, 0 };
 	damage = 0;
-	inUse = true;
+	allowRenderFlip = false;
 	AttachAnimation(this);
 	PlayAnimation(this, ActorState::idle);
 	level->movingPlatforms.push_back(id);
@@ -281,6 +282,7 @@ void MovingPlatform::Update(float deltaTime)
 			nextLocationIndex -= incrimentationAmount;
 		}
 
+		position = dest;
 		dest = locations[nextLocationIndex];
 		Vector directionVector = Normalize(dest - position);
 		velocity = directionVector * speed;
@@ -665,11 +667,11 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	return result;
 }
 
-bool CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* actor, bool isEnemy)
+uint32 CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* actor, bool isEnemy)
 {
 
 	uint32 collisionFlags = CollisionWithRect(actor, rect);
-	if (collisionFlags > 0)
+	if (collisionFlags)
 	{
 		ActorType actorType = actor->GetActorType();
 		if (collisionFlags & CollisionRight)
@@ -704,9 +706,9 @@ bool CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* actor
 			actor->jumpCount = 2;
 			grounded = true;
 		}
-		return true;
+		return collisionFlags;
 	}
-	return false;
+	return collisionFlags;
 }
 
 
@@ -736,7 +738,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	//Checking Moving Platforms
 	ActorID collisionID = 0;
 	MovingPlatform* collidedPlatform = nullptr;
-
+	uint32 collisionFlags = 0;
 	for (int32 i = 0; i < actor->level->movingPlatforms.size(); i++)
 	{
 		if (Actor* actorTwo = actor->level->FindActor<MovingPlatform>(actor->level->movingPlatforms[i]))
@@ -744,7 +746,8 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			MovingPlatform* MP = (MovingPlatform*)actorTwo;
 
 			Rectangle MPRect = { MP->position, { MP->position.x + MP->GameWidth(), MP->position.y + MP->GameHeight() } };
-			if (CollisionWithBlocksSubFunction(grounded, MPRect, actor, isEnemy))
+			collisionFlags = CollisionWithBlocksSubFunction(grounded, MPRect, actor, isEnemy);
+			if (collisionFlags)
 			{
 				collisionID = actor->level->movingPlatforms[i];
 				collidedPlatform = MP;
@@ -765,7 +768,10 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 
 		if (MovingPlatform* MP = actor->level->FindActor<MovingPlatform>(actor->parent))
 		{
-			actor->velocity += MP->velocity;
+			if (collisionFlags & CollisionLeft || collisionFlags & CollisionRight)
+				actor->velocity.x += MP->velocity.x;
+			else
+				actor->velocity += MP->velocity;
 			actor->parent = 0;
 		}
 	}
@@ -1036,8 +1042,6 @@ void LoadAnimationStates(std::vector<AnimationData> * animationData)
 
 	for (int i = 0; i < animationData->size(); i++)
 	{
-		////flip y for images since top left is origin in image and bottom left is origin in game
-		////handle infinity being the size of the sprite either width or height
 		AnimationData* data = &((*animationData)[i]);
 		if (actorAnimations.find(data->name) != actorAnimations.end())
 			continue;
@@ -1152,6 +1156,7 @@ void LoadAllAnimationStates()
 	AnimationData knight;
 	knight.name = "Knight";
 	knight.collisionRectangle = { { 419, (44 + 814) }, { 419 + 360, 44} };
+	MP.scaledWidth = 30;
 	animationData.push_back(knight);
 	LoadAnimationStates(&animationData);
 }

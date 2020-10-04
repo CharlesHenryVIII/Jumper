@@ -159,6 +159,7 @@ public:
     bool lastInputWasLeft = false;
     bool inUse = true;
     bool grounded = true;
+    bool allowRenderFlip = true;
     float invinciblityTime = false;
     ActorState actorState = ActorState::none;
 
@@ -304,6 +305,10 @@ struct MovingPlatform : public Actor
 struct Grapple : public Actor
 {
     ACTOR_TYPE(Grapple);
+    //Grapple needs to attach to the left clicked position,
+    //Allow the player to get closer but not fartherfrom the attached location,
+    //then slowely real the actor into the location,
+    //stop and delete if the player releases the mouse 1 button.
     Vector destination;
     float rotation = 0;
     ActorID attachedActor = 0;

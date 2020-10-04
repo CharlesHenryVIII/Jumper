@@ -381,7 +381,6 @@ void RenderDrawCalls()
             case RenderType::Texture:
             {
 
-
                 float width = (float)item.texture.width;
                 float height = (float)item.texture.height;
                 glUniform1f(GLInfo.widthLocation, width);
@@ -689,19 +688,17 @@ void RenderLaser()
 
 void RenderActor(Actor* actor, float rotation)
 {
-    bool flippage = false;
-    int32 xPos;
-    Sprite* sprite = GetSpriteFromAnimation(actor);
+	bool flippage = false;
+	int32 xPos;
+	Sprite* sprite = GetSpriteFromAnimation(actor);
 
-    if (actor->lastInputWasLeft && actor->GetActorType() != ActorType::Projectile)
-    {
-        flippage = true;
-        xPos = sprite->width - actor->animationList->colRect.topRight.x;
-    }
-    else
-    {
-        xPos = actor->animationList->colRect.bottomLeft.x;
-    }
+	if (actor->lastInputWasLeft && actor->allowRenderFlip)
+	{
+		flippage = true;
+		xPos = sprite->width - actor->animationList->colRect.topRight.x;
+	}
+	else
+		xPos = actor->animationList->colRect.bottomLeft.x;
 
     if (sprite == nullptr)
         sprite = actor->animationList->GetAnyValidAnimation()->anime[0];

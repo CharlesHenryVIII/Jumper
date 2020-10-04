@@ -3,15 +3,18 @@
 
 ### TODO:
 #### Current
+- [x] Update readme file
 - [x] Level* on each actor, get rid of "curentLevel"
 - [x] cleanup actor creation Code (use Chris' method?)
 - [x] Find actor returns correct type, template!?
+
 - [ ] Tuesday with Chris TODO:
 	- [ ] Write a heap alloc
 	- [x] Write a sort algorithm (bubble sort) DO ON OWN
 		- [x] look at all sortation methods
 	- [ ] Write an unordered map implimentation (faster for debug)
-- [ ] Impliment OpenGL Renderer
+
+- [x] Impliment OpenGL Renderer
 	- [x] Replace SDL Renderer
 	- [x] Replace SDL variables with floats
 	- [x] Add zoom
@@ -27,13 +30,24 @@
 	- [x] impliment floats for colors
 	- [x] Remove SDL_Rects
 	- [ ] Clean up, improve, and optimize the OpenGL rendering code
+
 - [ ] Fix the debug print string that is getting generated when it isnt finding a animation for a specific animation
+- [x] Flipping moving platform on changing movement direction
+- [x] camera zoom
+- [x] sub pixel rendering/SuperSampling
+- [x] store player ID on levels
+- [x] add paralaxed background(s)
+- [x] moving platforms
+- [x] use more IDs
+
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [ ] Grappling
 	- [x] Moving Platforms 
 		- [x] Loading Moving platforms
 		- [x] Integrate the platform movement/pathing correctly
 		- [x] Review code and determine what improvments could be made
+		- [x] Fix pathing past destination
+		- [x] Fix platform effecting vertical velocity when player was not colliding with the top of the platform
 	- [ ] Power Ups (health, movement, jumping height, extra jump, etc) 
 	- [ ] Wall jump 
 	- [ ] Explosions 
@@ -59,21 +73,15 @@
     * keybinds
 * Player spawning
     * creating a new player on player death
-* store player ID on levels
-* use more IDs
 
 
 #### Ideas
-* camera zoom
-* sub pixel rendering/SuperSampling
 * multithread saving/png compression
-* add paralaxed background(s)
 * windows settings local grid highlight
 * add gun to change blocks some ideas: 
     * spring/wind
     * tacky(can hop off walls with it)
     * timed explosion to get more height
-* moving platforms
 * enemy ai
 * power ups
 * explosives!?
@@ -83,8 +91,6 @@
 
 ### Chris Questions:
 * quaturnions
-* openGL GLSL?
-    * shaders?
 
 
 ### Gameplay
@@ -120,11 +126,11 @@
 
 
 ### CS20
-* singly linked list
-* doubly linked list
-* stack
-* queue
-* sort funct
-* priority queue
-* hashmap
-* Write an alocator/malloc
+- [ ] singly linked list
+- [ ] doubly linked list
+- [ ] stack
+- [ ] queue
+- [x] sort funct
+- [ ] priority queue
+- [ ] hashmap
+- [ ] Write an alocator/malloc

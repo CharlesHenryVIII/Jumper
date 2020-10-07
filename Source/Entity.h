@@ -133,6 +133,11 @@ struct PortalInfo {
 	int32 levelPortalID = 0;
 };
 
+struct GrappleInfo {
+
+    Player* player = nullptr;
+    Vector mouseLoc = {};
+};
 
 typedef uint32 ActorID;
 struct Actor
@@ -193,6 +198,10 @@ public:
     {
         return PixelToBlock((int)ScaledHeight());
     }
+	inline void ResetJumpCount()
+	{
+		jumpCount = 2;
+	}
 };
 
 
@@ -224,9 +233,11 @@ struct Player : public Actor
 {
     ACTOR_TYPE(Player);
 
+	float spawnRadius = 0.5f; //half a block
+    float grappleRange = 8.0f;
     bool grappleEnabled = false;
     bool grappleReady = true;
-    bool grappleDeployed = false;
+    ActorID grapple = 0;
     void OnInit();
     void Update(float deltaTime) override;
     void Render() override;
@@ -309,11 +320,10 @@ struct Grapple : public Actor
     //Allow the player to get closer but not fartherfrom the attached location,
     //then slowely real the actor into the location,
     //stop and delete if the player releases the mouse 1 button.
-    Vector destination;
     float rotation = 0;
     ActorID attachedActor = 0;
 
-    void OnInit();
+    void OnInit(const GrappleInfo& info);
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};

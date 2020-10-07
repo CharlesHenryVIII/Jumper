@@ -54,8 +54,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     if (FindPlayerGlobal() == nullptr)
     {
         DebugPrint("player not found");
-        //playerID = CreateActor(ActorType::player, ActorType::none, totalTime);
-        //LoadLevel(currentLevel, *(Player*)FindActor(playerID));
     }
 
     Player* player = FindPlayerGlobal();
@@ -180,7 +178,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         }
 
 
-        if (player->grappleDeployed)
+        if (player->grapple)
         {
             //update grapple and player
         }
@@ -190,29 +188,11 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             {
                 //spawn grapple
 
-                Grapple* grapple = new Grapple();
-                grapple->inUse = true;
+                GrappleInfo info = {};
+                info.player = player;
+                info.mouseLoc = mouseLocBlocks;
+                player->grapple = player->level->CreateActor<Grapple>(info)->id;
 
-                AttachAnimation(grapple);
-                PlayAnimation(grapple, ActorState::idle);
-                grapple->terminalVelocity = { 1000, 1000 };
-
-                Vector adjustedPlayerPosition = { player->position.x, player->position.y + 1 };
-                Vector playerPosAdjusted = { adjustedPlayerPosition.x + (player->GameWidth() / 2), adjustedPlayerPosition.y };
-                //grapple->destination = PixelToBlock(CameraToPixelCoord(mouseLocation));
-                grapple->rotation = RadToDeg(atan2f(grapple->destination.y - adjustedPlayerPosition.y, grapple->destination.x - adjustedPlayerPosition.x));
-
-                float speed = 10.0f;
-                Vector ToDest = grapple->destination - playerPosAdjusted;
-                ToDest = Normalize(ToDest);
-                grapple->velocity = ToDest * speed;
-                Vector gameSize = { grapple->GameWidth(), grapple->GameHeight() };
-                float playerBulletRadius = 0.5f; //half a block
-                grapple->position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
-                player->level->actors.push_back(grapple);
-
-                player->grappleReady = false;
-                player->grappleDeployed = true;
             }
         }
 
@@ -287,11 +267,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         }
         else if (keyStates[SDL_BUTTON_LEFT].downThisFrame || keyStates[SDL_BUTTON_RIGHT].downThisFrame)
         {
-            // TODO: remove the cast
-            //InitInfo info = {};
-            //info._projectile.player = player;
-            //info._projectile.mouseLoc = mouseLocBlocks;
-            //info._projectile.blockToBeType = paintType;
             ProjectileInfo info;
 			info.player = player;
 			info.mouseLoc = mouseLocBlocks;
@@ -344,7 +319,10 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                     else if (CollisionRight & result)
                         player->position.x = spring->position.x - player->GameWidth();
                     else if (CollisionBot & result)
+                    {
                         player->velocity.y = spring->springVelocity.y;
+                        player->ResetJumpCount();
+                    }
                 }
                 break;
             }

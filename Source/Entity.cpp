@@ -59,6 +59,7 @@ void Player::UpdateHealth(Level& level, float deltaHealth)
 }
 
 
+
 /*********************
  *
  * Enemy
@@ -122,8 +123,7 @@ void Projectile::OnInit(const ProjectileInfo& info)
 									  info.player->position.y + 1 };
 	Vector playerPosAdjusted = { adjustedPlayerPosition.x + (info.player->GameWidth() / 2), 
 							     adjustedPlayerPosition.y };
-
-	float playerBulletRadius = 0.5f; //half a block
+	
 	destination = info.mouseLoc;
 	rotation = RadToDeg(atan2f(destination.y - adjustedPlayerPosition.y, destination.x - adjustedPlayerPosition.x));
 
@@ -132,7 +132,7 @@ void Projectile::OnInit(const ProjectileInfo& info)
 	ToDest = Normalize(ToDest);
 	velocity = ToDest * speed;
 	Vector gameSize = { GameWidth(), GameHeight() };
-	position = adjustedPlayerPosition + (ToDest * playerBulletRadius)/* + gameSize*/;
+	position = adjustedPlayerPosition + (ToDest * info.player->spawnRadius);
 }
 
 void Projectile::Update(float deltaTime)
@@ -304,27 +304,43 @@ void MovingPlatform::Render()
  *
  ********/
 
-void Grapple::OnInit()
+void Grapple::OnInit(const GrappleInfo& info)
 {
+	assert(info.player);
 
+    //Grapple needs to travel to the location where the player clicked
+	//TODO:  make sure there isnt a valid grapple already attached to the player
+
+	AttachAnimation(this);
+	PlayAnimation(this, ActorState::idle);
+	terminalVelocity = { 1000, 1000 };
+	info.player->grapple = id;
+	info.player->grappleReady = false;
+
+	Vector shotOrigin = { info.player->position.x + (info.player->GameWidth() / 2.0f), (info.player->position.y + info.player->GameHeight() / 2.0f) };
+	Vector ToDest = info.mouseLoc - shotOrigin;
+	float speed = 10.0f;
+	ToDest = Normalize(ToDest);
+	velocity = ToDest * speed;
+	position = shotOrigin + (ToDest * info.player->spawnRadius);
+	rotation = RadToDeg(atan2f(velocity.x, velocity.y));
 }
+
 void Grapple::Update(float deltaTime)
 {
 	UpdateLocation(this, 0, deltaTime);
-	float rad = DegToRad(rotation);
-	Vector realPosition = { position.x + cosf(rad)*GameWidth(), position.y - sinf(rad) * GameWidth() };
-	if (DotProduct(velocity, destination - realPosition) < 0)
+	Player* player = level->FindActor<Player>(attachedActor);
+	assert(player);
+	Vector shotOrigin = { player->position.x + player->GameWidth() / 2.0f, 
+						  player->position.y + player->GameHeight() / 2.0f };
+	rotation = RadToDeg(atan2f(position.x - shotOrigin.x, position.y - shotOrigin.y));
+	
+	//TODO: change to work with moving platforms
+	//CollisionWithBlocks(this, false)
+	Block* blockPointer = level->blocks.TryGetBlock({ position.x, position.y });
+	if ( blockPointer || (Pythags(position - shotOrigin) > player->grappleRange))
 	{
-		//paint block and remove bullet
-		Block* blockPointer = &level->blocks.GetBlock(destination);
-		Player* player = level->FindActor<Player>(attachedActor);
-		if (player != nullptr)
-		{
-			player->grappleDeployed = false;
-			player->grappleReady = true;
-		}
-		inUse = false;
-
+		velocity = {};
 	}
 	UpdateAnimationIndex(this, deltaTime);
 }
@@ -332,12 +348,12 @@ void Grapple::Update(float deltaTime)
 void Grapple::Render()
 {
 	Sprite* sprite = GetSpriteFromAnimation(this);
-	Rectangle rectangle = { {position}, {position.x + Pythags(destination - position), position.y + PixelToBlock(sprite->height)} };
-	static SDL_Point rotationPoint = { 0, (int32)rectangle.Height() / 2 };
-	
-	//AddTextureToRender({}, rect, RenderPrio::Sprites, sprite, {}, rotation, &rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
+	float halfGameHeight = GameHeight() / 2.0f;
+	Rectangle rect = { {position.x, position.y - halfGameHeight}, 
+							{position.x + GameWidth(), position.y + halfGameHeight} };
 
-	//RenderActor(this, rotation);
+	Vector rotationPoint = { 0, halfGameHeight};
+	AddTextureToRender({}, rect, RenderPrio::Sprites, sprite, {}, rotation, rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
 }
 
 /*********************
@@ -703,7 +719,7 @@ uint32 CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* act
 			actor->position.y = rect.botLeft.y + 1;
 			if (actor->velocity.y < 0)
 				actor->velocity.y = 0;
-			actor->jumpCount = 2;
+			actor->ResetJumpCount();
 			grounded = true;
 		}
 		return collisionFlags;
@@ -711,7 +727,7 @@ uint32 CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* act
 	return collisionFlags;
 }
 
-
+//TODO: move to be a member function in the Block struct
 void CollisionWithBlocks(Actor* actor, bool isEnemy) 
 {
 	bool grounded = false;
@@ -1073,17 +1089,29 @@ void LoadAnimationStates(std::vector<AnimationData> * animationData)
 				delete animeP;
 		}
 
-		Swap(&data->collisionRectangle.botLeft.y, &data->collisionRectangle.topRight.y, sizeof(data->collisionRectangle.botLeft.y));
+		Swap(&data->collisionRectangle.botLeft.y, &data->collisionRectangle.topRight.y, 
+			 sizeof(data->collisionRectangle.botLeft.y));
 		Sprite* sprite = animationList->GetAnyValidAnimation()->anime[0];
 		assert(sprite);
-		if (data->collisionRectangle.botLeft.x == inf)
-			data->collisionRectangle.botLeft.x = (float)sprite->width;
-		if (data->collisionRectangle.topRight.x == inf)
-			data->collisionRectangle.topRight.x = (float)sprite->width;
-		if (data->collisionRectangle.botLeft.y == inf)
-			data->collisionRectangle.botLeft.y = (float)sprite->height;
-		if (data->collisionRectangle.topRight.y == inf)
-			data->collisionRectangle.topRight.y = (float)sprite->height;
+		if (data->collisionRectangle.botLeft.x == 0 &&
+			data->collisionRectangle.botLeft.y == 0 &&
+			data->collisionRectangle.topRight.x == 0 &&
+			data->collisionRectangle.topRight.y == 0)
+		{
+			data->collisionRectangle = { { 0, 0 }, { (float)sprite->width, (float)sprite->height } };
+
+		}
+		else
+		{
+			if (data->collisionRectangle.botLeft.x == inf)
+				data->collisionRectangle.botLeft.x = (float)sprite->width;
+			if (data->collisionRectangle.topRight.x == inf)
+				data->collisionRectangle.topRight.x = (float)sprite->width;
+			if (data->collisionRectangle.botLeft.y == inf)
+				data->collisionRectangle.botLeft.y = (float)sprite->height;
+			if (data->collisionRectangle.topRight.y == inf)
+				data->collisionRectangle.topRight.y = (float)sprite->height;
+		}
 
 		animationList->colOffset = data->collisionOffset;
 		animationList->colRect.bottomLeft.x = (int32)data->collisionRectangle.botLeft.x;
@@ -1119,7 +1147,7 @@ void LoadAllAnimationStates()
 
 	AnimationData bullet;
 	bullet.name = "Bullet";
-	bullet.collisionRectangle = { { 0, inf }, { inf, 0 } };
+	bullet.collisionRectangle = {};
 	bullet.scaledWidth = inf;
 	animationData.push_back(bullet);
 
@@ -1138,18 +1166,18 @@ void LoadAllAnimationStates()
 
 	AnimationData spring;
 	spring.name = "Spring";
-	spring.collisionRectangle = { { 0, 31 }, { 31, 0 } };
+	spring.collisionRectangle = {};
 	animationData.push_back(spring);
 
 	AnimationData MP;
 	MP.name = "MovingPlatform";
 	MP.collisionOffset = {};
-	MP.collisionRectangle = { { 0, inf }, { inf, 0 } };
+	MP.collisionRectangle = {};
 	animationData.push_back(MP);
 
 	AnimationData grapple;
-	grapple.name = "Bullet";
-	grapple.collisionRectangle = { { 0, inf }, { inf, 0 } };
+	grapple.name = "Grapple";
+	grapple.collisionOffset = {};
 	grapple.scaledWidth = inf;
 	animationData.push_back(grapple);
 
@@ -1158,6 +1186,7 @@ void LoadAllAnimationStates()
 	knight.collisionRectangle = { { 419, (44 + 814) }, { 419 + 360, 44} };
 	MP.scaledWidth = 30;
 	animationData.push_back(knight);
+
 	LoadAnimationStates(&animationData);
 }
 

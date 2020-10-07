@@ -3,42 +3,8 @@
 
 ### TODO:
 #### Current
-- [x] Update readme file
-- [x] Level* on each actor, get rid of "curentLevel"
-- [x] cleanup actor creation Code (use Chris' method?)
-- [x] Find actor returns correct type, template!?
-
-- [ ] Tuesday with Chris TODO:
-	- [ ] Write a heap alloc
-	- [x] Write a sort algorithm (bubble sort) DO ON OWN
-		- [x] look at all sortation methods
-	- [ ] Write an unordered map implimentation (faster for debug)
-
-- [x] Impliment OpenGL Renderer
-	- [x] Replace SDL Renderer
-	- [x] Replace SDL variables with floats
-	- [x] Add zoom
-	- [x] Fix clicking location with zoom distance and rendering
-	- [x] Add rotations
-	- [x] Fix rotations
-	- [x] Bright pink render color for debug
-	- [x] Fix rectangle renderer
-	- [x] Fix background render
-		- [ ] change between linear and nearest depending on the sprite/texture
-	- [ ] Fix tile sprites rendering outside their UV's
-	- [x] remove SDL_FLIPPAGE
-	- [x] impliment floats for colors
-	- [x] Remove SDL_Rects
-	- [ ] Clean up, improve, and optimize the OpenGL rendering code
-
 - [ ] Fix the debug print string that is getting generated when it isnt finding a animation for a specific animation
-- [x] Flipping moving platform on changing movement direction
-- [x] camera zoom
-- [x] sub pixel rendering/SuperSampling
-- [x] store player ID on levels
-- [x] add paralaxed background(s)
-- [x] moving platforms
-- [x] use more IDs
+- [ ] Player is not touching the ground and size seems to big compared to what it used to be
 
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [ ] Grappling
@@ -56,16 +22,24 @@
 	- [ ] Wind
 	- [ ] Slippery surfaces/walls
 	- [x] Spring Board
+
 - [ ] Load fonts the same as the character sprites
 	* need to determine a way to load all files in a directory
 	* also cant really do this because I need the information about the font (NAME, offset length, width, etc)
 	* also cant garentee that it will have loaded correctly.  Need to verify that I am loading assets like the character sprites.
 - [ ] player spawning
-	* need to figure out where to spawn the player
+	- [ ] Determine how the program will know where to spawn the player
 - [ ] Asperite integration?
 - [ ] change how tilesets are managed?
-	* possibly get arid of the auto updating of tiles
+	- [ ] possibly get arid of the auto updating of tiles
 
+#### Rendering
+- [ ] change between linear and nearest depending on the sprite/texture
+- [ ] Fix tile sprites rendering outside their UV's
+
+#### Homework
+- [ ] Write a heap alloc
+- [ ] Write an unordered map implimentation (faster for debug)
 
 #### Future
 * scaled total time based on incrimenting the delta time

@@ -41,6 +41,14 @@ enum class ActorState
     count
 };
 
+enum class GrappleState
+{
+    None,
+    Sending,
+    Attached,
+    Retracting,
+};
+
 struct Animation
 {
     std::vector<Sprite*> anime;
@@ -322,7 +330,9 @@ struct Grapple : public Actor
     //stop and delete if the player releases the mouse 1 button.
     float rotation = 0;
     ActorID attachedActor = 0;
-
+    Vector shotOrigin = {};
+    GrappleState grappleState = GrappleState::None;
+	float grappleSpeed = 15.0f;
     void OnInit(const GrappleInfo& info);
     void Update(float deltaTime) override;
     void Render() override;

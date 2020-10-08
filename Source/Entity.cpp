@@ -316,12 +316,13 @@ void Grapple::OnInit(const GrappleInfo& info)
 	terminalVelocity = { 1000, 1000 };
 	info.player->grapple = id;
 	info.player->grappleReady = false;
+	attachedActor = info.player->id;
+	grappleState = GrappleState::Sending;
 
-	Vector shotOrigin = { info.player->position.x + (info.player->GameWidth() / 2.0f), (info.player->position.y + info.player->GameHeight() / 2.0f) };
+	shotOrigin = { info.player->position.x + (info.player->GameWidth() / 2.0f), (info.player->position.y + info.player->GameHeight() / 2.0f) };
 	Vector ToDest = info.mouseLoc - shotOrigin;
-	float speed = 10.0f;
 	ToDest = Normalize(ToDest);
-	velocity = ToDest * speed;
+	velocity = ToDest * grappleSpeed;
 	position = shotOrigin + (ToDest * info.player->spawnRadius);
 	rotation = RadToDeg(atan2f(velocity.x, velocity.y));
 }
@@ -331,29 +332,70 @@ void Grapple::Update(float deltaTime)
 	UpdateLocation(this, 0, deltaTime);
 	Player* player = level->FindActor<Player>(attachedActor);
 	assert(player);
-	Vector shotOrigin = { player->position.x + player->GameWidth() / 2.0f, 
+	shotOrigin = { player->position.x + player->GameWidth() / 2.0f, 
 						  player->position.y + player->GameHeight() / 2.0f };
-	rotation = RadToDeg(atan2f(position.x - shotOrigin.x, position.y - shotOrigin.y));
-	
-	//TODO: change to work with moving platforms
-	//CollisionWithBlocks(this, false)
-	Block* blockPointer = level->blocks.TryGetBlock({ position.x, position.y });
-	if ( blockPointer || (Pythags(position - shotOrigin) > player->grappleRange))
+	rotation = 270.0f - RadToDeg(atan2f(position.x - shotOrigin.x, position.y - shotOrigin.y));
+	switch (grappleState)
 	{
-		velocity = {};
+		case GrappleState::None:
+		{
+			assert(false);
+			break;
+		}
+		case GrappleState::Sending:
+		{
+			
+			//TODO: change to work with moving platforms
+			//CollisionWithBlocks(this, false)
+			Block* blockPointer = level->blocks.TryGetBlock({ position.x, position.y });
+			if (blockPointer)
+			{
+				grappleState = GrappleState::Attached;
+			}
+			else if (Pythags(position - shotOrigin) > player->grappleRange)
+			{
+				grappleState = GrappleState::Retracting;
+				break;
+			}
+			else
+				break;
+		}
+		case GrappleState::Attached:
+		{
+
+			velocity = {};
+			break;
+		}
+		case GrappleState::Retracting:
+		{
+
+			acceleration = { 8.0f, 8.0f };
+			velocity = Normalize(shotOrigin - position) * grappleSpeed;
+			if (Pythags(shotOrigin - position) < 1.0f)
+			{
+				player->grapple = 0;
+				player->grappleReady = true;
+				inUse = false;
+			}
+			break;
+		}
 	}
+	
 	UpdateAnimationIndex(this, deltaTime);
 }
 
 void Grapple::Render()
 {
 	Sprite* sprite = GetSpriteFromAnimation(this);
-	float halfGameHeight = GameHeight() / 2.0f;
-	Rectangle rect = { {position.x, position.y - halfGameHeight}, 
-							{position.x + GameWidth(), position.y + halfGameHeight} };
 
-	Vector rotationPoint = { 0, halfGameHeight};
-	AddTextureToRender({}, rect, RenderPrio::Sprites, sprite, {}, rotation, rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
+	Rectangle rect = {};
+	rect.botLeft = { position.x, position.y - GameHeight() / 2.0f };
+	float length = Pythags(position - shotOrigin);
+	rect.topRight = { rect.botLeft.x + length, position.y + GameHeight() / 2.0f };
+
+	Rectangle sRect = { {}, { ((rect.topRight.x - rect.botLeft.x) / GameWidth()) * sprite->width, (float)sprite->height } };
+	Vector rotationPoint = { 0, GameHeight() / 2.0f};
+	AddTextureToRender(sRect, rect, RenderPrio::Sprites, sprite, {}, rotation, rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
 }
 
 /*********************

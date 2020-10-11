@@ -6,6 +6,8 @@
 
 struct Sprite;
 struct Level;
+typedef uint32 ActorID;
+
 
 enum class EnemyType
 {
@@ -143,11 +145,10 @@ struct PortalInfo {
 
 struct GrappleInfo {
 
-    Player* player = nullptr;
+    ActorID actorID = {};
     Vector mouseLoc = {};
 };
 
-typedef uint32 ActorID;
 struct Actor
 {
 private:
@@ -333,6 +334,7 @@ struct Grapple : public Actor
     Vector shotOrigin = {};
     GrappleState grappleState = GrappleState::None;
 	float grappleSpeed = 15.0f;
+    float grappleDistance;
     void OnInit(const GrappleInfo& info);
     void Update(float deltaTime) override;
     void Render() override;

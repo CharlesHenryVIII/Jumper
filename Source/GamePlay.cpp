@@ -178,24 +178,25 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         }
 
 
-        if (player->grapple)
+		if (player->grapple == 0 && (keyStates[SDL_BUTTON_LEFT].downThisFrame) && player->grappleEnabled && player->grappleReady)
+		{
+			//spawn grapple
+
+			GrappleInfo info = {};
+			info.actorID = player->id;
+			info.mouseLoc = mouseLocBlocks;
+			player->grapple = player->level->CreateActor<Grapple>(info)->id;
+		}
+        else if (player->grapple)
         {
-            //update grapple and player
-        }
-        else
-        {
-            if (keyStates[SDL_BUTTON_LEFT].downThisFrame && player->grappleEnabled && player->grappleReady)
+
+            Grapple* grapple = player->level->FindActor<Grapple>(player->grapple);
+            if (keyStates[SDL_BUTTON_LEFT].upThisFrame)
             {
-                //spawn grapple
-
-                GrappleInfo info = {};
-                info.player = player;
-                info.mouseLoc = mouseLocBlocks;
-                player->grapple = player->level->CreateActor<Grapple>(info)->id;
-
+                
+                grapple->grappleState = GrappleState::Retracting;
             }
         }
-
         if (keyStates[SDLK_q].downThisFrame)
             player->grappleEnabled = !player->grappleEnabled;
 #if 0

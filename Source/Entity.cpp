@@ -306,24 +306,27 @@ void MovingPlatform::Render()
 
 void Grapple::OnInit(const GrappleInfo& info)
 {
-	assert(info.player);
+	assert(info.actorID);
 
     //Grapple needs to travel to the location where the player clicked
 	//TODO:  make sure there isnt a valid grapple already attached to the player
 
 	AttachAnimation(this);
 	PlayAnimation(this, ActorState::idle);
+	attachedActor = info.actorID;
+	Player* player = level->FindActor<Player>(attachedActor);
+	assert(player);
 	terminalVelocity = { 1000, 1000 };
-	info.player->grapple = id;
-	info.player->grappleReady = false;
-	attachedActor = info.player->id;
+	player->grapple = id;
+	player->grappleReady = false;
 	grappleState = GrappleState::Sending;
+	grappleDistance = 0;
 
-	shotOrigin = { info.player->position.x + (info.player->GameWidth() / 2.0f), (info.player->position.y + info.player->GameHeight() / 2.0f) };
+	shotOrigin = { player->position.x + (player->GameWidth() / 2.0f), (player->position.y + player->GameHeight() / 2.0f) };
 	Vector ToDest = info.mouseLoc - shotOrigin;
 	ToDest = Normalize(ToDest);
-	velocity = ToDest * grappleSpeed;
-	position = shotOrigin + (ToDest * info.player->spawnRadius);
+	velocity = ToDest * grappleSpeed + player->velocity;
+	position = shotOrigin + (ToDest * player->spawnRadius);
 	rotation = RadToDeg(atan2f(velocity.x, velocity.y));
 }
 
@@ -334,6 +337,7 @@ void Grapple::Update(float deltaTime)
 	assert(player);
 	shotOrigin = { player->position.x + player->GameWidth() / 2.0f, 
 						  player->position.y + player->GameHeight() / 2.0f };
+	//TODO: fix magic number
 	rotation = 270.0f - RadToDeg(atan2f(position.x - shotOrigin.x, position.y - shotOrigin.y));
 	switch (grappleState)
 	{
@@ -363,6 +367,14 @@ void Grapple::Update(float deltaTime)
 		case GrappleState::Attached:
 		{
 
+			if (Pythags(player->position - position) > grappleDistance)
+			{
+
+				player->velocity = {};//TODO: math and physics
+				Vector tensionDirection = {position - player->position};
+				
+
+			}
 			velocity = {};
 			break;
 		}
@@ -370,7 +382,7 @@ void Grapple::Update(float deltaTime)
 		{
 
 			acceleration = { 8.0f, 8.0f };
-			velocity = Normalize(shotOrigin - position) * grappleSpeed;
+			velocity = Normalize(shotOrigin - position) * grappleSpeed + player->velocity;
 			if (Pythags(shotOrigin - position) < 1.0f)
 			{
 				player->grapple = 0;

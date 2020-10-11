@@ -195,6 +195,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             {
                 
                 grapple->grappleState = GrappleState::Retracting;
+                player->angularUpdate = false;
             }
         }
         if (keyStates[SDLK_q].downThisFrame)

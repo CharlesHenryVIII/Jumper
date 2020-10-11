@@ -113,12 +113,12 @@ int main(int argc, char* argv[])
 
             case SDL_KEYDOWN:
                 keyStates[SDLEvent.key.keysym.sym].down = true;
-                DebugPrint("Key down: %f\n", totalTime);
+                //DebugPrint("Key down: %f\n", totalTime);
                 break;
 
             case SDL_KEYUP:
                 keyStates[SDLEvent.key.keysym.sym].down = false;
-                DebugPrint("Key up:   %f\n", totalTime);
+                //DebugPrint("Key up:   %f\n", totalTime);
                 break;
 
             case SDL_MOUSEBUTTONDOWN:
@@ -169,12 +169,12 @@ int main(int argc, char* argv[])
                 key.second.upThisFrame = false;
                 if (key.second.downPrevFrame)
                 {
-                    DebugPrint("KeyDown && DownPreviousFrame: %f\n", totalTime);
+                    //DebugPrint("KeyDown && DownPreviousFrame: %f\n", totalTime);
                     key.second.downThisFrame = false;
                 }
                 else
                 {
-                    DebugPrint("Down this frame: %f\n", totalTime);
+                    //DebugPrint("Down this frame: %f\n", totalTime);
                     key.second.downThisFrame = true;
                 }
             }
@@ -184,7 +184,7 @@ int main(int argc, char* argv[])
                 key.second.downThisFrame = false;
                 if (key.second.downPrevFrame)
                 {
-                    DebugPrint("Up This frame: %f\n", totalTime);
+                    //DebugPrint("Up This frame: %f\n", totalTime);
                     key.second.upThisFrame = true;
                 }
                 else

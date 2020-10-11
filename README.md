@@ -5,9 +5,12 @@
 #### Current
 - [ ] Fix the debug print string that is getting generated when it isnt finding a animation for a specific animation
 - [ ] Player is not touching the ground and size seems to big compared to what it used to be
+	- [ ] Might be in the RenderActor() function
 
 - [ ] GET SOME DAMN GAMEPLAY DOWN
-	- [ ] Grappling
+	- [x] Grappling
+		- [ ] Fix collision against MovingPlatforms
+		- [ ] Add grappling to MovingPlatforms
 	- [x] Moving Platforms 
 		- [x] Loading Moving platforms
 		- [x] Integrate the platform movement/pathing correctly

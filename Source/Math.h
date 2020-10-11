@@ -27,16 +27,13 @@ struct Color {
 const Color Red = { 1.0f, 0.0f, 0.0f, 1.0f };
 const Color Green = { 0.0f, 1.0f, 0.0f, 1.0f };
 const Color Blue = { 0.0f, 0.0f, 1.0f, 1.0f };
-
 const Color transRed = { 1.0f, 0.0f, 0.0f, 0.5f };
 const Color transGreen = { 0.0f, 1.0f, 0.0f, 0.5f };
 const Color transBlue = { 0.0f, 0.0f, 1.0f, 0.5f };
 const Color transOrange = { 1.0f, 0.5f, 0.0f, 0.5f };
-
 const Color lightRed = { 1.0f, 0.0f, 0.0f, 0.25f };
 const Color lightGreen = { 0.0f, 1.0f, 0.0f, 0.25f };
 const Color lightBlue = { 0.0f, 0.0f, 1.0f, 0.25f };
-
 const Color White = { 1.0f, 1.0f, 1.0f, 1.0f };
 const Color lightWhite = { 0.58f, 0.58f, 0.58f, 0.58f };
 const Color Black = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -51,7 +48,7 @@ constexpr int32 blockSize = 32;
 
 const float pi = 3.14159f;
 const float tau = 2 * pi;
-const float inf = 0x7f800000;
+const float inf = INFINITY;
 
 const uint32 CollisionNone = 0;
 const uint32 CollisionTop = 1;
@@ -135,6 +132,10 @@ inline VectorInt operator*(const VectorInt& a, const float b)
 {
     return { int(a.x * b),  int(a.y * b) };
 }
+inline Vector operator/(const Vector& a, const float b)
+{
+    return { a.x / b,  a.y / b };
+}
 
 
 inline const Vector& operator+=(Vector& lhs, const Vector& rhs)
@@ -186,6 +187,13 @@ inline Vector Normalize(Vector v)
     float hyp = sqrtf(powf(v.x, 2) + powf(v.y, 2));
     return { (v.x / hyp), (v.y / hyp) };
 }
+inline Vector NormalizeZero(Vector v)
+{
+    float hyp = sqrtf(powf(v.x, 2) + powf(v.y, 2));
+    if (hyp == 0)
+        return {};
+	return{ (v.x / hyp), (v.y / hyp) };
+}
 
 
 /*
@@ -212,4 +220,10 @@ inline float Pythags(Vector a)
     return sqrtf(powf(a.x, 2) + powf(a.y, 2));
 }
 
+inline float Distance(Vector a, Vector b)
+{
+    return Pythags(a - b);
+}
+
 void Swap(void* a, void* b, const int size);
+float LinearToAngularVelocity(Vector centerOfCircle, Vector position, Vector velocity);

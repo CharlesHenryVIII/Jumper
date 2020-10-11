@@ -322,22 +322,22 @@ void Grapple::OnInit(const GrappleInfo& info)
 	grappleState = GrappleState::Sending;
 	grappleDistance = 0;
 
-	shotOrigin = { player->position.x + (player->GameWidth() / 2.0f), (player->position.y + player->GameHeight() / 2.0f) };
-	Vector ToDest = info.mouseLoc - shotOrigin;
+	Vector ToDest = info.mouseLoc - player->Center();
 	ToDest = Normalize(ToDest);
 	velocity = ToDest * grappleSpeed + player->velocity;
-	position = shotOrigin + (ToDest * player->spawnRadius);
+	position = player->Center() + (ToDest * player->spawnRadius);
 	rotation = RadToDeg(atan2f(velocity.x, velocity.y));
 }
+
 
 void Grapple::Update(float deltaTime)
 {
 	UpdateLocation(this, 0, deltaTime);
 	Player* player = level->FindActor<Player>(attachedActor);
 	assert(player);
-	shotOrigin = { player->position.x + player->GameWidth() / 2.0f, 
-						  player->position.y + player->GameHeight() / 2.0f };
+
 	//TODO: fix magic number
+	shotOrigin = player->Center();
 	rotation = 270.0f - RadToDeg(atan2f(position.x - shotOrigin.x, position.y - shotOrigin.y));
 	switch (grappleState)
 	{
@@ -354,12 +354,19 @@ void Grapple::Update(float deltaTime)
 			Block* blockPointer = level->blocks.TryGetBlock({ position.x, position.y });
 			if (blockPointer)
 			{
+
 				grappleState = GrappleState::Attached;
+				grappleDistance = Distance(player->Center(), position);
+				velocity = {};
+				angularVelocity = LinearToAngularVelocity(position, player->Center(), player->velocity);
+				player->angularUpdate = true;
+
+				goto DoAttached;
 			}
-			else if (Pythags(position - shotOrigin) > player->grappleRange)
+			else if (Distance(position, shotOrigin) > player->grappleRange)
 			{
 				grappleState = GrappleState::Retracting;
-				break;
+				goto DoRetracting;
 			}
 			else
 				break;
@@ -367,20 +374,14 @@ void Grapple::Update(float deltaTime)
 		case GrappleState::Attached:
 		{
 
-			if (Pythags(player->position - position) > grappleDistance)
-			{
-
-				player->velocity = {};//TODO: math and physics
-				Vector tensionDirection = {position - player->position};
-				
-
-			}
-			velocity = {};
+			DoAttached:
+			
 			break;
 		}
 		case GrappleState::Retracting:
 		{
 
+			DoRetracting:
 			acceleration = { 8.0f, 8.0f };
 			velocity = Normalize(shotOrigin - position) * grappleSpeed + player->velocity;
 			if (Pythags(shotOrigin - position) < 1.0f)
@@ -687,16 +688,16 @@ void ClickUpdate(Block* block, bool updateTop, Level* level)
 Rectangle CollisionXOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	result.botLeft	= { actor->position.x, actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * actor->animationList->colOffset.x};
-	result.topRight		= { actor->position.x + PixelToBlock((int)actor->animationList->scaledWidth), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) * (1 - actor->animationList->colOffset.x) };
+	result.botLeft	= { actor->position.x, actor->position.y + PixelToGame((int)actor->ScaledHeight()) * actor->animationList->colOffset.x};
+	result.topRight		= { actor->position.x + PixelToGame((int)actor->animationList->scaledWidth), actor->position.y + PixelToGame((int)actor->ScaledHeight()) * (1 - actor->animationList->colOffset.x) };
 	return result;
 }
 
 Rectangle CollisionYOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	result.botLeft = { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * actor->animationList->colOffset.y), actor->position.y };
-	result.topRight   = { actor->position.x + (PixelToBlock((int)actor->animationList->scaledWidth) * (1 - actor->animationList->colOffset.y)), actor->position.y + PixelToBlock((int)actor->ScaledHeight()) };
+	result.botLeft = { actor->position.x + (PixelToGame((int)actor->animationList->scaledWidth) * actor->animationList->colOffset.y), actor->position.y };
+	result.topRight   = { actor->position.x + (PixelToGame((int)actor->animationList->scaledWidth) * (1 - actor->animationList->colOffset.y)), actor->position.y + PixelToGame((int)actor->ScaledHeight()) };
 	return result;
 }
 
@@ -750,7 +751,9 @@ uint32 CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* act
 			if (isEnemy)
 				actor->velocity.x = -1 * actor->velocity.x;
 			else
+			{
 				actor->velocity.x = 0;
+			}
 		}
 
 		if (collisionFlags & CollisionLeft)
@@ -800,7 +803,14 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			if (block == nullptr || block->tileType == TileType::invalid)
 				continue;
 
-			CollisionWithBlocksSubFunction(grounded, { block->location, { block->location + Vector({ 1, 1 }) } }, actor, isEnemy);
+			if(CollisionWithBlocksSubFunction(grounded, { block->location, { block->location + Vector({ 1, 1 }) } }, actor, isEnemy))
+			{
+				if (Player* player = dynamic_cast<Player*>(actor))
+				{
+					if (Grapple* grapple = player->level->FindActor<Grapple>(player->grapple))
+						grapple->angularVelocity = 0;
+				}
+			}
 		}
 	}
 
@@ -819,8 +829,22 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			collisionFlags = CollisionWithBlocksSubFunction(grounded, MPRect, actor, isEnemy);
 			if (collisionFlags)
 			{
-				collisionID = actor->level->movingPlatforms[i];
-				collidedPlatform = MP;
+
+				bool attachable = true;
+				if (Player* player = dynamic_cast<Player*>(actor))
+				{
+					if (Grapple* grapple = player->level->FindActor<Grapple>(player->grapple))
+					{
+						grapple->angularVelocity = 0;
+						attachable = false;
+					}
+					
+				}
+				if (attachable)
+				{
+					collisionID = actor->level->movingPlatforms[i];
+					collidedPlatform = MP;
+				}
 			}
 		}
 	}
@@ -1044,25 +1068,50 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 
 void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 {
-	actor->velocity.y += gravity * deltaTime;
-	actor->velocity.y = Clamp(actor->velocity.y, -actor->terminalVelocity.y, actor->terminalVelocity.y);
-
-	actor->velocity.x += actor->acceleration.x * deltaTime;
-	//actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
-	actor->deltaPosition = actor->velocity * deltaTime;
-	actor->position += actor->deltaPosition;
-
-	ActorType actorType = actor->GetActorType();
-	if (actor->velocity.x == 0 && actor->velocity.y == 0 &&
-		(actorType == ActorType::Player || actorType == ActorType::Enemy))
-		PlayAnimation(actor, ActorState::idle);
-
-	if (actorType != ActorType::Player)
+	if (actor->angularUpdate)
 	{
-		if (actor->velocity.x < 0)
-			actor->lastInputWasLeft = true;
-		else if (actor->velocity.x > 0)
-			actor->lastInputWasLeft = false;
+
+		Player* player = dynamic_cast<Player*>(actor);
+		assert(player);
+		Grapple* grapple = player->level->FindActor<Grapple>(player->grapple);
+		assert(grapple);
+
+		Vector acceleration = { player->acceleration.x, player->acceleration.y + gravity };
+		grapple->angularVelocity += LinearToAngularVelocity(grapple->position, player->Center(), acceleration * deltaTime);
+		Vector tension = (actor->Center() - grapple->position);
+		float rads = atan2f(tension.y, tension.x);
+		float angularPosition = rads + (grapple->angularVelocity * tau * deltaTime);
+
+		player->position = { grapple->grappleDistance * cosf(angularPosition) - player->GameWidth() / 2.0f, grapple->grappleDistance * sinf(angularPosition) - player->GameHeight() / 2.0f };
+		player->position += grapple->position;
+		int test = 0;
+		
+	}
+	else
+	{
+
+		actor->velocity.y += gravity * deltaTime;
+		actor->velocity.y = Clamp(actor->velocity.y, -actor->terminalVelocity.y, actor->terminalVelocity.y);
+
+		actor->velocity.x += actor->acceleration.x * deltaTime;
+		//actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
+		actor->deltaPosition = actor->velocity * deltaTime;
+		actor->position += actor->deltaPosition;
+
+		ActorType actorType = actor->GetActorType();
+		if (actor->velocity.x == 0 && actor->velocity.y == 0 &&
+			(actorType == ActorType::Player || actorType == ActorType::Enemy))
+			PlayAnimation(actor, ActorState::idle);
+				//DebugPrint("VelocityScale: %0.3f\n", velocityScale);
+
+		if (actorType != ActorType::Player)
+		{
+			if (actor->velocity.x < 0)
+				actor->lastInputWasLeft = true;
+			else if (actor->velocity.x > 0)
+				actor->lastInputWasLeft = false;
+		}
+
 	}
 }
 
@@ -1094,8 +1143,8 @@ void RenderActorHealthBars(Actor& actor)
 	Rectangle full = {};
 	Rectangle actual = {};
 	full.botLeft.x = actor.position.x;
-	full.botLeft.y = actor.position.y + PixelToBlock(int(actor.ScaledHeight())) + healthHeight;
-	full.topRight.x = full.botLeft.x + PixelToBlock(int(actor.animationList->scaledWidth));
+	full.botLeft.y = actor.position.y + PixelToGame(int(actor.ScaledHeight())) + healthHeight;
+	full.topRight.x = full.botLeft.x + PixelToGame(int(actor.animationList->scaledWidth));
 	full.topRight.y = full.botLeft.y + healthHeight;
 
 	actual.botLeft.x = full.topRight.x - (actor.health / 100) * full.Width();
@@ -1116,8 +1165,9 @@ void LoadAnimationStates(std::vector<AnimationData> * animationData)
 		if (actorAnimations.find(data->name) != actorAnimations.end())
 			continue;
 
-		std::string stateStrings[(int32)ActorState::count] = { "error", "Idle", "Walk", "Run", "Jump", "Dead" };
-		
+		std::string stateStrings[] = { "error", "Idle", "Walk", "Run", "Jump", "Dead" };
+		static_assert(sizeof(stateStrings) / sizeof(stateStrings[0]) == (size_t)ActorState::count, "Change in count");
+
 		AnimationList* animationList = &actorAnimations[data->name];
 		animationList->animations.reserve((int32)ActorState::count);
 
@@ -1143,8 +1193,7 @@ void LoadAnimationStates(std::vector<AnimationData> * animationData)
 				delete animeP;
 		}
 
-		Swap(&data->collisionRectangle.botLeft.y, &data->collisionRectangle.topRight.y, 
-			 sizeof(data->collisionRectangle.botLeft.y));
+		std::swap(data->collisionRectangle.botLeft.y, data->collisionRectangle.topRight.y);
 		Sprite* sprite = animationList->GetAnyValidAnimation()->anime[0];
 		assert(sprite);
 		if (data->collisionRectangle.botLeft.x == 0 &&

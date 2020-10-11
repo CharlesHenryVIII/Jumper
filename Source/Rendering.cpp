@@ -521,8 +521,8 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
     uint32 y = uint32(i) / blocksPerRow * itemSize;
 
     Rectangle blockRect = { (float)x, (float)y, (float)(x + xCharSize), (float)(y + itemSize) };
-    float itemSizeTranslatedx = PixelToBlock(xCharSize);
-    float itemSizeTranslatedy = PixelToBlock(itemSize);
+    float itemSizeTranslatedx = PixelToGame(xCharSize);
+    float itemSizeTranslatedy = PixelToGame(itemSize);
 
     Rectangle destRect = { loc, { loc.x + itemSizeTranslatedx, loc.y +itemSizeTranslatedy } };
 
@@ -680,7 +680,7 @@ void RenderLaser()
             PC = Red;
         Sprite* sprite = GetSpriteFromAnimation(&laser);
 
-        Rectangle rectangle = { {laser.position}, {laser.position.x + Pythags(laser.destination - laser.position), laser.position.y + PixelToBlock(sprite->height)} };
+        Rectangle rectangle = { {laser.position}, {laser.position.x + Pythags(laser.destination - laser.position), laser.position.y + PixelToGame(sprite->height)} };
         AddTextureToRender({}, rectangle, RenderPrio::Sprites, sprite, PC, laser.rotation, { 0, rectangle.Height() / 2 }, false, CoordinateSpace::World);
     }
 }
@@ -704,9 +704,9 @@ void RenderActor(Actor* actor, float rotation)
         sprite = actor->animationList->GetAnyValidAnimation()->anime[0];
 
     Rectangle DR;
-    DR.botLeft.x = actor->position.x - PixelToBlock((int(xPos * actor->SpriteRatio())));
-    DR.botLeft.y = actor->position.y - PixelToBlock((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
-	DR.topRight = DR.botLeft + PixelToBlock({ (int)(actor->SpriteRatio() * sprite->width),
+    DR.botLeft.x = actor->position.x - PixelToGame((int(xPos * actor->SpriteRatio())));
+    DR.botLeft.y = actor->position.y - PixelToGame((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
+	DR.topRight = DR.botLeft + PixelToGame({ (int)(actor->SpriteRatio() * sprite->width),
 			   (int)(actor->SpriteRatio() * sprite->height) });
     AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, {actor->GameWidth() / 2.0f, actor->GameHeight() / 2.0f}, flippage, CoordinateSpace::World);
 }

@@ -14,3 +14,13 @@ void Swap(void* a, void* b, const int size)
 		d[i] = temp;
     }
 }
+
+float LinearToAngularVelocity(Vector centerOfCircle, Vector position, Vector velocity)
+{
+	
+	Vector toCenter = centerOfCircle - position;
+	Vector tangent = { toCenter.y, -toCenter.x };
+	float velocityScale = DotProduct(NormalizeZero(tangent), NormalizeZero(velocity));
+	float radius = Distance(centerOfCircle, position);
+	return Pythags(velocity) * velocityScale / (tau * radius);
+}

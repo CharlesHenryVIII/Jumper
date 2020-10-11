@@ -107,14 +107,14 @@ inline VectorInt BlockToPixel(Vector loc)
 }
 
 
-inline float PixelToBlock(int32 loc)
+inline float PixelToGame(int32 loc)
 {
     return { float(loc) / blockSize };
 }
 
-inline Vector PixelToBlock(VectorInt loc)
+inline Vector PixelToGame(VectorInt loc)
 {
-    return { PixelToBlock(loc.x), PixelToBlock(loc.y) };
+    return { PixelToGame(loc.x), PixelToGame(loc.y) };
 }
 
 struct Player;
@@ -174,6 +174,7 @@ public:
     bool inUse = true;
     bool grounded = true;
     bool allowRenderFlip = true;
+    bool angularUpdate = false;
     float invinciblityTime = false;
     ActorState actorState = ActorState::none;
 
@@ -194,6 +195,7 @@ public:
     {
         assert(animationList->colRect.Width());
         return animationList->scaledWidth / animationList->colRect.Width();
+        //return 1.0f;
     }
     float ScaledHeight()
     {
@@ -201,16 +203,20 @@ public:
     }
     float GameWidth()
     {
-        return PixelToBlock((int)animationList->scaledWidth);
+        return PixelToGame((int)animationList->scaledWidth);
     }
     float GameHeight()
     {
-        return PixelToBlock((int)ScaledHeight());
+        return PixelToGame((int)ScaledHeight());
     }
 	inline void ResetJumpCount()
 	{
 		jumpCount = 2;
 	}
+    Vector Center()
+    {
+        return { position.x + GameWidth() / 2.0f, position.y + GameHeight() / 2.0f };
+    }
 };
 
 
@@ -331,10 +337,11 @@ struct Grapple : public Actor
     //stop and delete if the player releases the mouse 1 button.
     float rotation = 0;
     ActorID attachedActor = 0;
-    Vector shotOrigin = {};
     GrappleState grappleState = GrappleState::None;
 	float grappleSpeed = 15.0f;
     float grappleDistance;
+    float angularVelocity = 0;
+    Vector shotOrigin = {};
     void OnInit(const GrappleInfo& info);
     void Update(float deltaTime) override;
     void Render() override;

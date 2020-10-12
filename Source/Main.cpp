@@ -2,6 +2,7 @@
 #define GB_MATH_IMPLEMENTATION
 #include "SDL.h"
 #include "GL/glew.h"
+#include "Console.h"
 #include "Math.h"
 #include "Rendering.h"
 #include "Entity.h"
@@ -48,7 +49,7 @@ int main(int argc, char* argv[])
     iconSurface.
     */
 
-    LoadAllAnimationStates();
+    //LoadAllAnimationStates();
 
 	sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
 	sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
@@ -64,7 +65,7 @@ int main(int argc, char* argv[])
 	fonts["2"] = CreateFont("Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
 
     //Level instantiations
-    AddAllLevels();
+    //AddAllLevels();
     //LoadLevel("Level 1");
     //LoadLevel("Default");
 
@@ -112,18 +113,36 @@ int main(int argc, char* argv[])
                 break;
 
             case SDL_KEYDOWN:
-                keyStates[SDLEvent.key.keysym.sym].down = true;
-                //DebugPrint("Key down: %f\n", totalTime);
+            {
+                int mods = 0;
+                // Ensure that both possible shift flags are set for this message, we don't care to
+                // differentiate between left and right ctrl and shift.
+                if (SDLEvent.key.keysym.mod & KMOD_SHIFT) mods |= KMOD_SHIFT;
+                if (SDLEvent.key.keysym.mod & KMOD_CTRL) mods |= KMOD_CTRL;
+                if (SDLEvent.key.keysym.mod & KMOD_ALT) mods |= KMOD_ALT;
+
+                if (!Console_OnKeyboard(SDLEvent.key.keysym.sym, mods, SDLEvent.key.state == SDL_PRESSED, SDLEvent.key.repeat != 0))
+                    keyStates[SDLEvent.key.keysym.sym].down = true;
                 break;
+            }
 
             case SDL_KEYUP:
                 keyStates[SDLEvent.key.keysym.sym].down = false;
                 //DebugPrint("Key up:   %f\n", totalTime);
                 break;
 
+            case SDL_TEXTINPUT:
+            {
+                size_t length = strlen(SDLEvent.text.text);
+                for (size_t i = 0; i < length; ++i)
+                    Console_OnCharacter(SDLEvent.text.text[i]);
+                break;
+            }
+
             case SDL_MOUSEBUTTONDOWN:
             case SDL_MOUSEBUTTONUP:
-                keyStates[SDLEvent.button.button].down = SDLEvent.button.state;
+                if (!Console_OnMouseButton(SDLEvent.button.button, SDLEvent.button.state == SDL_PRESSED))
+                    keyStates[SDLEvent.button.button].down = SDLEvent.button.state;
                 break;
 
             case SDL_MOUSEMOTION:
@@ -134,26 +153,36 @@ int main(int argc, char* argv[])
             case SDL_MOUSEWHEEL:
             {
                 int32 wheel = SDLEvent.wheel.y;
-                if (wheel < 0)
-                    camera.size.x *= 1.1f;
-                else if (wheel > 0)
-                    camera.size.x *= 0.9f;
-                camera.size.x = Clamp(camera.size.x, 5.0f, 100.0f);
-				camera.size.y = camera.size.x * ((float)windowInfo.height / (float)windowInfo.width);
+                if (!Console_OnMouseWheel(float(wheel)))
+                {
+                    if (wheel < 0)
+                        camera.size.x *= 1.1f;
+                    else if (wheel > 0)
+                        camera.size.x *= 0.9f;
+                    camera.size.x = Clamp(camera.size.x, 5.0f, 100.0f);
+                    camera.size.y = camera.size.x * ((float)windowInfo.height / (float)windowInfo.width);
+                }
+
                 break;
             }
 
             case SDL_WINDOWEVENT:
                 if (SDLEvent.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
                 {
+                    Console_OnWindowSize(SDLEvent.window.data1, SDLEvent.window.data2);
                     windowInfo.width = SDLEvent.window.data1;
                     windowInfo.height = SDLEvent.window.data2;
                     camera.size.y = camera.size.x * ((float)windowInfo.height / (float)windowInfo.width);
+                }
+                else if (SDLEvent.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
+                {
+                    SDL_CaptureMouse(SDL_TRUE);
                 }
 
             }
 
         }
+        ConsoleRun();
 
         /*********************
          *

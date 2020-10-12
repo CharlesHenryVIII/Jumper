@@ -45,6 +45,9 @@
     <ClCompile Include="Contrib\Glew\src\glew.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Console.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Math.h">
@@ -69,6 +72,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Menu.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Console.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

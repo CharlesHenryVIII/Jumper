@@ -537,7 +537,7 @@ void SpriteMapRender(Sprite* sprite, const Block& block)
 
 
 
-void DrawText(FontSprite* fontSprite, Color c, const std::string& text, float size, VectorInt loc, UIX XLayout, UIY YLayout)
+void DrawText(FontSprite* fontSprite, Color c, const std::string& text, float size, VectorInt loc, UIX XLayout, UIY YLayout, RenderPrio prio)
 {
     //ABC
     int32 CPR = fontSprite->charPerRow;
@@ -567,7 +567,7 @@ void DrawText(FontSprite* fontSprite, Color c, const std::string& text, float si
         float height2 = DRectangle.Height();
         DRectangle.botLeft.y += height2;
         DRectangle.topRight.y -= height2;
-        AddTextureToRender(SRect, DRectangle, RenderPrio::UI, fontSprite->sprite, c, 0, {}, false, CoordinateSpace::UI);
+        AddTextureToRender(SRect, DRectangle, prio, fontSprite->sprite, c, 0, {}, false, CoordinateSpace::UI);
     }
 }
 

@@ -11,8 +11,35 @@
 #include <algorithm>
 #include <cassert>
 
+
+/**********************************************
+ *
+ * Defer
+ *
+ ***************/
+
+template <typename T>
+struct ExitScope
+{
+    T lambda;
+    ExitScope(T lambda): lambda(lambda){ }
+    ~ExitScope(){ lambda();}
+};
+
+struct ExitScopeHelp
+{
+    template<typename T>
+    ExitScope<T> operator+(T t) { return t; }
+};
+
+#define _CG_CONCAT(a, b) a ## b
+#define CG_CONCAT(a, b) _CG_CONCAT(a, b)
+
+#define Defer auto CG_CONCAT(defer__, __LINE__) = ExitScopeHelp() + [&]()
+
 #define ARRAY_COUNT(arr__) ((sizeof(arr__) / sizeof(arr__[0])))
 #define REF(a) ((void)a)
+
 
 inline float Lerp(float a, float b, float t)
 {
@@ -310,8 +337,8 @@ static Console s_console;
 
 
 
-static const Color console_color              = Color{0.1f, 0.1f, 0.1f, 0.8f};
-static const Color input_color                = Color{0.2f, 0.2f, 0.2f, 0.8f};
+static const Color console_color              = Color{0.1f, 0.1f, 0.1f, 0.95f};
+static const Color input_color                = Color{0.2f, 0.2f, 0.2f, 0.95f};
 static const Color caret_color                = Color{0.8f, 0.8f, 0.8f, 0.6f};
 static const Color selection_color            = Color{0.8f, 0.8f, 0.8f, 0.4f};
 static const Color font_color                 = Color{0.5f, 0.9f, 0.5f, 1.0f};
@@ -469,7 +496,13 @@ static void sConsoleLog(LogLevel level, const char* preamble, const char* string
 
     // NOTE: This keeps the scroll position the same if we are not scrolled to the bottom, but doesn't handle multiple
     // lines being inserted at the same time.
-    if (s_console.scroll_target > 0.0f)
+    const float MIN_VALUE = 0.01f;
+    float max_scroll = MaxScroll();
+    if (s_console.scroll_target > max_scroll)
+    {
+        s_console.scroll_target = max_scroll;
+    }
+    else if (s_console.scroll_target >= MIN_VALUE)
     {
         s_console.scroll_target += 1.0f;
         s_console.scroll_position += 1.0f;
@@ -666,8 +699,8 @@ void ConsoleInit()
     s_console.window_size = GetWindowSize();
     s_console.initialized = true;
     s_console.items.reserve(1000);
-    ConsoleAddCommand("Help", ShowHelp);
-    ConsoleAddCommand("Clear", ConsoleClear);
+    ConsoleAddCommand("help", ShowHelp);
+    ConsoleAddCommand("clear", ConsoleClear);
     ConsoleAddCommand("font_scale", ConsoleFontScale);
 
 #if 0
@@ -684,11 +717,47 @@ void ConsoleInit()
         stb_textedit_drag(nullptr, nullptr, 0, 0);
     }
 
+    AddLog(nullptr, R"(     ____.                                  )");
+    AddLog(nullptr, R"(    |    |__ __  _____ ______   ___________ )");
+    AddLog(nullptr, R"(    |    |  |  \/     \\____ \_/ __ \_  __ \)");
+    AddLog(nullptr, R"(/\__|    |  |  /  Y Y  \  |_> >  ___/|  | \/)");
+    AddLog(nullptr, R"(\________|____/|__|_|  /   __/ \___  >__|   )");
+    AddLog(nullptr, R"(                     \/|__|        \/       )");
 
-    // TODO: Don't:
-    void ConsoleOpen(bool large);
-    ConsoleOpen(false);
-    for (int i = 0; i < 2; ++i) ConsoleLog(LogLevel_Info, "Hello world %d", i);
+    AddLog(nullptr, "");
+
+    AddLog(nullptr, R"(______/\\\\\\\\\\\______________________________________________________________________________        )");
+    AddLog(nullptr, R"( _____\/////\\\///_______________________________________________________________________________       )");
+    AddLog(nullptr, R"(  _________\/\\\_________________________________________/\\\\\\\\\_______________________________      )");
+    AddLog(nullptr, R"(   _________\/\\\______/\\\____/\\\____/\\\\\__/\\\\\____/\\\/////\\\_____/\\\\\\\\___/\\/\\\\\\\__     )");
+    AddLog(nullptr, R"(    _________\/\\\_____\/\\\___\/\\\__/\\\///\\\\\///\\\_\/\\\\\\\\\\____/\\\/////\\\_\/\\\/////\\\_    )");
+    AddLog(nullptr, R"(     _________\/\\\_____\/\\\___\/\\\_\/\\\_\//\\\__\/\\\_\/\\\//////____/\\\\\\\\\\\__\/\\\___\///__   )");
+    AddLog(nullptr, R"(      __/\\\___\/\\\_____\/\\\___\/\\\_\/\\\__\/\\\__\/\\\_\/\\\_________\//\\///////___\/\\\_________  )");
+    AddLog(nullptr, R"(       _\//\\\\\\\\\______\//\\\\\\\\\__\/\\\__\/\\\__\/\\\_\/\\\__________\//\\\\\\\\\\_\/\\\_________ )");
+    AddLog(nullptr, R"(        __\/////////________\/////////___\///___\///___\///__\///____________\//////////__\///__________)");
+
+    AddLog(nullptr, "");
+
+    AddLog(nullptr, R"(MMMMMMMM""M                                               )");
+    AddLog(nullptr, R"(MMMMMMMM  M                                               )");
+    AddLog(nullptr, R"(MMMMMMMM  M dP    dP 88d8b.d8b. 88d888b. .d8888b. 88d888b.)");
+    AddLog(nullptr, R"(MMMMMMMM  M 88    88 88'`88'`88 88'  `88 88ooood8 88'  `88)");
+    AddLog(nullptr, R"(M. `MMM' .M 88.  .88 88  88  88 88.  .88 88.  ... 88      )");
+    AddLog(nullptr, R"(MM.     .MM `88888P' dP  dP  dP 88Y888P' `88888P' dP      )");
+    AddLog(nullptr, R"(MMMMMMMMMMM                     88                        )");
+    AddLog(nullptr, R"(                                dP                        )");
+
+    AddLog(nullptr, "");
+
+    AddLog(nullptr, R"(::::::::::: :::    ::: ::::    ::::  :::::::::  :::::::::: ::::::::: )");
+    AddLog(nullptr, R"(    :+:     :+:    :+: +:+:+: :+:+:+ :+:    :+: :+:        :+:    :+:)");
+    AddLog(nullptr, R"(    +:+     +:+    +:+ +:+ +:+:+ +:+ +:+    +:+ +:+        +:+    +:+)");
+    AddLog(nullptr, R"(    +#+     +#+    +:+ +#+  +:+  +#+ +#++:++#+  +#++:++#   +#++:++#: )");
+    AddLog(nullptr, R"(    +#+     +#+    +#+ +#+       +#+ +#+        +#+        +#+    +#+)");
+    AddLog(nullptr, R"(#+# #+#     #+#    #+# #+#       #+# #+#        #+#        #+#    #+#)");
+    AddLog(nullptr, R"( #####       ########  ###       ### ###        ########## ###    ###)");
+
+    ConsoleLog(LogLevel_Info, "Welcome to Jumper :)");
 }
 
 void DrawString(Vector location, Color color, const char* text, ...)
@@ -709,7 +778,6 @@ void DrawString(Vector location, Color color, const char* text, ...)
         DrawText(ConsoleFont(), color, buffer, s_console.font_scale, { int32(location.x), int32(location.y) }, UIX::left, UIY::bot, RenderPrio::Console);
     }
 }
-
 
 void ConsoleRun()
 {
@@ -803,7 +871,16 @@ void ConsoleRun()
     const float text_x_offset = 2.0f;
     Vector min = log_rect.botLeft;
     min.x += text_x_offset;
-    //font_params.scissor = log_rect;
+
+    // Scissor coordinates need to be framebuffer relative: 0, 0 is the bottom left;
+    Rectangle scissor_rect;
+    scissor_rect.botLeft.x = std::min(log_rect.botLeft.x, log_rect.topRight.x);
+    scissor_rect.botLeft.y = s_console.window_size.y - std::max(log_rect.botLeft.y, log_rect.topRight.y);
+    scissor_rect.topRight.x = std::max(log_rect.botLeft.x, log_rect.topRight.x);
+    scissor_rect.topRight.y = s_console.window_size.y - std::min(log_rect.botLeft.y, log_rect.topRight.y);
+    PushScissor(scissor_rect);
+    Defer{ PopScissor(); };
+
     for (size_t i = 0; i < s_console.items.size(); i++)
     {
         float offset = float((NumItems() - 1) - i) * ItemHeight() - s_console.scroll_position * ItemHeight();
@@ -851,6 +928,7 @@ void ConsoleLog(LogLevel level, const char* fmt, ...)
 
 static ConsoleCommand& AddCommand(const char* name)
 {
+    ConsoleInit();
     ConsoleCommand command = {};
     strcpy_s(command.name, name);
 
@@ -884,7 +962,7 @@ void ConsoleAddCommand(const char* name, CommandFuncArgs func)
 void ConsoleClose()
 {
     Console* console = &s_console;
-    console->tween = TweenBegin(TweenStyle::InverseSquare, OPEN_TIME, console->visible_height, 0.0f);
+    console->tween = TweenBegin(TweenStyle::InverseCube, OPEN_TIME, console->visible_height, 0.0f);
     console->input_buf.clear();
     s_console.wants_input = false;
     ConsoleClearAutoComplete();
@@ -894,7 +972,7 @@ void ConsoleOpen(bool large)
 {
     Vector size = GetWindowSize();
     float target = large ? size.y * 0.8f : size.y * 0.5f;
-    s_console.tween = TweenBegin(TweenStyle::InverseSquare, OPEN_TIME, s_console.visible_height, target);
+    s_console.tween = TweenBegin(TweenStyle::InverseCube, OPEN_TIME, s_console.visible_height, target);
     s_console.wants_input = true;
 }
 
@@ -1013,7 +1091,7 @@ bool ConsoleWantsInput()
 bool Console_OnCharacter(int c)
 {
     constexpr uint32_t TILDE_KEY = 126; // Not in SDL documentation?
-    if (c == SDLK_BACKQUOTE || c == TILDE_KEY) return false;// TODO: Test with backquote || m.c == TILDE_KEY) return false;
+    if (c == SDLK_BACKQUOTE || c == TILDE_KEY) return false;
     if (!ConsoleWantsInput()) return false;
     STB_TEXTEDIT_KEYTYPE key = c;
     stb_textedit_key(&s_console.input_buf, &s_console.te_state, key);

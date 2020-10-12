@@ -145,6 +145,30 @@ inline const Vector& operator+=(Vector& lhs, const Vector& rhs)
     return lhs;
 }
 
+inline bool operator==(const Vector& lhs, const Vector& rhs)
+{
+    bool x = lhs.x == rhs.x;
+    bool y = lhs.y == rhs.y;
+    return x && y;
+}
+
+inline bool operator!=(const Vector& lhs, const Vector& rhs)
+{
+    return !(lhs == rhs);
+}
+
+inline bool operator==(const Rectangle& lhs, const Rectangle& rhs)
+{
+    bool bl = lhs.botLeft == rhs.botLeft;
+    bool tr = lhs.topRight == rhs.topRight;
+    return bl && tr;
+}
+
+inline bool operator!=(const Rectangle& lhs, const Rectangle& rhs)
+{
+    return !(lhs == rhs);
+}
+
 
 
 template <typename T>

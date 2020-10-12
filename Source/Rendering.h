@@ -98,6 +98,7 @@ struct RenderInformation
     RenderType renderType;
     Rectangle sRect = {};
     Rectangle dRect = {};
+    Rectangle scissor = {};
     RenderPrio prio;
     uint32 prioIndex;
     Color color = {};
@@ -124,6 +125,8 @@ struct Actor;
 struct Block;
 class TileMap;
 
+void PushScissor(Rectangle scissor);
+void PopScissor();
 
 void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
     Sprite* sprite, Color colorMod, float rotation,

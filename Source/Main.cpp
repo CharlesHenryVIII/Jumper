@@ -24,6 +24,10 @@
 #include <unordered_map>
 #include <cmath>
 
+CONSOLE_FUNCTION(ExitApp)
+{
+    running = false;
+}
 
 int main(int argc, char* argv[])
 {
@@ -49,7 +53,7 @@ int main(int argc, char* argv[])
     iconSurface.
     */
 
-    //LoadAllAnimationStates();
+    LoadAllAnimationStates();
 
 	sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
 	sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
@@ -65,11 +69,13 @@ int main(int argc, char* argv[])
 	fonts["2"] = CreateFont("Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
 
     //Level instantiations
-    //AddAllLevels();
+    AddAllLevels();
     //LoadLevel("Level 1");
     //LoadLevel("Default");
 
     SwitchToMenu();
+
+    ConsoleAddCommand("exit", ExitApp);
 
     //Start Of Running Program
     while (running)

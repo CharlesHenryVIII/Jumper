@@ -14,6 +14,21 @@ std::unordered_map<std::string, Sprite*> sprites;
 std::unordered_map<std::string, FontSprite*> fonts;
 Camera camera;
 
+static std::vector<Rectangle> scissor_rectangles;
+
+void PushScissor(Rectangle scissor)
+{
+    scissor_rectangles.push_back(scissor);
+}
+
+void PopScissor()
+{
+    assert(!scissor_rectangles.empty());
+    if (!scissor_rectangles.empty())
+        scissor_rectangles.pop_back();
+}
+
+
 void CheckError()
 {
     while (GLenum error = glGetError())
@@ -111,11 +126,22 @@ struct OpenGLInfo
     GLuint whiteTexture;
 }GLInfo = {};
 
+RenderInformation& AllocDrawCall()
+{
+    RenderInformation info = {};
+    if (!scissor_rectangles.empty())
+    {
+        info.scissor = scissor_rectangles.back();
+    }
+    drawCalls.push_back(info);
+    return drawCalls.back();
+}
+
 void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
     Sprite* sprite, Color colorMod, float rotation,
     Vector rotationPoint, bool flippage, CoordinateSpace coordSpace)
 {
-    RenderInformation info;
+    RenderInformation& info = AllocDrawCall();
     info.renderType = RenderType::Texture;
 	info.sRect = sRect;
 	info.dRect = dRect;
@@ -134,14 +160,12 @@ void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
     info.texture.rotationPoint = rotationPoint;
     info.texture.width = sprite->width;
     info.texture.height = sprite->height;
-
-    drawCalls.push_back(info);
 }
 
 void AddRectToRender(RenderType type, Rectangle rect, Color color, RenderPrio prio, CoordinateSpace coordSpace)
 {
 
-    RenderInformation renderInformation = {};
+    RenderInformation& renderInformation = AllocDrawCall();
 	renderInformation.renderType = type;
 	renderInformation.dRect = rect;
     renderInformation.color = color;
@@ -151,7 +175,6 @@ void AddRectToRender(RenderType type, Rectangle rect, Color color, RenderPrio pr
     renderInformation.texture.width = 1;
     renderInformation.texture.height= 1;
     renderInformation.texture.texture = GLInfo.whiteTexture;
-    drawCalls.push_back(renderInformation);
 }
 
 void AddRectToRender(Rectangle rect, Color color, RenderPrio prio, CoordinateSpace coordSpace)
@@ -371,10 +394,35 @@ void RenderDrawCalls()
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
 	glUseProgram(GLInfo.program);
 
+    Rectangle currentScissor = {};
+    bool scissorEnabled = false;
+
     {
         PROFILE_SCOPE("RenderCalls");
         for (auto& item : drawCalls)
         {
+            if (item.scissor.Height() && item.scissor.Width())
+            {
+                if (!scissorEnabled)
+                    glEnable(GL_SCISSOR_TEST);
+                scissorEnabled = true;
+                if (currentScissor != item.scissor)
+                {
+                    currentScissor = item.scissor;
+                    glScissor(static_cast<GLsizei>(item.scissor.botLeft.x),
+                              static_cast<GLsizei>(item.scissor.botLeft.y),
+                              static_cast<GLsizei>(item.scissor.Width()),
+                              static_cast<GLsizei>(item.scissor.Height()));
+                }
+            }
+            else
+            {
+                if (!scissorEnabled)
+                    glDisable(GL_SCISSOR_TEST);
+                scissorEnabled = false;
+                currentScissor = {};
+            }
+
             switch (item.renderType)
             {
             case RenderType::DebugFill:

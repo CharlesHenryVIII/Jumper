@@ -14,18 +14,18 @@ std::unordered_map<std::string, Sprite*> sprites;
 std::unordered_map<std::string, FontSprite*> fonts;
 Camera camera;
 
-static std::vector<Rectangle> scissor_rectangles;
+static std::vector<Rectangle> scissorStack;
 
 void PushScissor(Rectangle scissor)
 {
-    scissor_rectangles.push_back(scissor);
+    scissorStack.push_back(scissor);
 }
 
 void PopScissor()
 {
-    assert(!scissor_rectangles.empty());
-    if (!scissor_rectangles.empty())
-        scissor_rectangles.pop_back();
+    assert(!scissorStack.empty());
+    if (!scissorStack.empty())
+        scissorStack.pop_back();
 }
 
 
@@ -129,9 +129,9 @@ struct OpenGLInfo
 RenderInformation& AllocDrawCall()
 {
     RenderInformation info = {};
-    if (!scissor_rectangles.empty())
+    if (!scissorStack.empty())
     {
-        info.scissor = scissor_rectangles.back();
+        info.scissor = scissorStack.back();
     }
     drawCalls.push_back(info);
     return drawCalls.back();
@@ -272,6 +272,8 @@ int32 size = 0;
 void RenderDrawCalls()
 {
     PROFILE_FUNCTION();
+    assert(scissorStack.empty()); // Unbalanced Push/Pop of scissor rectangles!
+    scissorStack.clear();
 
     vertexBuffer.clear();
     {

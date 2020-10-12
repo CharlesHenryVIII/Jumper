@@ -6,7 +6,7 @@
 #include "SDL.h"
 #include <cstdint>
 
-#if 1// TODO: MOVE
+#if 1// TODO: Utility stuff, could be shared
 
 #include <algorithm>
 #include <cassert>
@@ -304,6 +304,7 @@ struct Console
     float                       visible_height = 0;
     float                       delta = 0;
     Tween                       tween = {};
+    Tween                       caret_tween;
 
     float                       font_scale = 0.5f;
     Vector                      window_size;
@@ -335,6 +336,7 @@ static const float OPEN_TIME     = 0.5f; // Seconds to fully open the console
 static const float OPEN_STANDARD = 0.3f; // Screen ratio when opening with `
 static const float OPEN_LARGE    = 0.8f; // Screen ratio when opening with shift+`
 static const float SCROLL_SPEED  = 3.0f; // Number of lines to jump with the mouse scroll wheel
+static const float CARET_BLINK   = 0.5f; // Input cursor blink time
 
 static const Color console_color              = Color{0.1f, 0.1f, 0.1f, 0.95f};
 static const Color input_color                = Color{0.2f, 0.2f, 0.2f, 0.95f};
@@ -494,12 +496,11 @@ static Rectangle ScrollbarRect()
 
 static void sConsoleLog(LogLevel level, const char* string, const char* preamble = nullptr, Color* opt_color = nullptr)
 {
-    Console* console = &s_console;
     Color color = opt_color != nullptr ? *opt_color : LogColor(level);
-    console->items.push_back(ConsoleItem{ level, color, std::string(string) });
+    s_console.items.push_back(ConsoleItem{ level, color, std::string(string) });
     if (preamble && preamble[0])
     {
-        ConsoleItem& item = console->items.back();
+        ConsoleItem& item = s_console.items.back();
         str_copy(item.preamble, preamble);
     }
 
@@ -531,11 +532,10 @@ static void AddLog(const char* preamble, const char* fmt, ...)
 
 static void ConsoleClearAutoComplete()
 {
-    Console* console = &s_console;
-    console->ac_index = -1;
-    console->ac_current_matches.clear();
-    console->ac_active = false;
-    console->ac_pre_string.clear();
+    s_console.ac_index = -1;
+    s_console.ac_current_matches.clear();
+    s_console.ac_active = false;
+    s_console.ac_pre_string.clear();
 }
 
 static void ConsoleMoveAutoCompleteIndex(bool next_alphabetically)
@@ -609,25 +609,24 @@ static void ConsoleBeginAutocomplete()
     }
 }
 
-void ExecCommand(Console* console, const char* command_line)
+void ExecCommand(const char* command_line)
 {
-    ConsoleClearAutoComplete();
     if (command_line[0] == 0)
         return;
     s_console.scroll_target = 0.0f;
     AddLog("# ", "%s", command_line);
 
     // Insert into history. First find match and delete it so it can be pushed to the back. This isn't trying to be smart or optimal.
-    console->history_pos = -1;
-    for (int i = static_cast<int>(console->history.size()); i--;)
+    s_console.history_pos = -1;
+    for (int i = static_cast<int>(s_console.history.size()); i--;)
     {
-        if (str_equals(console->history[i].c_str(), command_line, false))
+        if (str_equals(s_console.history[i].c_str(), command_line, false))
         {
-            console->history.erase(console->history.begin() + i);
+            s_console.history.erase(s_console.history.begin() + i);
             break;
         }
     }
-    console->history.push_back(command_line);
+    s_console.history.push_back(command_line);
 
     char command[512] = {};
     {
@@ -637,7 +636,7 @@ void ExecCommand(Console* console, const char* command_line)
             return;
     }
 
-    for (auto& cmd : console->commands)
+    for (auto& cmd : s_console.commands)
     {
         if (str_equals(cmd.name, command, false))
         {
@@ -717,6 +716,8 @@ void ConsoleInit()
     ConsoleAddCommand("logo", Logo);
 
     stb_textedit_initialize_state(&s_console.te_state, true);
+
+    s_console.caret_tween = TweenBegin(TweenStyle::InverseSquare, CARET_BLINK, 0.1f, 1.0f);
 
     if (0)
     {
@@ -800,8 +801,21 @@ void ConsoleRun()
 
     if (state.select_end == state.select_start)
     {
+        float alpha = TweenValue(s_console.caret_tween);
+        if (s_console.caret_tween.finished)
+        {
+            std::swap(s_console.caret_tween.v0, s_console.caret_tween.v1);
+            s_console.caret_tween.start_time = TimeNow();
+            s_console.caret_tween.finished = false;
+            // Flipping style keeps it bright for most of the time:
+            if (s_console.caret_tween.v0 < s_console.caret_tween.v1)
+                s_console.caret_tween.style = TweenStyle::InverseSquare;
+            else
+                s_console.caret_tween.style = TweenStyle::Square;
+        }
+
         // Nothing selected, draw the cursor
-        float caret_x = static_cast<float>(s_console.input_buf.length() * charWidth);// TODO: font->StringWidth(s_console.input_buf.c_str(), state.cursor);
+        float caret_x = static_cast<float>(state.cursor * charWidth);// TODO: font->StringWidth(s_console.input_buf.c_str(), state.cursor);
         caret_x += prompt_width;
         Rectangle caret;
         caret.botLeft.x = caret_x - 1.0f;
@@ -810,7 +824,9 @@ void ConsoleRun()
         float center_y = (input_rect.botLeft.y + input_rect.topRight.y) / 2.0f;
         caret.botLeft.y = center_y + ItemHeight() * 0.5f;
         caret.topRight.y = center_y - ItemHeight() * 0.5f;
-        AddRectToRender(RenderType::DebugFill, caret, caret_color, RenderPrio::Console, CoordinateSpace::UI);
+        Color c = caret_color;
+        c.a = alpha;
+        AddRectToRender(RenderType::DebugFill, caret, c, RenderPrio::Console, CoordinateSpace::UI);
     }
     else
     {
@@ -956,8 +972,7 @@ static bool FloatEquals(float a, float b, float epsilon = FLT_EPSILON)
 
 void ConsoleToggle(bool shift_pressed)
 {
-    Console* console = &s_console;
-    float cur = console->tween.v1;
+    float cur = s_console.tween.v1;
     bool is_open = cur > 0.0f;
     bool is_large = FloatEquals(cur, TargetHeight(true));
 
@@ -1101,9 +1116,11 @@ bool Console_OnKeyboard(int c, int mods, bool pressed, bool repeat)
 
     if (c == SDLK_RETURN || c == SDLK_KP_ENTER)
     {
-        ExecCommand(&s_console, s_console.input_buf.c_str());
-        s_console.input_buf.clear();
+        ExecCommand(s_console.input_buf.c_str());
+        clear_autocomplete = true;
         state->select_end = state->select_start = 0;
+        state->cursor = 0;
+        s_console.input_buf.clear();
     }
     else if (control && c == SDLK_a)
     {

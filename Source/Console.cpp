@@ -258,12 +258,6 @@ static bool  stbInsertChars(TextEditString* string, int start, char* characters,
 #define STB_TEXTEDIT_K_UNDO        (SDLK_z | (KMOD_CTRL << 16))
 #define STB_TEXTEDIT_K_REDO        (SDLK_z | (KMOD_CTRL << 16) | (KMOD_SHIFT << 16))
 
-// TODO
-// TODO
-// TODO KMOD CTRL SHIFT is probably wrong, we'll have to flag it ourselves before giving it to STB
-// TODO
-// TODO
-
 // Optional:
 #define STB_TEXTEDIT_K_INSERT              SDLK_INSERT
 #define STB_TEXTEDIT_IS_SPACE(ch)          ((ch) == ' ')
@@ -280,8 +274,6 @@ static bool  stbInsertChars(TextEditString* string, int start, char* characters,
 #define STB_TEXTEDIT_IMPLEMENTATION
 #include "stb/stb_textedit.h"
 
-static const float OPEN_TIME = 0.5f;
-
 struct ConsoleCommand
 {
     char            name[128];
@@ -292,6 +284,7 @@ struct ConsoleCommand
 struct ConsoleItem
 {
     LogLevel     level;
+    Color        color;
     std::string  text;
     char         preamble[4] = {};
 };
@@ -321,9 +314,10 @@ struct Console
     float                       mouse_scroll_handle_t = 0.0f;
     bool                        mouse_scrolling = false;
 
+    // Autocomplete
     int                         ac_index;
     std::vector<std::string>    ac_current_matches;
-    bool                        ac_in_tooltip;
+    bool                        ac_active;
     // The string we had before starting autocomplete (hitting backspace returns to this)
     std::string                 ac_pre_string;
 
@@ -336,6 +330,11 @@ struct Console
 static Console s_console;
 
 
+// CONFIG:
+static const float OPEN_TIME     = 0.5f; // Seconds to fully open the console
+static const float OPEN_STANDARD = 0.3f; // Screen ratio when opening with `
+static const float OPEN_LARGE    = 0.8f; // Screen ratio when opening with shift+`
+static const float SCROLL_SPEED  = 3.0f; // Number of lines to jump with the mouse scroll wheel
 
 static const Color console_color              = Color{0.1f, 0.1f, 0.1f, 0.95f};
 static const Color input_color                = Color{0.2f, 0.2f, 0.2f, 0.95f};
@@ -353,6 +352,15 @@ static const Color log_colors[] = {
     Color{0.5f, 0.5f, 0.8f, 1.0f}, // LogLevel_Internal
 };
 static_assert(ARRAY_COUNT(log_colors) == LogLevel_Count);
+// :CONFIG
+
+static Color LogColor(LogLevel level)
+{
+    int index = std::clamp(static_cast<int>(level), 0, static_cast<int>(ARRAY_COUNT(log_colors)));
+    assert(index == level); // Request was out of bounds
+    return log_colors[index];
+}
+
 
 static Vector GetWindowSize()
 {
@@ -484,10 +492,11 @@ static Rectangle ScrollbarRect()
     return result;
 }
 
-static void sConsoleLog(LogLevel level, const char* preamble, const char* string)
+static void sConsoleLog(LogLevel level, const char* string, const char* preamble = nullptr, Color* opt_color = nullptr)
 {
     Console* console = &s_console;
-    console->items.push_back(ConsoleItem{ level, std::string(string) });
+    Color color = opt_color != nullptr ? *opt_color : LogColor(level);
+    console->items.push_back(ConsoleItem{ level, color, std::string(string) });
     if (preamble && preamble[0])
     {
         ConsoleItem& item = console->items.back();
@@ -517,7 +526,7 @@ static void AddLog(const char* preamble, const char* fmt, ...)
     vsnprintf(buf, ARRAY_COUNT(buf), fmt, args);
     buf[ARRAY_COUNT(buf) - 1] = 0;
     va_end(args);
-    sConsoleLog(LogLevel_Internal, preamble, buf);
+    sConsoleLog(LogLevel_Internal, buf, preamble, nullptr);
 }
 
 static void ConsoleClearAutoComplete()
@@ -525,7 +534,7 @@ static void ConsoleClearAutoComplete()
     Console* console = &s_console;
     console->ac_index = -1;
     console->ac_current_matches.clear();
-    console->ac_in_tooltip = false;
+    console->ac_active = false;
     console->ac_pre_string.clear();
 }
 
@@ -579,7 +588,7 @@ static void ConsoleBeginAutocomplete()
         if (console->ac_current_matches.size() > 1)
         {
             console->ac_pre_string = current;
-            console->ac_in_tooltip = true;
+            console->ac_active = true;
             console->ac_index = 0;
         }
         else
@@ -600,14 +609,12 @@ static void ConsoleBeginAutocomplete()
     }
 }
 
-void ClearLog(Console* console)
-{
-    console->items.clear();
-}
-
 void ExecCommand(Console* console, const char* command_line)
 {
     ConsoleClearAutoComplete();
+    if (command_line[0] == 0)
+        return;
+    s_console.scroll_target = 0.0f;
     AddLog("# ", "%s", command_line);
 
     // Insert into history. First find match and delete it so it can be pushed to the back. This isn't trying to be smart or optimal.
@@ -628,18 +635,6 @@ void ExecCommand(Console* console, const char* command_line)
         int len = str_get_token(command, &tc);
         if (!len)
             return;
-    }
-
-    {
-        // Allow = to be a separator
-        char* token_end = strrchr(command, '=');
-        if (token_end)
-        {
-            *token_end = 0;
-            int len = int(token_end - command);
-            REF(len);
-            assert(len == strlen(command));
-        }
     }
 
     for (auto& cmd : console->commands)
@@ -692,6 +687,23 @@ CONSOLE_FUNCTIONA(ConsoleFontScale)
     }
 }
 
+CONSOLE_FUNCTION(Logo)
+{
+    Color logo_color = Mint;
+
+    auto WriteLine = [&logo_color](const char* line) {
+        sConsoleLog(LogLevel_Internal, line, nullptr, &logo_color);
+    };
+
+    WriteLine(R"(        __   __    __  .___  ___. .______    _______ .______      )");
+    WriteLine(R"(       |  | |  |  |  | |   \/   | |   _  \  |   ____||   _  \     )");
+    WriteLine(R"(       |  | |  |  |  | |  \  /  | |  |_)  | |  |__   |  |_)  |    )");
+    WriteLine(R"( .--.  |  | |  |  |  | |  |\/|  | |   ___/  |   __|  |      /     )");
+    WriteLine(R"( |  `--'  | |  `--'  | |  |  |  | |  |      |  |____ |  |\  \----.)");
+    WriteLine(R"(  \______/   \______/  |__|  |__| | _|      |_______|| _| `._____|)");
+    WriteLine("");
+}
+
 void ConsoleInit()
 {
     if (s_console.initialized)
@@ -702,11 +714,7 @@ void ConsoleInit()
     ConsoleAddCommand("help", ShowHelp);
     ConsoleAddCommand("clear", ConsoleClear);
     ConsoleAddCommand("font_scale", ConsoleFontScale);
-
-#if 0
-    s_console.input_handler = new ConsoleInputHandler();
-    AppInputSystem()->RegisterInputHandler(s_console.input_handler, INT_MAX);
-#endif
+    ConsoleAddCommand("logo", Logo);
 
     stb_textedit_initialize_state(&s_console.te_state, true);
 
@@ -717,53 +725,11 @@ void ConsoleInit()
         stb_textedit_drag(nullptr, nullptr, 0, 0);
     }
 
-    AddLog(nullptr, R"(     ____.                                  )");
-    AddLog(nullptr, R"(    |    |__ __  _____ ______   ___________ )");
-    AddLog(nullptr, R"(    |    |  |  \/     \\____ \_/ __ \_  __ \)");
-    AddLog(nullptr, R"(/\__|    |  |  /  Y Y  \  |_> >  ___/|  | \/)");
-    AddLog(nullptr, R"(\________|____/|__|_|  /   __/ \___  >__|   )");
-    AddLog(nullptr, R"(                     \/|__|        \/       )");
-
-    AddLog(nullptr, "");
-
-    AddLog(nullptr, R"(______/\\\\\\\\\\\______________________________________________________________________________        )");
-    AddLog(nullptr, R"( _____\/////\\\///_______________________________________________________________________________       )");
-    AddLog(nullptr, R"(  _________\/\\\_________________________________________/\\\\\\\\\_______________________________      )");
-    AddLog(nullptr, R"(   _________\/\\\______/\\\____/\\\____/\\\\\__/\\\\\____/\\\/////\\\_____/\\\\\\\\___/\\/\\\\\\\__     )");
-    AddLog(nullptr, R"(    _________\/\\\_____\/\\\___\/\\\__/\\\///\\\\\///\\\_\/\\\\\\\\\\____/\\\/////\\\_\/\\\/////\\\_    )");
-    AddLog(nullptr, R"(     _________\/\\\_____\/\\\___\/\\\_\/\\\_\//\\\__\/\\\_\/\\\//////____/\\\\\\\\\\\__\/\\\___\///__   )");
-    AddLog(nullptr, R"(      __/\\\___\/\\\_____\/\\\___\/\\\_\/\\\__\/\\\__\/\\\_\/\\\_________\//\\///////___\/\\\_________  )");
-    AddLog(nullptr, R"(       _\//\\\\\\\\\______\//\\\\\\\\\__\/\\\__\/\\\__\/\\\_\/\\\__________\//\\\\\\\\\\_\/\\\_________ )");
-    AddLog(nullptr, R"(        __\/////////________\/////////___\///___\///___\///__\///____________\//////////__\///__________)");
-
-    AddLog(nullptr, "");
-
-    AddLog(nullptr, R"(MMMMMMMM""M                                               )");
-    AddLog(nullptr, R"(MMMMMMMM  M                                               )");
-    AddLog(nullptr, R"(MMMMMMMM  M dP    dP 88d8b.d8b. 88d888b. .d8888b. 88d888b.)");
-    AddLog(nullptr, R"(MMMMMMMM  M 88    88 88'`88'`88 88'  `88 88ooood8 88'  `88)");
-    AddLog(nullptr, R"(M. `MMM' .M 88.  .88 88  88  88 88.  .88 88.  ... 88      )");
-    AddLog(nullptr, R"(MM.     .MM `88888P' dP  dP  dP 88Y888P' `88888P' dP      )");
-    AddLog(nullptr, R"(MMMMMMMMMMM                     88                        )");
-    AddLog(nullptr, R"(                                dP                        )");
-
-    AddLog(nullptr, "");
-
-    AddLog(nullptr, R"(::::::::::: :::    ::: ::::    ::::  :::::::::  :::::::::: ::::::::: )");
-    AddLog(nullptr, R"(    :+:     :+:    :+: +:+:+: :+:+:+ :+:    :+: :+:        :+:    :+:)");
-    AddLog(nullptr, R"(    +:+     +:+    +:+ +:+ +:+:+ +:+ +:+    +:+ +:+        +:+    +:+)");
-    AddLog(nullptr, R"(    +#+     +#+    +:+ +#+  +:+  +#+ +#++:++#+  +#++:++#   +#++:++#: )");
-    AddLog(nullptr, R"(    +#+     +#+    +#+ +#+       +#+ +#+        +#+        +#+    +#+)");
-    AddLog(nullptr, R"(#+# #+#     #+#    #+# #+#       #+# #+#        #+#        #+#    #+#)");
-    AddLog(nullptr, R"( #####       ########  ###       ### ###        ########## ###    ###)");
-
-    ConsoleLog(LogLevel_Info, "Welcome to Jumper :)");
+    Logo();
 }
 
 void DrawString(Vector location, Color color, const char* text, ...)
 {
-    std::string buffer;
-
     va_list count_args, write_args;
     va_start(count_args, text);
     va_copy(write_args, count_args);
@@ -772,6 +738,7 @@ void DrawString(Vector location, Color color, const char* text, ...)
 
     if (count)
     {
+        std::string buffer;
         buffer.resize(count);
         vsnprintf(&buffer[0], buffer.size() + 1, text, write_args);
         assert(*(buffer.data() + buffer.size()) == 0);
@@ -892,7 +859,7 @@ void ConsoleRun()
         else if (min.y > log_rect.botLeft.y + ItemHeight())
             continue;
 
-        DrawString(min, log_colors[item.level], "%s%s", item.preamble, item.text.c_str());
+        DrawString(min, item.color, "%s%s", item.preamble, item.text.c_str());
         min.y += ItemHeight();//font->AdvanceY();
     }
 
@@ -903,10 +870,9 @@ void ConsoleRun()
 
         Rectangle bar = ScrollbarRect();
         Color color = s_console.mouse_scrolling ? scroll_handle_active_color : scroll_handle_color;
-        //params.scissor = scroll;
+        // The current scissor rect will still clip the y-coord here:
         AddRectToRender(RenderType::DebugFill, bar, color, RenderPrio::Console, CoordinateSpace::UI);
     }
-
 }
 
 void ConsoleSetLogLevel(LogLevel level)
@@ -923,7 +889,7 @@ void ConsoleLog(LogLevel level, const char* fmt, ...)
     vsnprintf(buf, ARRAY_COUNT(buf), fmt, args);
     buf[ARRAY_COUNT(buf) - 1] = 0;
     va_end(args);
-    sConsoleLog(level, "", buf);
+    sConsoleLog(level, buf);
 }
 
 static ConsoleCommand& AddCommand(const char* name)
@@ -968,27 +934,39 @@ void ConsoleClose()
     ConsoleClearAutoComplete();
 }
 
+static float TargetHeight(bool large)
+{
+    Vector size = s_console.window_size;
+    float target = large ? size.y * OPEN_LARGE : size.y * OPEN_STANDARD;
+    return target;
+}
+
 void ConsoleOpen(bool large)
 {
-    Vector size = GetWindowSize();
-    float target = large ? size.y * 0.8f : size.y * 0.5f;
+    float target = TargetHeight(large);
     s_console.tween = TweenBegin(TweenStyle::InverseCube, OPEN_TIME, s_console.visible_height, target);
     s_console.wants_input = true;
 }
 
-bool ConsoleIsOpen(Console* console)
+static bool FloatEquals(float a, float b, float epsilon = FLT_EPSILON)
 {
-    return console->visible_height > 0;
+    float abs_diff = std::fabsf(b - a);
+    return abs_diff < epsilon;
 }
 
-// TODO: This system could be better. We should be able handle toggling and input capturing better than this
-void ConsoleToggle(bool open_large)
+void ConsoleToggle(bool shift_pressed)
 {
     Console* console = &s_console;
-    if (console->tween.v1 > 0.0f)
-        ConsoleClose();
+    float cur = console->tween.v1;
+    bool is_open = cur > 0.0f;
+    bool is_large = FloatEquals(cur, TargetHeight(true));
+
+    if (!is_open)
+        ConsoleOpen(shift_pressed);
+    else if (shift_pressed)
+        ConsoleOpen(!is_large);
     else
-        ConsoleOpen(open_large);
+        ConsoleClose();
 }
 
 //
@@ -1032,7 +1010,7 @@ static void CycleHistory(bool reverse)
 {
     Console* console = &s_console;
 
-    if (console->ac_in_tooltip)
+    if (console->ac_active)
     {
         ConsoleMoveAutoCompleteIndex(reverse);
     }
@@ -1111,7 +1089,6 @@ bool Console_OnKeyboard(int c, int mods, bool pressed, bool repeat)
         return false;
     }
 
-    // TODO: Validate this is correct for SDL
     STB_TEXTEDIT_KEYTYPE key = c | (mods << 16);
     if (!ConsoleWantsInput()) return false;
     if (stbKeyToText(key) >= 0) return true;
@@ -1140,7 +1117,7 @@ bool Console_OnKeyboard(int c, int mods, bool pressed, bool repeat)
         stb_textedit_key(&s_console.input_buf, state, SDLK_BACKSPACE);
         clear_autocomplete = true;
     }
-    else if (s_console.ac_in_tooltip && c == SDLK_BACKSPACE)
+    else if (s_console.ac_active && c == SDLK_BACKSPACE)
     {
         s_console.input_buf = s_console.ac_pre_string;
         s_console.te_state.cursor = static_cast<int>(s_console.input_buf.length());
@@ -1187,7 +1164,7 @@ bool Console_OnKeyboard(int c, int mods, bool pressed, bool repeat)
     }
     else if (c == SDLK_TAB)
     {
-        if (s_console.ac_in_tooltip)
+        if (s_console.ac_active)
             ConsoleMoveAutoCompleteIndex(!shift);
         else
             ConsoleBeginAutocomplete();
@@ -1264,7 +1241,7 @@ bool Console_OnMouseWheel(float scroll)
     if (!MouseIsOverConsole())
         return false;
 
-    s_console.scroll_target += scroll;
+    s_console.scroll_target += scroll * SCROLL_SPEED;
     return true;
 }
 

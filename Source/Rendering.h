@@ -66,6 +66,7 @@ enum class RenderPrio
     Sprites,
     foreground,
     UI,
+    Console,
     Debug,
 };
 
@@ -138,7 +139,7 @@ void BackgroundRender(Sprite* sprite, Camera* camera);
 void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc);
 void SpriteMapRender(Sprite* sprite, const Block& block);
 void DrawText(FontSprite* fontSprite, Color c, const std::string& text, 
-              float size, VectorInt loc, UIX XLayout, UIY YLayout);
+              float size, VectorInt loc, UIX XLayout, UIY YLayout, RenderPrio prio = RenderPrio::UI);
 //camera space
 bool pointRectangleCollision(VectorInt point, Rectangle rect);
 bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);

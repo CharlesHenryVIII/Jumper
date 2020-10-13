@@ -20,6 +20,7 @@ enum LogLevel
 
 void ConsoleRun();
 void ConsoleLog(LogLevel level, const char* fmt, ...);
+void ConsoleLog(const char* fmt, ...);
 void ConsoleSetLogLevel(LogLevel level);
 void ConsoleAddCommand(const char* name, CommandFunc func);
 void ConsoleAddCommand(const char* name, CommandFuncArgs func);

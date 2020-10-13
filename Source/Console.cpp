@@ -274,6 +274,34 @@ static bool  stbInsertChars(TextEditString* string, int start, char* characters,
 #define STB_TEXTEDIT_IMPLEMENTATION
 #include "stb/stb_textedit.h"
 
+// CONFIG:
+static const float OPEN_TIME          = 0.5f;  // Seconds to fully open the console
+static const float OPEN_STANDARD      = 0.3f;  // Screen ratio when opening with `
+static const float OPEN_LARGE         = 0.8f;  // Screen ratio when opening with shift+`
+static const float SCROLL_SPEED       = 3.0f;  // Number of lines to jump with the mouse scroll wheel
+static const float CARET_BLINK        = 0.5f;  // Input cursor blink time
+static const float SCROLLBAR_WIDTH    = 15.0f; // Width of the clickable scrollbar region
+static const float DEFAULT_FONT_SCALE = 0.5f;  // Controls the size of the bitmap font. TODO: Could switch to setting a pixel height, which would be better for TTF anyway.
+
+static const Color console_color              = Color{0.1f, 0.1f, 0.1f, 0.95f};
+static const Color input_color                = Color{0.2f, 0.2f, 0.2f, 0.95f};
+static const Color caret_color                = Color{0.8f, 0.8f, 0.8f, 0.6f};
+static const Color selection_color            = Color{0.8f, 0.8f, 0.8f, 0.4f};
+static const Color font_color                 = Color{0.5f, 0.9f, 0.5f, 1.0f};
+static const Color scroll_background_color    = Color{0.5f, 0.5f, 0.5f, 0.8f};
+static const Color scroll_handle_color        = Color{0.7f, 0.7f, 1.0f, 0.8f};
+static const Color scroll_handle_active_color = Color{0.8f, 0.8f, 1.0f, 1.0f};
+
+static const Color log_colors[] = {
+    Color{0.9f, 0.9f, 0.9f, 1.0f}, // LogLevel_Info
+    Color{0.9f, 0.9f, 0.2f, 1.0f}, // LogLevel_Warning
+    Color{0.9f, 0.1f, 0.1f, 1.0f}, // LogLevel_Error
+    Color{0.5f, 0.5f, 0.8f, 1.0f}, // LogLevel_Internal
+};
+static_assert(ARRAY_COUNT(log_colors) == LogLevel_Count);
+// :CONFIG
+
+
 struct ConsoleCommand
 {
     char            name[128];
@@ -306,7 +334,7 @@ struct Console
     Tween                       tween = {};
     Tween                       caret_tween;
 
-    float                       font_scale = 0.5f;
+    float                       font_scale = DEFAULT_FONT_SCALE;
     Vector                      window_size;
 
     // Scrollbar
@@ -330,31 +358,6 @@ struct Console
 };
 static Console s_console;
 
-
-// CONFIG:
-static const float OPEN_TIME     = 0.5f; // Seconds to fully open the console
-static const float OPEN_STANDARD = 0.3f; // Screen ratio when opening with `
-static const float OPEN_LARGE    = 0.8f; // Screen ratio when opening with shift+`
-static const float SCROLL_SPEED  = 3.0f; // Number of lines to jump with the mouse scroll wheel
-static const float CARET_BLINK   = 0.5f; // Input cursor blink time
-
-static const Color console_color              = Color{0.1f, 0.1f, 0.1f, 0.95f};
-static const Color input_color                = Color{0.2f, 0.2f, 0.2f, 0.95f};
-static const Color caret_color                = Color{0.8f, 0.8f, 0.8f, 0.6f};
-static const Color selection_color            = Color{0.8f, 0.8f, 0.8f, 0.4f};
-static const Color font_color                 = Color{0.5f, 0.9f, 0.5f, 1.0f};
-static const Color scroll_background_color    = Color{0.5f, 0.5f, 0.5f, 0.8f};
-static const Color scroll_handle_color        = Color{0.7f, 0.7f, 1.0f, 0.8f};
-static const Color scroll_handle_active_color = Color{0.8f, 0.8f, 1.0f, 1.0f};
-
-static const Color log_colors[] = {
-    Color{0.9f, 0.9f, 0.9f, 1.0f}, // LogLevel_Info
-    Color{0.9f, 0.9f, 0.2f, 1.0f}, // LogLevel_Warning
-    Color{0.9f, 0.1f, 0.1f, 1.0f}, // LogLevel_Error
-    Color{0.5f, 0.5f, 0.8f, 1.0f}, // LogLevel_Internal
-};
-static_assert(ARRAY_COUNT(log_colors) == LogLevel_Count);
-// :CONFIG
 
 static Color LogColor(LogLevel level)
 {
@@ -456,8 +459,7 @@ static Rectangle ScrollBackgroundRect()
 
     Vector min = log_rect.botLeft;
     Vector max = log_rect.topRight;
-    const float scroll_background_width = 10.0f;
-    min.x = max.x - scroll_background_width;
+    min.x = max.x - SCROLLBAR_WIDTH;
 
     Rectangle result;
     result.botLeft = min;
@@ -566,7 +568,7 @@ static void ConsoleBeginAutocomplete()
     int current_len = static_cast<int>(current.length());
 
     std::vector<std::string> all_matches;
-    const int matches_per_line = 5;
+    const int matches_per_line = 6;
     int current_matches = 0;
     for (auto& command : console->commands)
     {
@@ -589,7 +591,10 @@ static void ConsoleBeginAutocomplete()
         {
             console->ac_pre_string = current;
             console->ac_active = true;
-            console->ac_index = 0;
+
+            AddLog("@ ", "Matches:");
+            for (auto& line : all_matches)
+                AddLog("   ", "%s", line.c_str());
         }
         else
         {
@@ -598,19 +603,16 @@ static void ConsoleBeginAutocomplete()
 
         console->ac_index = -1;
         ConsoleMoveAutoCompleteIndex(true);
-
-        AddLog("@ ", "Matches:");
-        for (auto& line : all_matches)
-            AddLog("   ", "%s", line.c_str());
     }
     else
     {
-        AddLog("! ", "No matches");
+        AddLog("! ", "No matches for %s", current.c_str());
     }
 }
 
 void ExecCommand(const char* command_line)
 {
+    command_line = str_eat_whitespace(command_line);
     if (command_line[0] == 0)
         return;
     s_console.scroll_target = 0.0f;
@@ -678,12 +680,12 @@ CONSOLE_FUNCTION(ConsoleClear)
 
 CONSOLE_FUNCTIONA(ConsoleFontScale)
 {
+    float scale = DEFAULT_FONT_SCALE;
     if (args.size() >= 1)
-    {
-        float scale = static_cast<float>(atof(args[0].c_str()));
-        s_console.font_scale = std::clamp(scale, 0.25f, 1.0f);
-        ConsoleLog(LogLevel_Info, "Setting console font scale to %0.3f", s_console.font_scale);
-    }
+        scale = static_cast<float>(atof(args[0].c_str()));
+
+    s_console.font_scale = std::clamp(scale, 0.25f, 1.0f);
+    ConsoleLog(LogLevel_Info, "Setting console font scale to %0.3f", s_console.font_scale);
 }
 
 CONSOLE_FUNCTION(Logo)
@@ -906,6 +908,17 @@ void ConsoleLog(LogLevel level, const char* fmt, ...)
     buf[ARRAY_COUNT(buf) - 1] = 0;
     va_end(args);
     sConsoleLog(level, buf);
+}
+
+void ConsoleLog(const char* fmt, ...)
+{
+    char buf[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buf, ARRAY_COUNT(buf), fmt, args);
+    buf[ARRAY_COUNT(buf) - 1] = 0;
+    va_end(args);
+    sConsoleLog(LogLevel_Info, buf);
 }
 
 static ConsoleCommand& AddCommand(const char* name)

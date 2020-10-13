@@ -179,12 +179,14 @@ int main(int argc, char* argv[])
                     windowInfo.width = SDLEvent.window.data1;
                     windowInfo.height = SDLEvent.window.data2;
                     camera.size.y = camera.size.x * ((float)windowInfo.height / (float)windowInfo.width);
+                    ConsoleLog("Window size changed to %d %d", windowInfo.width, windowInfo.height);
                 }
                 else if (SDLEvent.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
                 {
                     SDL_CaptureMouse(SDL_TRUE);
                 }
 
+                break;
             }
 
         }

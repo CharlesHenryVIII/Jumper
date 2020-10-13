@@ -1242,7 +1242,7 @@ static bool MouseIsOverConsole()
 
 bool Console_OnMouseButton(int button, bool pressed)
 {
-    if (!pressed)
+    if (button == SDL_BUTTON_LEFT && !pressed)
         s_console.mouse_scrolling = false;
 
     if (!ConsoleWantsInput())

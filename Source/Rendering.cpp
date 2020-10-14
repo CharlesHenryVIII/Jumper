@@ -697,16 +697,17 @@ void RenderActor(Actor* actor, float rotation)
 		flippage = true;
 		xPos = sprite->width - actor->animationList->colRect.topRight.x;
 	}
-	else
+    else
 		xPos = actor->animationList->colRect.bottomLeft.x;
 
     if (sprite == nullptr)
         sprite = actor->animationList->GetAnyValidAnimation()->anime[0];
 
+    ActorType type = actor->GetActorType();
     Rectangle DR;
-    DR.botLeft.x = actor->position.x - PixelToGame((int(xPos * actor->SpriteRatio())));
-    DR.botLeft.y = actor->position.y - PixelToGame((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
+	DR.botLeft.x = actor->position.x - PixelToGame((int(xPos * actor->SpriteRatio())));
+	DR.botLeft.y = actor->position.y - PixelToGame((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
 	DR.topRight = DR.botLeft + PixelToGame({ (int)(actor->SpriteRatio() * sprite->width),
 			   (int)(actor->SpriteRatio() * sprite->height) });
-    AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, {actor->GameWidth() / 2.0f, actor->GameHeight() / 2.0f}, flippage, CoordinateSpace::World);
+	AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, { actor->GameWidth() / 2.0f, actor->GameHeight() / 2.0f }, flippage, CoordinateSpace::World);
 }

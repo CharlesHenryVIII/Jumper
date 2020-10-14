@@ -338,7 +338,7 @@ struct Grapple : public Actor
     float rotation = 0;
     ActorID attachedActor = 0;
     GrappleState grappleState = GrappleState::None;
-	float grappleSpeed = 15.0f;
+	float grappleSpeed = 25.0f;
     float grappleDistance;
     float angularVelocity = 0;
     Vector shotOrigin = {};

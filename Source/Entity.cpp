@@ -1193,9 +1193,14 @@ void LoadAnimationStates(std::vector<AnimationData> * animationData)
 				delete animeP;
 		}
 
-		std::swap(data->collisionRectangle.botLeft.y, data->collisionRectangle.topRight.y);
+		//std::swap(data->collisionRectangle.botLeft.y, data->collisionRectangle.topRight.y);
 		Sprite* sprite = animationList->GetAnyValidAnimation()->anime[0];
 		assert(sprite);
+		if (data->collisionRectangle.botLeft.y)
+			data->collisionRectangle.botLeft.y = sprite->height - data->collisionRectangle.botLeft.y;
+		if (data->collisionRectangle.topRight.y)
+			data->collisionRectangle.topRight.y = sprite->height - data->collisionRectangle.topRight.y;
+
 		if (data->collisionRectangle.botLeft.x == 0 &&
 			data->collisionRectangle.botLeft.y == 0 &&
 			data->collisionRectangle.topRight.x == 0 &&
@@ -1263,7 +1268,7 @@ void LoadAllAnimationStates()
 	AnimationData striker;
 	striker.name = "Striker";
 	striker.animationFPS[(int)ActorState::run] = 20.0f;
-	striker.collisionRectangle = { { 36, 67 }, { 55, 35 } };
+	striker.collisionRectangle = { { 36, 67 }, { 55, 35 } };//35
 	striker.scaledWidth = 40;
 	animationData.push_back(striker);
 

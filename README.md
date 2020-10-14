@@ -3,9 +3,13 @@
 
 ### TODO:
 #### Current
-- [ ] Fix the debug print string that is getting generated when it isnt finding a animation for a specific animation
-- [ ] Player is not touching the ground and size seems to big compared to what it used to be
-	- [ ] Might be in the RenderActor() function
+
+- [ ] Squash bugs
+	- [ ] Fix the debug print string that is getting generated when it isnt finding a animation for a specific animation
+	- [ ] Player is not touching the ground and size seems to big compared to what it used to be
+		- [x] Might be in the RenderActor() function
+		- [x] This is because the swap in the texture loading was not flipping properly
+		- [ ] Change how texture scaling is being handled, time to refactor old code
 
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [x] Grappling

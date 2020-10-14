@@ -191,11 +191,15 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         {
 
             Grapple* grapple = player->level->FindActor<Grapple>(player->grapple);
-            if (keyStates[SDL_BUTTON_LEFT].upThisFrame)
+            if (keyStates[SDL_BUTTON_LEFT].upThisFrame && grapple)
             {
                 
+                //TODO: Handle grapple not being deleted when going through a portal
                 grapple->grappleState = GrappleState::Retracting;
                 player->angularUpdate = false;
+                Vector tensionPrime = Normalize(grapple->position - grapple->shotOrigin);
+                Vector tension = { tensionPrime.y, -tensionPrime.x };
+                player->velocity = tension * (grapple->grappleDistance * grapple->angularVelocity);
             }
         }
         if (keyStates[SDLK_q].downThisFrame)

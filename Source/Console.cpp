@@ -385,6 +385,14 @@ static Vector GetMousePosition()
     return { static_cast<float>(x), static_cast<float>(y) };
 }
 
+static void ConsoleClearInput()
+{
+    s_console.input_buf.clear();
+    s_console.te_state.select_end = 0;
+    s_console.te_state.select_start = 0;
+    s_console.te_state.cursor = 0;
+}
+
 static Rectangle ConsoleRect()
 {
     Vector window_size = s_console.window_size;// GetWindowSize();
@@ -958,8 +966,8 @@ void ConsoleClose()
 {
     Console* console = &s_console;
     console->tween = TweenBegin(TweenStyle::InverseCube, OPEN_TIME, console->visible_height, 0.0f);
-    console->input_buf.clear();
     s_console.wants_input = false;
+    ConsoleClearInput();
     ConsoleClearAutoComplete();
 }
 
@@ -1131,9 +1139,7 @@ bool Console_OnKeyboard(int c, int mods, bool pressed, bool repeat)
     {
         ExecCommand(s_console.input_buf.c_str());
         clear_autocomplete = true;
-        state->select_end = state->select_start = 0;
-        state->cursor = 0;
-        s_console.input_buf.clear();
+        ConsoleClearInput();
     }
     else if (control && c == SDLK_a)
     {

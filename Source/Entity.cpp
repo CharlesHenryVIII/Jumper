@@ -7,6 +7,7 @@
 #include "TiledInterop.h"
 #include "WinUtilities.h"
 #include "Misc.h"
+#include "Console.h"
 
 #include <cassert>
 
@@ -948,7 +949,7 @@ Portal* GetPortalsPointer(Portal* basePortal)
 
 	assert(false);
 	//DebugPrint("Failed to get Portal from %s at portalID %d", basePortal->levelPointer.c_str(), basePortal->portalPointerID);
-	DebugPrint("Failed to get Portal from %s at portalID %d", basePortal->levelPointer, basePortal->portalPointerID);
+	ConsoleLog("Failed to get Portal from %s at portalID %d", basePortal->levelPointer, basePortal->portalPointerID);
 	return nullptr;
 }
 
@@ -981,7 +982,7 @@ void UpdateAnimationIndex(Actor* actor, float deltaTime)
 		if (anime == nullptr)
 		{
 			anime = actor->animationList->GetAnyValidAnimation();
-			DebugPrint("Could not get valid animation from actor state in UpdateAnimationIndex()");
+			ConsoleLog("Could not get valid animation from actor state in UpdateAnimationIndex()");
 		}
 
 		actor->animationCountdown = 1.0f / anime->fps;
@@ -1020,7 +1021,7 @@ void PlayAnimation(Actor* actor, ActorState state)
 		{
 			//no valid animation to use
 			assert(false);
-			DebugPrint("No valid animation for %s \n", std::to_string((int)actor->GetActorType()).c_str());
+			ConsoleLog("No valid animation for %s \n", std::to_string((int)actor->GetActorType()).c_str());
 			return;
 		}
 		state = holdingState;
@@ -1151,8 +1152,8 @@ void RenderActorHealthBars(Actor& actor)
 	actual.botLeft.y = full.botLeft.y;
 	actual.topRight = full.topRight;
 
-    AddRectToRender(RenderType::DebugFill, full, HealthBarBackground, RenderPrio::Debug, CoordinateSpace::World);
-    AddRectToRender(RenderType::DebugFill, actual, Green, RenderPrio::Debug, CoordinateSpace::World);
+    AddRectToRender(RenderType::DebugFill, full, HealthBarBackground, RenderPrio::UI, CoordinateSpace::World);
+    AddRectToRender(RenderType::DebugFill, actual, Green, RenderPrio::UI, CoordinateSpace::World);
 }
 
 void LoadAnimationStates(std::vector<AnimationData> * animationData)
@@ -1348,7 +1349,7 @@ void AttachAnimation(Actor* actor, ActorType overrideType)
 	}
 	default:
 		assert(false);
-		DebugPrint("AttachAnimation could not find animation list for this actor\n");
+		ConsoleLog("AttachAnimation could not find animation list for this actor\n");
 		break;
 	}
 	actor->animationList = &actorAnimations[entityName];

@@ -3,6 +3,7 @@
 #include "Math.h"
 #include "Entity.h"
 #include "TiledInterop.h"
+#include "Console.h"
 #include <cassert>
 #include <iostream>
 
@@ -83,7 +84,7 @@ const picojson::value& GetActorPropertyValue(const picojson::value& props, const
 		}
 	}
 	//assert(false);
-	DebugPrint("GetActorPropertyValue failed to return a value for %s\n", propertyName.c_str());
+	ConsoleLog("GetActorPropertyValue failed to return a value for %s\n", propertyName.c_str());
 	static picojson::value result;
 	success = false;
 	return result;
@@ -101,7 +102,7 @@ T GetActorProperty(const picojson::value& props, const std::string& propertyName
 			return result.get<T>();
 		}
 	}
-	DebugPrint("GetActorProperty failed to return a value for %s\n", propertyName.c_str());
+	ConsoleLog("GetActorProperty failed to return a value for %s\n", propertyName.c_str());
 	return {};
 }
 

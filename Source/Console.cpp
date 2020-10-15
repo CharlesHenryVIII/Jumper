@@ -405,7 +405,7 @@ static Rectangle ConsoleRect()
 
 FontSprite* ConsoleFont()
 {
-    return fonts["1"];
+	return fonts["1"];
 }
 
 static float ItemHeight()

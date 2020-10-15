@@ -6,6 +6,7 @@
 #include "stb/stb_image_write.h"
 #include "GL/glew.h"
 #include "WinUtilities.h"
+#include "Console.h"
 #include <cassert>
 #include <algorithm>
 
@@ -33,7 +34,7 @@ void CheckError()
 {
     while (GLenum error = glGetError())
     {
-        DebugPrint("Error: %d\n", error);
+        ConsoleLog("Error: %d\n", error);
     }
 }
 

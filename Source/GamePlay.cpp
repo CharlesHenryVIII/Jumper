@@ -5,6 +5,7 @@
 #include "WinUtilities.h"
 #include "Misc.h"
 #include "Menu.h"
+#include "Console.h"
 
 Portal* levelChangePortal;
 bool paused;
@@ -53,7 +54,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     //TODO: fix creating a new player makes a new player ID number;
     if (FindPlayerGlobal() == nullptr)
     {
-        DebugPrint("player not found");
+        ConsoleLog("player not found");
     }
 
     Player* player = FindPlayerGlobal();

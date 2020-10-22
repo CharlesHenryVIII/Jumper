@@ -30,6 +30,7 @@ Gamestate* GetGamestate()
 
 void SwitchToGame()
 {
+    ConsoleLog("Switched To Game");
     gamestate = {};
     levelChangePortal = nullptr;
     gamestate.GetLevel("Default");

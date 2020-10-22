@@ -4,6 +4,7 @@
 #include "Rendering.h"
 #include "GamePlay.h"
 #include "Misc.h"
+#include "Console.h"
 
 #include <unordered_map>
 struct Key;
@@ -17,6 +18,7 @@ void QuitApp()
 void SwitchToMenu()
 {
 	gameState = GameState::mainMenu;
+    ConsoleLog("Switched To Menu");
 }
 
 void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, VectorInt mouseLocation)

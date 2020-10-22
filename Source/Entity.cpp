@@ -689,8 +689,8 @@ void ClickUpdate(Block* block, bool updateTop, Level* level)
 Rectangle CollisionXOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
-	result.botLeft	= { actor->position.x, actor->position.y + PixelToGame((int)actor->ScaledHeight()) * actor->animationList->colOffset.x};
-	result.topRight		= { actor->position.x + PixelToGame((int)actor->animationList->scaledWidth), actor->position.y + PixelToGame((int)actor->ScaledHeight()) * (1 - actor->animationList->colOffset.x) };
+	result.botLeft	= { actor->position.x, actor->position.y + actor->GameHeight() * actor->animationList->colOffset.x};
+	result.topRight		= { actor->position.x + PixelToGame((int)actor->animationList->scaledWidth), actor->position.y + actor->GameHeight() * (1 - actor->animationList->colOffset.x) };
 	return result;
 }
 
@@ -698,7 +698,7 @@ Rectangle CollisionYOffsetToRectangle(Actor* actor)
 {
 	Rectangle result = {};
 	result.botLeft = { actor->position.x + (PixelToGame((int)actor->animationList->scaledWidth) * actor->animationList->colOffset.y), actor->position.y };
-	result.topRight   = { actor->position.x + (PixelToGame((int)actor->animationList->scaledWidth) * (1 - actor->animationList->colOffset.y)), actor->position.y + PixelToGame((int)actor->ScaledHeight()) };
+	result.topRight   = { actor->position.x + (PixelToGame((int)actor->animationList->scaledWidth) * (1 - actor->animationList->colOffset.y)), actor->position.y + actor->GameHeight() };
 	return result;
 }
 
@@ -1144,7 +1144,7 @@ void RenderActorHealthBars(Actor& actor)
 	Rectangle full = {};
 	Rectangle actual = {};
 	full.botLeft.x = actor.position.x;
-	full.botLeft.y = actor.position.y + PixelToGame(int(actor.ScaledHeight())) + healthHeight;
+	full.botLeft.y = actor.position.y + actor.GameHeight() + healthHeight;
 	full.topRight.x = full.botLeft.x + PixelToGame(int(actor.animationList->scaledWidth));
 	full.topRight.y = full.botLeft.y + healthHeight;
 

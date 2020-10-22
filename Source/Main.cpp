@@ -15,6 +15,7 @@
 #include "stb/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
+#include <chrono>
 //#define STB_TRUETYPE_IMPLEMENTATION
 //#include "stb/stb_truetype.h"
 
@@ -29,13 +30,18 @@ CONSOLE_FUNCTION(ExitApp)
     running = false;
 }
 
+
+//struct clock {
+//
+//    std::chrono::high_resolution_clock::duration test;
+//};
+
 int main(int argc, char* argv[])
 {
     //Window and Program Setups:Key
     std::unordered_map<int32, Key> keyStates;
     VectorInt mouseLocation;
     running = true;
-
 
 	gameState = GameState::game;
 
@@ -54,6 +60,10 @@ int main(int argc, char* argv[])
     */
 
     LoadAllAnimationStates();
+    ConsoleLog("Loaded all Animation States");
+
+	fonts["1"] = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
+	fonts["2"] = CreateFont("Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
 
 	sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
 	sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
@@ -65,11 +75,10 @@ int main(int argc, char* argv[])
 //    LoadFonts(fontFileNames);
 //    Cant do this because I would need to pass the font information as well
 //    could make a struct but will do when/if there are more fonts
-	fonts["1"] = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
-	fonts["2"] = CreateFont("Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
 
     //Level instantiations
     AddAllLevels();
+    ConsoleLog("Loaded all Levels");
     //LoadLevel("Level 1");
     //LoadLevel("Default");
 

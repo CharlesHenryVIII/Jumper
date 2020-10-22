@@ -299,6 +299,8 @@ static const Color log_colors[] = {
     Color{0.5f, 0.5f, 0.8f, 1.0f}, // LogLevel_Internal
 };
 static_assert(ARRAY_COUNT(log_colors) == LogLevel_Count);
+std::vector<char*> logStrings;
+std::vector<LogLevel> logLevels;
 // :CONFIG
 
 
@@ -737,6 +739,11 @@ void ConsoleInit()
     }
 
     Logo();
+    
+    assert(logStrings.size() == logLevels.size());
+    for (int i = 0; i < logStrings.size(); i++)
+        sConsoleLog(logLevels[i], logStrings[i]);
+
 }
 
 void DrawString(Vector location, Color color, const char* text, ...)
@@ -906,6 +913,14 @@ void ConsoleSetLogLevel(LogLevel level)
     s_console.log_level = Clamp(level, LogLevel(0), LogLevel(LogLevel_Count - 1));
 }
 
+void AddLogToList(char* buf, size_t size, LogLevel level = LogLevel_Info)
+{
+    char* copy = (char*)malloc(size);
+    memcpy(copy, buf, size);
+
+	logStrings.push_back(copy);
+	logLevels.push_back(level);
+}
 
 void ConsoleLog(LogLevel level, const char* fmt, ...)
 {
@@ -915,18 +930,27 @@ void ConsoleLog(LogLevel level, const char* fmt, ...)
     vsnprintf(buf, ARRAY_COUNT(buf), fmt, args);
     buf[ARRAY_COUNT(buf) - 1] = 0;
     va_end(args);
-    sConsoleLog(level, buf);
+
+    if (s_console.initialized)
+        sConsoleLog(level, buf);
+    else
+        AddLogToList(buf, sizeof(buf), level);
 }
 
 void ConsoleLog(const char* fmt, ...)
 {
-    char buf[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buf, ARRAY_COUNT(buf), fmt, args);
-    buf[ARRAY_COUNT(buf) - 1] = 0;
-    va_end(args);
-    sConsoleLog(LogLevel_Info, buf);
+
+	char buf[1024];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(buf, ARRAY_COUNT(buf), fmt, args);
+	buf[ARRAY_COUNT(buf) - 1] = 0;
+	va_end(args);
+
+    if (s_console.initialized)
+        sConsoleLog(LogLevel_Info, buf);
+    else
+        AddLogToList(buf, sizeof(buf));
 }
 
 static ConsoleCommand& AddCommand(const char* name)

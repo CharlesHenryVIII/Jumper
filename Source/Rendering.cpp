@@ -104,8 +104,10 @@ void CreateOpenGLWindow()
 	{
 		/* Problem: glewInit failed, something is seriously wrong. */
 		DebugPrint("Error: %s\n", glewGetErrorString(err));
+        ConsoleLog("Error: %s\n", glewGetErrorString(err));
 	}
 	DebugPrint("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+    ConsoleLog("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
 	glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	//glClearColor(0,0.5f,0.5f,0);
@@ -756,9 +758,17 @@ void RenderActor(Actor* actor, float rotation)
 
     ActorType type = actor->GetActorType();
     Rectangle DR;
-	DR.botLeft.x = actor->position.x - PixelToGame((int(xPos * actor->SpriteRatio())));
-	DR.botLeft.y = actor->position.y - PixelToGame((int(actor->animationList->colRect.bottomLeft.y * actor->SpriteRatio())));
-	DR.topRight = DR.botLeft + PixelToGame({ (int)(actor->SpriteRatio() * sprite->width),
-			   (int)(actor->SpriteRatio() * sprite->height) });
+	DR.botLeft.x = actor->position.x - PixelToGame((int(xPos * actor->PixelToGameRatio())));
+	DR.botLeft.y = actor->position.y - PixelToGame((int(actor->animationList->colRect.bottomLeft.y * actor->PixelToGameRatio())));
+#if 1
+
+	DR.topRight = DR.botLeft + PixelToGame({ (int)(actor->PixelToGameRatio() * sprite->width),
+			                                 (int)(actor->PixelToGameRatio() * sprite->height) });
+#else
+
+    DR.topRight.x = DR.botLeft.x + actor->GameWidth();
+    DR.topRight.y = DR.botLeft.y + actor->GameWidth();
+#endif
+
 	AddTextureToRender({}, DR, RenderPrio::Sprites, sprite, actor->colorMod, rotation, { actor->GameWidth() / 2.0f, actor->GameHeight() / 2.0f }, flippage, CoordinateSpace::World);
 }

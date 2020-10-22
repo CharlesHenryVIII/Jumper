@@ -10,7 +10,10 @@
 		- [x] Might be in the RenderActor() function
 		- [x] This is because the swap in the texture loading was not flipping properly
 		- [ ] Change how texture scaling is being handled, time to refactor old code
-	- [ ] Cannot use ConsoleLog() before or during initilization of openGL and Window
+			- [ ] replace ScaledWidth with a scale value.
+	- [x] Cannot use ConsoleLog() before or during initilization of openGL and Window
+	- [ ] Use the chrono library for clock features
+		- [ ] Strong types for time
 
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [x] Grappling
@@ -22,6 +25,7 @@
 		- [x] Review code and determine what improvments could be made
 		- [x] Fix pathing past destination
 		- [x] Fix platform effecting vertical velocity when player was not colliding with the top of the platform
+		- [ ] Add interaction with moving platforms
 	- [ ] Power Ups (health, movement, jumping height, extra jump, etc) 
 	- [ ] Wall jump 
 	- [ ] Explosions 
@@ -32,7 +36,6 @@
 	- [x] Spring Board
 
 - [ ] Strong types for physics/math
-- [ ] Strong types for time
 - [ ] Load fonts the same as the character sprites
 	* need to determine a way to load all files in a directory
 	* also cant really do this because I need the information about the font (NAME, offset length, width, etc)

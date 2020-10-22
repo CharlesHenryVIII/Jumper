@@ -191,15 +191,11 @@ public:
     virtual void Render() = 0;
     virtual void UpdateHealth(Level& level, float deltaHealth) = 0;
     virtual ActorType GetActorType() = 0;
-    float SpriteRatio()
+    float PixelToGameRatio()
     {
         assert(animationList->colRect.Width());
         return animationList->scaledWidth / animationList->colRect.Width();
         //return 1.0f;
-    }
-    float ScaledHeight()
-    {
-        return animationList->colRect.Height() * SpriteRatio();
     }
     float GameWidth()
     {
@@ -207,7 +203,7 @@ public:
     }
     float GameHeight()
     {
-        return PixelToGame((int)ScaledHeight());
+        return PixelToGame((int)(animationList->colRect.Height() * PixelToGameRatio()));
     }
 	inline void ResetJumpCount()
 	{

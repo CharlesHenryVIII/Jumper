@@ -32,11 +32,11 @@ void Player::OnInit()
 	inUse = true;
 	AttachAnimation(this);
 }
-
 void Player::Update(float deltaTime)
 {
 	UpdateLocation(this, -60.0f, deltaTime);
 	CollisionWithBlocks(this, false);
+
 	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
 	if (grounded == true)
 	{
@@ -376,6 +376,8 @@ void Grapple::Update(float deltaTime)
 		{
 
 			DoAttached:
+			if (player->jumpCount == 0)
+				player->jumpCount++;
 			
 			break;
 		}
@@ -953,6 +955,7 @@ Portal* GetPortalsPointer(Portal* basePortal)
 	return nullptr;
 }
 
+
 void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime)
 {
 	laser.paintType = paintType;
@@ -969,7 +972,6 @@ void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 	laser.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
 	PlayAnimation(&laser, ActorState::idle);
 }
-
 
 void UpdateAnimationIndex(Actor* actor, float deltaTime)
 {
@@ -1090,12 +1092,29 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 	}
 	else
 	{
+		if (actor->switchToLinearUpdate)
+		{
 
-		actor->velocity.y += gravity * deltaTime;
-		actor->velocity.y = Clamp(actor->velocity.y, -actor->terminalVelocity.y, actor->terminalVelocity.y);
+			assert(actor->GetActorType() == ActorType::Player);
+			Player* player = dynamic_cast<Player*>(actor);
+			Grapple* grapple = player->level->FindActor<Grapple>(player->grapple);
 
-		actor->velocity.x += actor->acceleration.x * deltaTime;
-		//actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
+			Vector tensionPrime = Normalize(grapple->position - grapple->shotOrigin);
+			Vector tension = { tensionPrime.y, -tensionPrime.x };
+			player->velocity = tension * (grapple->grappleDistance * grapple->angularVelocity) * 5;
+
+			player->switchToLinearUpdate = false;
+		}
+		else
+		{
+
+			actor->velocity.y += gravity * deltaTime;
+			actor->velocity.y = Clamp(actor->velocity.y, -actor->terminalVelocity.y, actor->terminalVelocity.y);
+
+			actor->velocity.x += actor->acceleration.x * deltaTime;
+			//actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
+		}
+
 		actor->deltaPosition = actor->velocity * deltaTime;
 		actor->position += actor->deltaPosition;
 
@@ -1103,7 +1122,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 		if (actor->velocity.x == 0 && actor->velocity.y == 0 &&
 			(actorType == ActorType::Player || actorType == ActorType::Enemy))
 			PlayAnimation(actor, ActorState::idle);
-				//DebugPrint("VelocityScale: %0.3f\n", velocityScale);
+		//DebugPrint("VelocityScale: %0.3f\n", velocityScale);
 
 		if (actorType != ActorType::Player)
 		{

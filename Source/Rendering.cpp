@@ -91,6 +91,7 @@ WindowInfo& GetWindowInfo()
 void CreateOpenGLWindow()
 {
     SDL_Init(SDL_INIT_VIDEO);
+    //SDL_Init(SDL_INIT_AUDIO);
     windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -517,15 +518,6 @@ Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
 	return result;
 }
 
-//void LoadFonts(const char* fileNames[])
-//{
-//    int32 nameStart = 0;
-//    for (auto& name : fileNames)
-//    {
-//        fonts[name] = CreateFont(name, SDL_BLENDMODE_BLEND, 32, 20, 16);
-//        fonts["1"] = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
-//    }
-//}
 
 FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 actualCharWidth, int32 charPerRow)
 {
@@ -607,21 +599,25 @@ void DrawText(FontSprite* fontSprite, Color c, const std::string& text, float si
     {
         int32 charKey = text[i] - ' ';
 
-        SRect.botLeft.x = float(charKey % CPR * h + (h - w) / 2);
-        SRect.botLeft.y = float(charKey / CPR * h);
-        SRect.topRight.x = SRect.botLeft.x + w;
-        SRect.topRight.y = SRect.botLeft.y + h;
+		if (charKey >= 0 && charKey < 96)
+		{
 
-        Rectangle DRectangle;
-        DRectangle.botLeft.x = loc.x + i * width - (int32(XLayout) * width * int32(text.size())) / 2;
-        DRectangle.botLeft.y = loc.y - (int32(YLayout) * height) / 2;
-        DRectangle.topRight = { DRectangle.botLeft.x + width, DRectangle.botLeft.y + height };
+			SRect.botLeft.x = float(charKey % CPR * h + (h - w) / 2);
+			SRect.botLeft.y = float(charKey / CPR * h);
+			SRect.topRight.x = SRect.botLeft.x + w;
+			SRect.topRight.y = SRect.botLeft.y + h;
 
-        float height2 = DRectangle.Height();
-        DRectangle.botLeft.y += height2;
-        DRectangle.topRight.y -= height2;
-        AddTextureToRender(SRect, DRectangle, prio, fontSprite->sprite, c, 0, {}, false, CoordinateSpace::UI);
-    }
+			Rectangle DRectangle;
+			DRectangle.botLeft.x = loc.x + i * width - (int32(XLayout) * width * int32(text.size())) / 2;
+			DRectangle.botLeft.y = loc.y - (int32(YLayout) * height) / 2;
+			DRectangle.topRight = { DRectangle.botLeft.x + width, DRectangle.botLeft.y + height };
+
+			float height2 = DRectangle.Height();
+			DRectangle.botLeft.y += height2;
+			DRectangle.topRight.y -= height2;
+			AddTextureToRender(SRect, DRectangle, prio, fontSprite->sprite, c, 0, {}, false, CoordinateSpace::UI);
+		}
+	}
 }
 
 //camera space

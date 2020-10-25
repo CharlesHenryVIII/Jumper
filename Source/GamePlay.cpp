@@ -39,6 +39,7 @@ void SwitchToGame()
 }
 
 
+
 void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, VectorInt mouseLocation)
 {
 
@@ -197,11 +198,10 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             {
                 
                 //TODO: Handle grapple not being deleted when going through a portal
+                if (grapple->grappleState == GrappleState::Attached)
+                    player->switchToLinearUpdate = true;
                 grapple->grappleState = GrappleState::Retracting;
                 player->angularUpdate = false;
-                Vector tensionPrime = Normalize(grapple->position - grapple->shotOrigin);
-                Vector tension = { tensionPrime.y, -tensionPrime.x };
-                player->velocity = tension * (grapple->grappleDistance * grapple->angularVelocity);
             }
         }
         if (keyStates[SDLK_q].downThisFrame)
@@ -387,9 +387,11 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     DrawText(fonts["1"], Green, std::to_string(1 / deltaTime) + "fps", 1.0f, { 0, 0 }, UIX::left, UIY::top);
     if (player != nullptr)
     {
-        DrawText(fonts["1"], Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
-        DrawText(fonts["1"], Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, windowInfo.height - 20 }, UIX::left, UIY::bot);
-        DrawText(fonts["1"], Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, windowInfo.height }, UIX::left, UIY::bot);
+        DrawText(fonts["1"], Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, windowInfo.height - 60 }, UIX::left, UIY::bot);
+        DrawText(fonts["1"], Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
+        DrawText(fonts["1"], Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, windowInfo.height - 20}, UIX::left, UIY::bot);
+        if (player->grapple)
+			DrawText(fonts["1"], Green, "Angular Velocity: " + std::to_string(player->level->FindActor<Grapple>(player->grapple)->angularVelocity), 0.75f, { 0, windowInfo.height }, UIX::left, UIY::bot);
     }
 
     if (DrawButton(fonts["1"], "ESC", { windowInfo.width, windowInfo.height }, 

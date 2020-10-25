@@ -15,7 +15,6 @@
 #include "stb/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
-#include <chrono>
 //#define STB_TRUETYPE_IMPLEMENTATION
 //#include "stb/stb_truetype.h"
 
@@ -30,11 +29,12 @@ CONSOLE_FUNCTION(ExitApp)
     running = false;
 }
 
-
-//struct clock {
-//
-//    std::chrono::high_resolution_clock::duration test;
-//};
+//void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
+//{
+//    //LRLRLR ordering
+//    //Should I use a buffer method or audio queing?
+//    
+//}
 
 int main(int argc, char* argv[])
 {
@@ -50,9 +50,56 @@ int main(int argc, char* argv[])
 	camera.size.x = 16;
 	camera.size.y = camera.size.x * ((float)windowInfo.height / (float)windowInfo.width);
 
-    double freq = double(SDL_GetPerformanceFrequency()); //HZ
-    double totalTime = SDL_GetPerformanceCounter() / freq; //sec
-    double previousTime = totalTime;
+    //{
+		////for (int i = 0; i < SDL_GetNumAudioDrivers(); ++i) {
+		////	const char* driverName = SDL_GetAudioDriver(i);
+		////	if (driverName == "directsound")
+		////	{
+		////		if (SDL_AudioInit(driverName))
+		////		{
+		////			DebugPrint("Audio driver failed to initialize: %s\n", driverName);
+		////			ConsoleLog("Audio driver failed to initialize: %s\n", driverName);
+		////		}
+		////		DebugPrint("Audio driver initilized: %s\n", driverName);
+		////		ConsoleLog("Audio driver initilized: %s\n", driverName);
+		////	}
+		////	DebugPrint("Audio driver %s not initilized or used\n", driverName);
+		////	continue;
+		////}
+
+	//	SDL_AudioSpec want, have;
+	//	SDL_AudioDeviceID audioDevice;
+
+	//	SDL_memset(&want, 0, sizeof(want));
+	//	want.freq = 48000;
+	//	want.format = AUDIO_F32;
+	//	want.channels = 2;
+	//	want.samples = 4096;
+	//	want.callback = CSH_AudioCallback;
+	//	//should I allow any device driver or should I prefer one like directsound?
+	//	audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+
+	//	if (audioDevice == 0) 
+ //       {
+	//		DebugPrint("Failed to open audio: %s", SDL_GetError());
+	//		ConsoleLog("Failed to open audio: %s", SDL_GetError());
+	//	}
+	//	else 
+ //       {
+	//		if (have.format != want.format) // we let this one thing change.
+	//			SDL_Log("We didn't get Float32 audio format.");
+
+	//		SDL_PauseAudioDevice(audioDevice, 0); /* start audio playing. */
+	//		SDL_Delay(1000); /* let the audio callback play some sound for 1 seconds. */
+
+	//		//SDL_CloseAudioDevice(audioDevice);
+	//	}
+	//	//SDL_AudioQuit(); //used only for "shutting down audio" that was initilized with SDL_AudioInit()
+	//}
+
+	double freq = double(SDL_GetPerformanceFrequency()); //HZ
+	double totalTime = SDL_GetPerformanceCounter() / freq; //sec
+	double previousTime = totalTime;
 
     /*
     SDL_Surface iconSurface = {};
@@ -103,6 +150,7 @@ int main(int argc, char* argv[])
         {
             deltaTime = 1 / 30.0f;
         }
+
 
         /*********************
          *
@@ -261,7 +309,6 @@ int main(int argc, char* argv[])
 				break;
 			}
 		}
-
 		RenderDrawCalls();
 		SDL_GL_SwapWindow(windowInfo.SDLWindow);
     }

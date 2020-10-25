@@ -742,8 +742,12 @@ void ConsoleInit()
     
     assert(logStrings.size() == logLevels.size());
     for (int i = 0; i < logStrings.size(); i++)
+    {
         sConsoleLog(logLevels[i], logStrings[i]);
-
+        free(logStrings[i]);
+    }
+    logLevels.clear();
+    logStrings.clear();
 }
 
 void DrawString(Vector location, Color color, const char* text, ...)

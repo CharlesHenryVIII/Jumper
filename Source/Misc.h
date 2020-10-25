@@ -1,6 +1,11 @@
 #pragma once
 #include <unordered_map>
+#include <chrono>
 
+typedef std::chrono::high_resolution_clock Clock;
+typedef std::chrono::time_point<Clock, std::chrono::nanoseconds> TimePoint;
+//typedef std::chrono::duration<long long, std::nano> duration;
+typedef std::chrono::seconds Seconds;
 
 enum class DebugOptions
 {

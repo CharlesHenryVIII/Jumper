@@ -175,7 +175,8 @@ public:
     bool grounded = true;
     bool allowRenderFlip = true;
     bool angularUpdate = false;
-    float invinciblityTime = false;
+    bool switchToLinearUpdate = false;
+    float invinciblityTime = 0;
     ActorState actorState = ActorState::none;
 
     ActorID parent = 0;
@@ -245,7 +246,7 @@ struct Player : public Actor
     ACTOR_TYPE(Player);
 
 	float spawnRadius = 0.5f; //half a block
-    float grappleRange = 8.0f;
+    float grappleRange = 15.0f;
     bool grappleEnabled = false;
     bool grappleReady = true;
     ActorID grapple = 0;
@@ -266,6 +267,7 @@ struct Projectile : public Actor
     float rotation = 0;
 
     void OnInit(const ProjectileInfo& info);
+
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -276,7 +278,7 @@ struct Dummy : public Actor
     ACTOR_TYPE(Dummy);
 
     void OnInit(const DummyInfo& info);
-    void Update(float deltaTime) override;
+	void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
 };
@@ -289,6 +291,8 @@ struct Portal : public Actor
     int32 portalID = 0;
 
     void OnInit(const PortalInfo& info);
+
+
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -334,7 +338,7 @@ struct Grapple : public Actor
     float rotation = 0;
     ActorID attachedActor = 0;
     GrappleState grappleState = GrappleState::None;
-	float grappleSpeed = 25.0f;
+	float grappleSpeed = 40.0f;
     float grappleDistance;
     float angularVelocity = 0;
     Vector shotOrigin = {};

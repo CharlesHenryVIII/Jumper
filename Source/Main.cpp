@@ -29,12 +29,38 @@ CONSOLE_FUNCTION(ExitApp)
     running = false;
 }
 
-//void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
-//{
-//    //LRLRLR ordering
-//    //Should I use a buffer method or audio queing?
-//    
-//}
+struct AudioData {
+    double totalTime = 0;
+    float loudness = 0;
+    float samplesTaken = 0;
+    float frequency = 0;
+} audioData;
+
+double previousTime = 0;
+void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
+{
+    //LRLRLR ordering
+    //Should I use a buffer method or audio queing?
+    uint16* buf = reinterpret_cast<uint16*>(stream);
+    int32 count = len / sizeof(*buf);
+
+    AudioData* audioDataInfo = reinterpret_cast<AudioData*>(userdata);
+    ConsoleLog("length: %d, count: %d, timeStamp: %0.5f\n", len, count, audioDataInfo->totalTime - previousTime);
+    previousTime = audioDataInfo->totalTime;
+    for (int32 i = 0; i < count / 2; i++)
+    {
+        
+        float sampleFreq = 1 / audioDataInfo->frequency;
+        uint16 information = (uint16)(sinf((audioDataInfo->samplesTaken++) * sampleFreq * tau * 100) * 20000 + 20000);
+        *buf = information;
+        buf += 1;
+        *buf = information;
+        buf++;
+    }
+
+    //audioDataInfo->samplesTaken += count / 2;
+    assert((uintptr_t)buf == uintptr_t(stream + len));
+}
 
 int main(int argc, char* argv[])
 {
@@ -50,52 +76,54 @@ int main(int argc, char* argv[])
 	camera.size.x = 16;
 	camera.size.y = camera.size.x * ((float)windowInfo.height / (float)windowInfo.width);
 
-    //{
-		////for (int i = 0; i < SDL_GetNumAudioDrivers(); ++i) {
-		////	const char* driverName = SDL_GetAudioDriver(i);
-		////	if (driverName == "directsound")
-		////	{
-		////		if (SDL_AudioInit(driverName))
-		////		{
-		////			DebugPrint("Audio driver failed to initialize: %s\n", driverName);
-		////			ConsoleLog("Audio driver failed to initialize: %s\n", driverName);
-		////		}
-		////		DebugPrint("Audio driver initilized: %s\n", driverName);
-		////		ConsoleLog("Audio driver initilized: %s\n", driverName);
-		////	}
-		////	DebugPrint("Audio driver %s not initilized or used\n", driverName);
-		////	continue;
-		////}
+    {
+		//for (int i = 0; i < SDL_GetNumAudioDrivers(); ++i) {
+		//	const char* driverName = SDL_GetAudioDriver(i);
+		//	if (driverName == "directsound")
+		//	{
+		//		if (SDL_AudioInit(driverName))
+		//		{
+		//			DebugPrint("Audio driver failed to initialize: %s\n", driverName);
+		//			ConsoleLog("Audio driver failed to initialize: %s\n", driverName);
+		//		}
+		//		DebugPrint("Audio driver initilized: %s\n", driverName);
+		//		ConsoleLog("Audio driver initilized: %s\n", driverName);
+		//	}
+		//	DebugPrint("Audio driver %s not initilized or used\n", driverName);
+		//	continue;
+		//}
 
-	//	SDL_AudioSpec want, have;
-	//	SDL_AudioDeviceID audioDevice;
+		SDL_AudioSpec want, have;
+		SDL_AudioDeviceID audioDevice;
 
-	//	SDL_memset(&want, 0, sizeof(want));
-	//	want.freq = 48000;
-	//	want.format = AUDIO_F32;
-	//	want.channels = 2;
-	//	want.samples = 4096;
-	//	want.callback = CSH_AudioCallback;
-	//	//should I allow any device driver or should I prefer one like directsound?
-	//	audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+		SDL_memset(&want, 0, sizeof(want));
+		want.freq = 48000;
+		want.format = AUDIO_U16;
+		want.channels = 2;
+		want.samples = 4096;
+        want.userdata = &audioData;
+		want.callback = CSH_AudioCallback;
+		//should I allow any device driver or should I prefer one like directsound?
+		audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+        audioData.frequency = (float)have.freq;
 
-	//	if (audioDevice == 0) 
- //       {
-	//		DebugPrint("Failed to open audio: %s", SDL_GetError());
-	//		ConsoleLog("Failed to open audio: %s", SDL_GetError());
-	//	}
-	//	else 
- //       {
-	//		if (have.format != want.format) // we let this one thing change.
-	//			SDL_Log("We didn't get Float32 audio format.");
+		if (audioDevice == 0) 
+        {
+			ConsoleLog("Failed to open audio: %s", SDL_GetError());
+		}
+		else 
+        {
+			if (have.format != want.format) // we let this one thing change.
+				ConsoleLog("We didn't get Float32 audio format.");
 
-	//		SDL_PauseAudioDevice(audioDevice, 0); /* start audio playing. */
-	//		SDL_Delay(1000); /* let the audio callback play some sound for 1 seconds. */
+            assert(have.format == AUDIO_U16);
+			SDL_PauseAudioDevice(audioDevice, 0); /* start audio playing. */
+			//SDL_Delay(1000); /* let the audio callback play some sound for 1 seconds. */
 
-	//		//SDL_CloseAudioDevice(audioDevice);
-	//	}
-	//	//SDL_AudioQuit(); //used only for "shutting down audio" that was initilized with SDL_AudioInit()
-	//}
+			//SDL_CloseAudioDevice(audioDevice);
+		}
+		//SDL_AudioQuit(); //used only for "shutting down audio" that was initilized with SDL_AudioInit()
+	}
 
 	double freq = double(SDL_GetPerformanceFrequency()); //HZ
 	double totalTime = SDL_GetPerformanceCounter() / freq; //sec
@@ -150,7 +178,7 @@ int main(int argc, char* argv[])
         {
             deltaTime = 1 / 30.0f;
         }
-
+        audioData.totalTime = totalTime;
 
         /*********************
          *

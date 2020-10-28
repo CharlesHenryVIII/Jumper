@@ -2,6 +2,7 @@
 #include "Console.h"
 #include "Math.h"
 #include "Rendering.h"
+#include "WinUtilities.h"
 
 #include "SDL.h"
 #include <cstdint>
@@ -955,6 +956,7 @@ void ConsoleLog(const char* fmt, ...)
         sConsoleLog(LogLevel_Info, buf);
     else
         AddLogToList(buf, sizeof(buf));
+    DebugPrint("%s\n", buf);
 }
 
 static ConsoleCommand& AddCommand(const char* name)

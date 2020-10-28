@@ -1101,7 +1101,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 
 			Vector tensionPrime = Normalize(grapple->position - grapple->shotOrigin);
 			Vector tension = { tensionPrime.y, -tensionPrime.x };
-			player->velocity = tension * (grapple->grappleDistance * grapple->angularVelocity) * 5;
+			player->velocity = tension * (grapple->grappleDistance * grapple->angularVelocity * tau);
 
 			player->switchToLinearUpdate = false;
 		}

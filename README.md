@@ -5,17 +5,18 @@
 #### Current
 
 - [ ] Squash bugs
-	- [x] Fix the debug print string that is getting generated when it isnt finding a animation for a specific animation
 	- [ ] Player is not touching the ground and size seems to big compared to what it used to be
 		- [x] Might be in the RenderActor() function
 		- [x] This is because the swap in the texture loading was not flipping properly
 		- [ ] Change how texture scaling is being handled, time to refactor old code
 			- [ ] replace ScaledWidth with a scale value.
 				-[ ] Get art assets that are consistant in size
-	- [x] Cannot use ConsoleLog() before or during initilization of openGL and Window
-	- [x] Console outputting z at the end of Glew version
-	- [ ] Look into player linear velocity feeling slow on detach
+	- [x] Look into player linear velocity feeling slow on detach
 	- [ ] Sound
+		- [ ] Cache songs
+		- [ ] Load Wav through SDL
+		- [ ] Mix audio
+
 
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [x] Grappling
@@ -23,13 +24,6 @@
 		- [ ] Add grappling to MovingPlatforms
 		- [ ] isentropic add entropy
 		- [ ] Dont allow to rotate above a curtain height based on velocity?
-	- [x] Moving Platforms 
-		- [x] Loading Moving platforms
-		- [x] Integrate the platform movement/pathing correctly
-		- [x] Review code and determine what improvments could be made
-		- [x] Fix pathing past destination
-		- [x] Fix platform effecting vertical velocity when player was not colliding with the top of the platform
-		- [x] Add interaction with moving platforms
 	- [ ] Power Ups (health, movement, jumping height, extra jump, etc) 
 	- [ ] Wall jump 
 	- [ ] Explosions 
@@ -37,6 +31,7 @@
 		- [ ] Changing tiles 
 	- [ ] Wind
 	- [ ] Slippery surfaces/walls
+	- [x] Moving Platforms 
 	- [x] Spring Board
 
 - [ ] Strong types for physics/math

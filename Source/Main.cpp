@@ -29,22 +29,53 @@ CONSOLE_FUNCTION(ExitApp)
     running = false;
 }
 
-struct AudioData {
+struct AudioFileData {
+    SDL_AudioSpec spec = {};
+    uint8* buffer = nullptr;
+    uint32 length = 0;
+};
+
+struct AudioDriverData {
     double totalTime = 0;
     float loudness = 0;
+#if 1
+    uint16 samplesTaken = 0;
+#else 
     float samplesTaken = 0;
+#endif
     float frequency = 0;
+    AudioFileData fileToPlay;
 } audioData;
+
+
+
+AudioFileData LoadWavFile(const char* fileLocation)
+{
+    AudioFileData data = {};
+    if (SDL_LoadWAV(fileLocation, &data.spec, &data.buffer, &data.length) == NULL)
+        ConsoleLog("Could not open %s: %s\n", fileLocation, SDL_GetError());
+    return data;
+}
 
 double previousTime = 0;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 {
+    uint16* writeBuff = reinterpret_cast<uint16*>(stream);
+    int32 count = len / sizeof(*writeBuff);
+    AudioDriverData* audioDataInfo = reinterpret_cast<AudioDriverData*>(userdata);
+
+#if 1
+
+    //Only write size of the buffer
+    //handle incrementing song with audioDataInfo->samples
+    //handle overflow at the end of the song
+    if (audioDataInfo->fileToPlay.buffer)
+        SDL_MixAudioFormat(stream, audioDataInfo->fileToPlay.buffer, audioDataInfo->fileToPlay.spec.format, audioDataInfo->fileToPlay.length, 40);
+
+#else
+
     //LRLRLR ordering
     //Should I use a buffer method or audio queing?
-    uint16* buf = reinterpret_cast<uint16*>(stream);
-    int32 count = len / sizeof(*buf);
-
-    AudioData* audioDataInfo = reinterpret_cast<AudioData*>(userdata);
     ConsoleLog("length: %d, count: %d, timeStamp: %0.5f\n", len, count, audioDataInfo->totalTime - previousTime);
     previousTime = audioDataInfo->totalTime;
     for (int32 i = 0; i < count / 2; i++)
@@ -52,6 +83,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
         
         float sampleFreq = 1 / audioDataInfo->frequency;
         uint16 information = (uint16)(sinf((audioDataInfo->samplesTaken++) * sampleFreq * tau * 100) * 20000 + 20000);
+
         *buf = information;
         buf += 1;
         *buf = information;
@@ -59,7 +91,8 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
     }
 
     //audioDataInfo->samplesTaken += count / 2;
-    assert((uintptr_t)buf == uintptr_t(stream + len));
+    assert((uintptr_t)writeBuff == uintptr_t(stream + len));
+#endif
 }
 
 int main(int argc, char* argv[])
@@ -96,6 +129,8 @@ int main(int argc, char* argv[])
 		SDL_AudioSpec want, have;
 		SDL_AudioDeviceID audioDevice;
 
+
+
 		SDL_memset(&want, 0, sizeof(want));
 		want.freq = 48000;
 		want.format = AUDIO_U16;
@@ -124,6 +159,7 @@ int main(int argc, char* argv[])
 		}
 		//SDL_AudioQuit(); //used only for "shutting down audio" that was initilized with SDL_AudioInit()
 	}
+    audioData.fileToPlay = LoadWavFile("C:\\Projects\\Jumper\\Assets\\10. This is the Hour.wav");
 
 	double freq = double(SDL_GetPerformanceFrequency()); //HZ
 	double totalTime = SDL_GetPerformanceCounter() / freq; //sec

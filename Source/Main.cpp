@@ -39,11 +39,12 @@ struct AudioDriverData {
     double totalTime = 0;
     float loudness = 0;
 #if 1
-    uint16 samplesTaken = 0;
+    uint64 samplesTaken = 0;
 #else 
     float samplesTaken = 0;
 #endif
     float frequency = 0;
+    SDL_AudioSpec driverSpec;
     AudioFileData fileToPlay;
 } audioData;
 
@@ -66,11 +67,26 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 
 #if 1
 
-    //Only write size of the buffer
+    ////Only write size of the buffer
     //handle incrementing song with audioDataInfo->samples
     //handle overflow at the end of the song
+
+
     if (audioDataInfo->fileToPlay.buffer)
-        SDL_MixAudioFormat(stream, audioDataInfo->fileToPlay.buffer, audioDataInfo->fileToPlay.spec.format, audioDataInfo->fileToPlay.length, 40);
+    {
+        uint8* clearingStream = stream;
+        for (int32 i = 0; i < len; i++)
+        {
+            *clearingStream = 0;
+            clearingStream++;
+        }
+
+		uint8* readBuffer = audioDataInfo->fileToPlay.buffer + audioDataInfo->samplesTaken;
+
+		//audioDataInfo->samplesTaken += len;
+		audioDataInfo->samplesTaken = (audioDataInfo->samplesTaken + len) % audioDataInfo->fileToPlay.length;
+		SDL_MixAudioFormat(stream, readBuffer, audioData.driverSpec.format, len, 20);
+    }
 
 #else
 
@@ -132,7 +148,7 @@ int main(int argc, char* argv[])
 
 
 		SDL_memset(&want, 0, sizeof(want));
-		want.freq = 48000;
+		want.freq = 44100;
 		want.format = AUDIO_U16;
 		want.channels = 2;
 		want.samples = 4096;
@@ -141,6 +157,7 @@ int main(int argc, char* argv[])
 		//should I allow any device driver or should I prefer one like directsound?
 		audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
         audioData.frequency = (float)have.freq;
+        audioData.driverSpec = have;
 
 		if (audioDevice == 0) 
         {

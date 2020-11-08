@@ -55,6 +55,44 @@ AudioFileData LoadWavFile(const char* fileLocation)
     AudioFileData data = {};
     if (SDL_LoadWAV(fileLocation, &data.spec, &data.buffer, &data.length) == NULL)
         ConsoleLog("Could not open %s: %s\n", fileLocation, SDL_GetError());
+
+    if (data.spec.format != audioData.driverSpec.format)
+    {
+
+		// Change 1024 stereo sample frames at 48000Hz from Float32 to Int16.
+		SDL_AudioCVT cvt;
+		if (SDL_BuildAudioCVT(&cvt, data.spec.format, data.spec.channels, data.spec.freq, 
+                                audioData.driverSpec.format, audioData.driverSpec.channels, audioData.driverSpec.freq) < 0)
+            ConsoleLog("Failed at SDL_BuildAudioCVT for %s: %s\n", fileLocation, SDL_GetError());
+        else
+        {
+			SDL_assert(cvt.needed); // obviously, this one is always needed.
+			cvt.len = data.length;//1024 * 2 * 4;  // 1024 stereo float32 sample frames.
+			cvt.buf = (uint8*)SDL_malloc(cvt.len * cvt.len_mult);
+			// read your float32 data into cvt.buf here.
+			uint8* writeBuffer = cvt.buf;
+			for (int32 i = 0; i < cvt.len; i++)
+			{
+				*writeBuffer = *(data.buffer + i);
+				writeBuffer++;
+			}
+			if (SDL_ConvertAudio(&cvt))
+				ConsoleLog("Could not change format on %s: %s\n", fileLocation, SDL_GetError());
+			// cvt.buf has cvt.len_cvt bytes of converted data now.
+
+			SDL_free(data.buffer);
+			data.buffer = cvt.buf;
+            data.length = cvt.len;
+            data.spec.channels = audioData.driverSpec.channels;
+            data.spec.format= audioData.driverSpec.format;
+            data.spec.freq= audioData.driverSpec.freq;
+        }
+    }
+
+    assert(data.spec.channels == audioData.driverSpec.channels);
+    assert(data.spec.format == audioData.driverSpec.format);
+    assert(data.spec.freq == audioData.driverSpec.freq);
+    assert(data.spec.samples == audioData.driverSpec.samples);
     return data;
 }
 
@@ -71,22 +109,23 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
     //handle incrementing song with audioDataInfo->samples
     //handle overflow at the end of the song
 
+	for (int32 i = 0; i < count; i++)
+	{
+        
+        *writeBuff = 0;//USHRT_MAX / 2;
+		writeBuff++;
+	}
 
     if (audioDataInfo->fileToPlay.buffer)
     {
-        uint8* clearingStream = stream;
-        for (int32 i = 0; i < len; i++)
-        {
-            *clearingStream = 0;
-            clearingStream++;
-        }
 
 		uint8* readBuffer = audioDataInfo->fileToPlay.buffer + audioDataInfo->samplesTaken;
 
-		//audioDataInfo->samplesTaken += len;
-		audioDataInfo->samplesTaken = (audioDataInfo->samplesTaken + len) % audioDataInfo->fileToPlay.length;
+        audioDataInfo->samplesTaken = (audioDataInfo->samplesTaken + len) % audioDataInfo->fileToPlay.length;
 		SDL_MixAudioFormat(stream, readBuffer, audioData.driverSpec.format, len, 20);
     }
+
+    assert((uintptr_t)writeBuff == uintptr_t(stream + len));
 
 #else
 
@@ -145,11 +184,9 @@ int main(int argc, char* argv[])
 		SDL_AudioSpec want, have;
 		SDL_AudioDeviceID audioDevice;
 
-
-
 		SDL_memset(&want, 0, sizeof(want));
 		want.freq = 44100;
-		want.format = AUDIO_U16;
+		want.format = AUDIO_S16;
 		want.channels = 2;
 		want.samples = 4096;
         want.userdata = &audioData;
@@ -168,7 +205,7 @@ int main(int argc, char* argv[])
 			if (have.format != want.format) // we let this one thing change.
 				ConsoleLog("We didn't get Float32 audio format.");
 
-            assert(have.format == AUDIO_U16);
+            assert(have.format == want.format);
 			SDL_PauseAudioDevice(audioDevice, 0); /* start audio playing. */
 			//SDL_Delay(1000); /* let the audio callback play some sound for 1 seconds. */
 

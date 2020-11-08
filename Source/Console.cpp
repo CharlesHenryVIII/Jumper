@@ -373,7 +373,7 @@ static Color LogColor(LogLevel level)
 static Vector GetWindowSize()
 {
     int w, h;
-    SDL_GetWindowSize(windowInfo.SDLWindow, &w, &h);
+    SDL_GetWindowSize(g_windowInfo.SDLWindow, &w, &h);
     Vector window_size = {
         static_cast<float>(w),
         static_cast<float>(h),
@@ -408,7 +408,7 @@ static Rectangle ConsoleRect()
 
 FontSprite* ConsoleFont()
 {
-	return fonts["1"];
+	return g_fonts["1"];
 }
 
 static float ItemHeight()

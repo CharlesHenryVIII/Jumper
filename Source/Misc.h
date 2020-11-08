@@ -31,9 +31,9 @@ enum class GameState
     mainMenu,
     game,
 };
-extern GameState gameState;
-extern bool running;
-extern std::unordered_map<DebugOptions, bool> debugList;
+extern GameState g_gameState;
+extern bool g_running;
+extern std::unordered_map<DebugOptions, bool> g_debugList;
 
 float GetTimer();
 

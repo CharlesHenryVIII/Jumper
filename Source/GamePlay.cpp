@@ -34,7 +34,7 @@ void SwitchToGame()
     gamestate = {};
     levelChangePortal = nullptr;
     gamestate.GetLevel("Default");
-    gameState = GameState::game;
+    g_gameState = GameState::game;
     paused = false;
 }
 
@@ -45,12 +45,12 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 
     if (paused)
     {
-        if (DrawButton(fonts["1"], "QUIT TO MAIN MENU", { windowInfo.width / 2, windowInfo.height / 4 }, 
+        if (DrawButton(g_fonts["1"], "QUIT TO MAIN MENU", { g_windowInfo.width / 2, g_windowInfo.height / 4 }, 
                         UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame)
             || keyStates[SDLK_RETURN].downThisFrame)
             SwitchToMenu();
         deltaTime = 0.0f;
-        AddRectToRender({ {0, (float)windowInfo.height}, { (float)windowInfo.width, 0 } }, lightBlack, RenderPrio::foreground, CoordinateSpace::UI);
+        AddRectToRender({ {0, (float)g_windowInfo.height}, { (float)g_windowInfo.width, 0 } }, lightBlack, RenderPrio::foreground, CoordinateSpace::UI);
     }
 
     //TODO: fix creating a new player makes a new player ID number;
@@ -72,13 +72,13 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     {
 
 		//1
-		Vector mouseLocationFlipped = { (float)mouseLocation.x, float(windowInfo.height - mouseLocation.y) };
+		Vector mouseLocationFlipped = { (float)mouseLocation.x, float(g_windowInfo.height - mouseLocation.y) };
 		//2
-		float blocksPerPixels = camera.size.x / windowInfo.width;
+		float blocksPerPixels = g_camera.size.x / g_windowInfo.width;
 		Vector mouseLocationInBlocks = mouseLocationFlipped * blocksPerPixels;
 		//3
-		Vector windowCenterInBlocks = { windowInfo.width / 2 * blocksPerPixels, windowInfo.height / 2 * blocksPerPixels };
-		mouseLocBlocks = (mouseLocationInBlocks - windowCenterInBlocks) + camera.position;
+		Vector windowCenterInBlocks = { g_windowInfo.width / 2 * blocksPerPixels, g_windowInfo.height / 2 * blocksPerPixels };
+		mouseLocBlocks = (mouseLocationInBlocks - windowCenterInBlocks) + g_camera.position;
     }
 
     /*********************
@@ -215,15 +215,15 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     }
 
 	if (keyStates[SDLK_1].downThisFrame)
-		debugList[DebugOptions::playerCollision] = !debugList[DebugOptions::playerCollision];
+		g_debugList[DebugOptions::playerCollision] = !g_debugList[DebugOptions::playerCollision];
 	if (keyStates[SDLK_2].downThisFrame)
-		debugList[DebugOptions::blockCollision] = !debugList[DebugOptions::blockCollision];
+		g_debugList[DebugOptions::blockCollision] = !g_debugList[DebugOptions::blockCollision];
 	if (keyStates[SDLK_3].downThisFrame)
-		debugList[DebugOptions::clickLocation] = !debugList[DebugOptions::clickLocation];
+		g_debugList[DebugOptions::clickLocation] = !g_debugList[DebugOptions::clickLocation];
 	if (keyStates[SDLK_4].downThisFrame)
-		debugList[DebugOptions::paintMethod] = !debugList[DebugOptions::paintMethod];
+		g_debugList[DebugOptions::paintMethod] = !g_debugList[DebugOptions::paintMethod];
 	if (keyStates[SDLK_5].downThisFrame)
-		debugList[DebugOptions::editBlocks] = !debugList[DebugOptions::editBlocks];
+		g_debugList[DebugOptions::editBlocks] = !g_debugList[DebugOptions::editBlocks];
 
     if (levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
     {
@@ -251,7 +251,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
      ********/
 
     laser.inUse = false;
-    if (debugList[DebugOptions::editBlocks] && (keyStates[SDL_BUTTON_LEFT].down || keyStates[SDL_BUTTON_RIGHT].down) && player != nullptr)
+    if (g_debugList[DebugOptions::editBlocks] && (keyStates[SDL_BUTTON_LEFT].down || keyStates[SDL_BUTTON_RIGHT].down) && player != nullptr)
     {
         Rectangle clickRect = {};
         clickRect.botLeft = { mouseLocBlocks.x - 0.5f, mouseLocBlocks.y - 0.5f };
@@ -267,7 +267,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         else if (keyStates[SDL_BUTTON_RIGHT].down)
             paintType = TileType::invalid;
 
-        if (debugList[DebugOptions::paintMethod])
+        if (g_debugList[DebugOptions::paintMethod])
         {
             UpdateLaser(player, mouseLocBlocks, paintType, deltaTime);
             blockPointer->tileType = paintType;
@@ -305,7 +305,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 
                 //flash screen 
                 if (CollisionWithActor(*player, *actor, *player->level))
-                    AddRectToRender({ {0, (float)windowInfo.height}, { (float)windowInfo.width, 0 } }, lightWhite, RenderPrio::foreground, CoordinateSpace::UI);
+                    AddRectToRender({ {0, (float)g_windowInfo.height}, { (float)g_windowInfo.width, 0 } }, lightWhite, RenderPrio::foreground, CoordinateSpace::UI);
                 break;
             }
             case ActorType::Portal:
@@ -361,40 +361,40 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
      ********/
 
 
-    BackgroundRender(sprites["background"], &camera);
+    BackgroundRender(g_sprites["background"], &g_camera);
     if (player != nullptr)
     {
 
-        camera.position.x = player->position.x + (player->GameWidth() / 2.0f);
-        camera.position.y = player->position.y + (player->GameHeight() / 2.0f);
-        camera.level = player->level;
+        g_camera.position.x = player->position.x + (player->GameWidth() / 2.0f);
+        g_camera.position.y = player->position.y + (player->GameHeight() / 2.0f);
+        g_camera.level = player->level;
     }
     
-    RenderBlocks(&camera.level->blocks);
-    RenderActors(&camera.level->actors);
+    RenderBlocks(&g_camera.level->blocks);
+    RenderActors(&g_camera.level->actors);
     RenderLaser();
-    RenderMovingPlatforms(camera.level);
+    RenderMovingPlatforms(g_camera.level);
 
     if (player != nullptr && player->grappleEnabled)
     {
 
         if (player->grappleReady)
-            DrawText(fonts["1"], Green, "Grapple Ready", 1.0f, { windowInfo.width / 2, windowInfo.height }, UIX::mid, UIY::bot);
+            DrawText(g_fonts["1"], Green, "Grapple Ready", 1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot);
         else
-            DrawText(fonts["1"], Red, "Grapple Ready", 1.0f, { windowInfo.width / 2, windowInfo.height }, UIX::mid, UIY::bot);
+            DrawText(g_fonts["1"], Red, "Grapple Ready", 1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot);
     }
 
-    DrawText(fonts["1"], Green, std::to_string(1 / deltaTime) + "fps", 1.0f, { 0, 0 }, UIX::left, UIY::top);
+    DrawText(g_fonts["1"], Green, std::to_string(1 / deltaTime) + "fps", 1.0f, { 0, 0 }, UIX::left, UIY::top);
     if (player != nullptr)
     {
-        DrawText(fonts["1"], Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, windowInfo.height - 60 }, UIX::left, UIY::bot);
-        DrawText(fonts["1"], Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, windowInfo.height - 40 }, UIX::left, UIY::bot);
-        DrawText(fonts["1"], Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, windowInfo.height - 20}, UIX::left, UIY::bot);
+        DrawText(g_fonts["1"], Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, g_windowInfo.height - 60 }, UIX::left, UIY::bot);
+        DrawText(g_fonts["1"], Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, g_windowInfo.height - 40 }, UIX::left, UIY::bot);
+        DrawText(g_fonts["1"], Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, g_windowInfo.height - 20}, UIX::left, UIY::bot);
         if (player->grapple)
-			DrawText(fonts["1"], Green, "Angular Velocity: " + std::to_string(player->level->FindActor<Grapple>(player->grapple)->angularVelocity), 0.75f, { 0, windowInfo.height }, UIX::left, UIY::bot);
+			DrawText(g_fonts["1"], Green, "Angular Velocity: " + std::to_string(player->level->FindActor<Grapple>(player->grapple)->angularVelocity), 0.75f, { 0, g_windowInfo.height }, UIX::left, UIY::bot);
     }
 
-    if (DrawButton(fonts["1"], "ESC", { windowInfo.width, windowInfo.height }, 
+    if (DrawButton(g_fonts["1"], "ESC", { g_windowInfo.width, g_windowInfo.height }, 
                     UIX::right, UIY::bot, Red, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame)
                     || keyStates[SDLK_ESCAPE].downThisFrame)
         paused = !paused;

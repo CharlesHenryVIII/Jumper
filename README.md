@@ -12,10 +12,10 @@
 			- [ ] replace ScaledWidth with a scale value.
 				-[ ] Get art assets that are consistant in size
 	- [x] Look into player linear velocity feeling slow on detach
-- [ ] Sound
-	- [ ] Cache songs
-	- [ ] Load Wav through SDL
-	- [ ] Mix audio
+- [x] Sound
+	- [x] Cache songs
+	- [x] Load Wav through SDL
+	- [x] Mix audio
 - [ ] Action area or events based on region 
 	- [ ] TRIGGER VOLUME
 

@@ -13,10 +13,10 @@ ScopeTimer::~ScopeTimer()
 }
 #endif
 
-bool running;
+bool g_running;
 
-std::unordered_map<DebugOptions, bool> debugList;
-GameState gameState;
+std::unordered_map<DebugOptions, bool> g_debugList;
+GameState g_gameState;
 
 uint64 f = SDL_GetPerformanceFrequency();
 uint64 ct = SDL_GetPerformanceCounter();

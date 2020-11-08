@@ -115,10 +115,10 @@ struct Camera {
     Level* level = nullptr;
 };
 
-extern std::unordered_map<std::string, Sprite*> sprites;
-extern std::unordered_map<std::string, FontSprite*> fonts;
-extern Camera camera;
-extern WindowInfo windowInfo;
+extern std::unordered_map<std::string, Sprite*> g_sprites;
+extern std::unordered_map<std::string, FontSprite*> g_fonts;
+extern Camera g_camera;
+extern WindowInfo g_windowInfo;
 
 struct Animation;
 struct Actor;

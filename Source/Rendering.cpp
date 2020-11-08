@@ -10,10 +10,10 @@
 #include <cassert>
 #include <algorithm>
 
-WindowInfo windowInfo = { 200, 200, 1280, 720 };
-std::unordered_map<std::string, Sprite*> sprites;
-std::unordered_map<std::string, FontSprite*> fonts;
-Camera camera;
+WindowInfo g_windowInfo = { 200, 200, 1280, 720 };
+std::unordered_map<std::string, Sprite*> g_sprites;
+std::unordered_map<std::string, FontSprite*> g_fonts;
+Camera g_camera;
 
 static std::vector<Rectangle> scissorStack;
 
@@ -85,20 +85,20 @@ std::vector<Vertex> vertexBuffer;
 
 WindowInfo& GetWindowInfo()
 {
-    return windowInfo;
+    return g_windowInfo;
 }
 
 void CreateOpenGLWindow()
 {
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Init(SDL_INIT_AUDIO);
-    windowInfo.SDLWindow = SDL_CreateWindow("Jumper", windowInfo.left, windowInfo.top, windowInfo.width, windowInfo.height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+    g_windowInfo.SDLWindow = SDL_CreateWindow("Jumper", g_windowInfo.left, g_windowInfo.top, g_windowInfo.width, g_windowInfo.height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-	SDL_GLContext GLContext = SDL_GL_CreateContext(windowInfo.SDLWindow);
-	SDL_GL_MakeCurrent(windowInfo.SDLWindow, GLContext);
+	SDL_GLContext GLContext = SDL_GL_CreateContext(g_windowInfo.SDLWindow);
+	SDL_GL_MakeCurrent(g_windowInfo.SDLWindow, GLContext);
 
 	GLenum err = glewInit();
 	if (GLEW_OK != err)
@@ -307,9 +307,9 @@ void RenderDrawCalls()
 				float posxd = item.dRect.topRight.x;
 				float posyd = item.dRect.topRight.y;
 				if (item.dRect.Width() == 0)
-					posxd = (float)windowInfo.width;
+					posxd = (float)g_windowInfo.width;
 				if (item.dRect.Height() == 0)
-					posyd = (float)windowInfo.height;
+					posyd = (float)g_windowInfo.height;
 
 				if (item.texture.flippage)
 					std::swap(posxo, posxd);
@@ -374,17 +374,17 @@ void RenderDrawCalls()
 	}
 
     glClear(GL_COLOR_BUFFER_BIT);
-    glViewport(0, 0, windowInfo.width, windowInfo.height);
+    glViewport(0, 0, g_windowInfo.width, g_windowInfo.height);
 
     //world and UI matrix
-    float windowWidth = (float)windowInfo.width;
-    float windowHeight = (float)windowInfo.height;
+    float windowWidth = (float)g_windowInfo.width;
+    float windowHeight = (float)g_windowInfo.height;
     Vector cameraPixel;
     //cameraPixel.x = (float)BlockToPixel(camera.position.x);
     //cameraPixel.y = (float)BlockToPixel(camera.position.y);
 
     gbMat4 worldMatrix;
-	gb_mat4_ortho2d(&worldMatrix, camera.position.x - camera.size.x / 2, camera.position.x + camera.size.x / 2, camera.position.y - camera.size.y / 2, camera.position.y + camera.size.y / 2);
+	gb_mat4_ortho2d(&worldMatrix, g_camera.position.x - g_camera.size.x / 2, g_camera.position.x + g_camera.size.x / 2, g_camera.position.y - g_camera.size.y / 2, g_camera.position.y + g_camera.size.y / 2);
     gbMat4 UIMatrix;
 	gb_mat4_ortho2d(&UIMatrix, 0, windowWidth, windowHeight, 0);
     gbMat4 rotationMatrix;
@@ -690,17 +690,17 @@ void RenderBlocks(TileMap* blocks)
 {
     PROFILE_FUNCTION();
 
-	Vector offset = { float(camera.size.x / 2) + 1, float(camera.size.y / 2) + 1 };
-	for (float y = camera.position.y - offset.y; y < (camera.position.y + offset.y); y++)
+	Vector offset = { float(g_camera.size.x / 2) + 1, float(g_camera.size.y / 2) + 1 };
+	for (float y = g_camera.position.y - offset.y; y < (g_camera.position.y + offset.y); y++)
 	{
-		for (float x = camera.position.x - offset.x; x < (camera.position.x + offset.x); x++)
+		for (float x = g_camera.position.x - offset.x; x < (g_camera.position.x + offset.x); x++)
 		{
 			Block* block = blocks->TryGetBlock({ x, y });
 			if (block && block->tileType != TileType::invalid)
 			{
-				SpriteMapRender(sprites["spriteMap"], *block);
+				SpriteMapRender(g_sprites["spriteMap"], *block);
 
-				if (debugList[DebugOptions::blockCollision] && block->tileType != TileType::invalid)
+				if (g_debugList[DebugOptions::blockCollision] && block->tileType != TileType::invalid)
                     AddRectToRender({ block->location, { block->location.x + 1 , block->location.y + 1 } }, lightRed, RenderPrio::Debug, CoordinateSpace::World);
 			}
 		}

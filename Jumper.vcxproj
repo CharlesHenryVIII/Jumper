@@ -156,6 +156,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Contrib\Glew\src\glew.c" />
+    <ClCompile Include="Source\Audio.cpp" />
     <ClCompile Include="Source\Console.cpp" />
     <ClCompile Include="Source\Entity.cpp" />
     <ClCompile Include="Source\GamePlay.cpp" />
@@ -168,6 +169,7 @@
     <ClCompile Include="Source\WinUtilities.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Audio.h" />
     <ClInclude Include="Source\Console.h" />
     <ClInclude Include="Source\Entity.h" />
     <ClInclude Include="Source\GamePlay.h" />

@@ -710,7 +710,7 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	Rectangle xRect = CollisionXOffsetToRectangle(actor);
 	Rectangle yRect = CollisionYOffsetToRectangle(actor);
 
-	if (actor->GetActorType() == ActorType::Player && debugList[DebugOptions::playerCollision])
+	if (actor->GetActorType() == ActorType::Player && g_debugList[DebugOptions::playerCollision])
 	{
 		AddRectToRender(xRect, transGreen, RenderPrio::Debug, CoordinateSpace::World);
 		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);
@@ -892,7 +892,7 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 	Rectangle xRect = CollisionXOffsetToRectangle(&enemy);
 	Rectangle yRect = CollisionYOffsetToRectangle(&enemy);
 
-	if (debugList[DebugOptions::playerCollision])
+	if (g_debugList[DebugOptions::playerCollision])
 	{
 		AddRectToRender(xRect, transGreen, RenderPrio::Debug, CoordinateSpace::World);
 		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);

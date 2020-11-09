@@ -6,10 +6,11 @@
 #include "Misc.h"
 #include "Menu.h"
 #include "Console.h"
+#include "Audio.h"
 
-Portal* levelChangePortal;
-bool paused;
-Gamestate gamestate;
+Portal* s_levelChangePortal;
+bool s_paused;
+Gamestate s_gamestate;
 
 
 Level* Gamestate::GetLevel(const std::string& name)
@@ -19,23 +20,23 @@ Level* Gamestate::GetLevel(const std::string& name)
 		return &levels[name];
 	}
 
-	LoadLevel(&gamestate.levels[name], name);
-    return &gamestate.levels[name];
+	LoadLevel(&s_gamestate.levels[name], name);
+    return &s_gamestate.levels[name];
 }
 
 Gamestate* GetGamestate()
 {
-    return &gamestate;
+    return &s_gamestate;
 }
 
 void SwitchToGame()
 {
     ConsoleLog("Switched To Game");
-    gamestate = {};
-    levelChangePortal = nullptr;
-    gamestate.GetLevel("Default");
+    s_gamestate = {};
+    s_levelChangePortal = nullptr;
+    s_gamestate.GetLevel("Default");
     g_gameState = GameState::game;
-    paused = false;
+    s_paused = false;
 }
 
 
@@ -43,7 +44,7 @@ void SwitchToGame()
 void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, VectorInt mouseLocation)
 {
 
-    if (paused)
+    if (s_paused)
     {
         if (DrawButton(g_fonts["1"], "QUIT TO MAIN MENU", { g_windowInfo.width / 2, g_windowInfo.height / 4 }, 
                         UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame)
@@ -97,6 +98,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                 player->velocity.y = 20.0f;
                 player->jumpCount -= 1;
                 PlayAnimation(player, ActorState::jump);
+                PlayAudio("Jump");
             }
         }
 
@@ -225,11 +227,11 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	if (keyStates[SDLK_5].downThisFrame)
 		g_debugList[DebugOptions::editBlocks] = !g_debugList[DebugOptions::editBlocks];
 
-    if (levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
+    if (s_levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
     {
         //remove player from new level, load player from old level, delete player from old level.
-        Level* oldLevel = levelChangePortal->level;
-        Level* newLevel = gamestate.GetLevel(levelChangePortal->levelPointer);
+        Level* oldLevel = s_levelChangePortal->level;
+        Level* newLevel = s_gamestate.GetLevel(s_levelChangePortal->levelPointer);
         if (oldLevel && newLevel)
 		{
 
@@ -238,10 +240,10 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 			{
 				return actor == player;
 			});
-			player->position = GetPortalsPointer(levelChangePortal)->position;
+			player->position = GetPortalsPointer(s_levelChangePortal)->position;
 		}
     }
-    levelChangePortal = nullptr;
+    s_levelChangePortal = nullptr;
 
 
     /*********************
@@ -312,7 +314,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             {
 
                 if (CollisionWithActor(*player, *actor, *player->level))
-                    levelChangePortal = (Portal*)actor;
+                    s_levelChangePortal = (Portal*)actor;
                 break;
             }
             case ActorType::Spring:
@@ -397,7 +399,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     if (DrawButton(g_fonts["1"], "ESC", { g_windowInfo.width, g_windowInfo.height }, 
                     UIX::right, UIY::bot, Red, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame)
                     || keyStates[SDLK_ESCAPE].downThisFrame)
-        paused = !paused;
+        s_paused = !s_paused;
 
 	//Present Screen
 	Level* playerLevel = player->level;

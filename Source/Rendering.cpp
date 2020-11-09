@@ -7,6 +7,8 @@
 #include "GL/glew.h"
 #include "WinUtilities.h"
 #include "Console.h"
+#include "Audio.h"
+
 #include <cassert>
 #include <algorithm>
 

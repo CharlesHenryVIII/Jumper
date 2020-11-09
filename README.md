@@ -16,6 +16,7 @@
 	- [x] Cache songs
 	- [x] Load Wav through SDL
 	- [x] Mix audio
+	- [ ] Audio stopping based on time elapsed
 - [ ] Action area or events based on region 
 	- [ ] TRIGGER VOLUME
 

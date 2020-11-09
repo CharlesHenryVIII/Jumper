@@ -1,89 +1,184 @@
 #include "Audio.h"
 #include "Console.h"
 
+#include "SDL.h"
+
 #include <unordered_map>
 #include <cassert>
 
-AudioDriverData audioData;
 
-std::unordered_map<std::string, AudioFile> audioList;
+struct FileData {
+	uint8* buffer = nullptr;
+	uint32 length = 0;
+	uint32 incrimenter = 0;
+};
 
+AudioID s_audioID = 0;
+struct AudioFile {
+	AudioID ID = ++s_audioID;
+	std::string name;
+	float duration;
+	uint32 repeat;
+};
 
-AudioFile LoadWavFile(const char* fileLocation)
+SDL_AudioSpec s_driverSpec;
+std::unordered_map<std::string, FileData> s_audioFiles;
+//std::vector<AudioFile> s_audioQueue;
+std::vector<AudioFile> s_audioPlaying;
+//uint64 s_samplesTaken = 0;
+
+AudioID PlayAudio(const std::string& nameOfSound, int32 loopCount, float secondsToPlay)
 {
-    AudioFile data = {};
-    if (SDL_LoadWAV(fileLocation, &data.spec, &data.buffer, &data.length) == NULL)
-        ConsoleLog("Could not open %s: %s\n", fileLocation, SDL_GetError());
 
-    if (data.spec.format != audioData.driverSpec.format)
+	AudioFile file;
+	file.name = nameOfSound;
+	file.duration = secondsToPlay;
+	file.repeat = loopCount;
+	s_audioPlaying.push_back(file);
+
+	return file.ID;
+}
+
+AudioID StopAudio(AudioID ID)
+{
+	std::erase_if(s_audioPlaying, [ID](AudioFile a) { return a.ID == ID; });
+	return 0;
+}
+
+FileData LoadWavFile(const char* fileLocation)
+{
+    //AudioFile data = {};
+    SDL_AudioSpec spec = {};
+    uint8* buffer = nullptr;
+    uint32 length = 0;
+
+    const SDL_AudioSpec& driverSpec = s_driverSpec;
+
+	if (SDL_LoadWAV(fileLocation, &spec, &buffer, &length) == NULL)
+	{
+        ConsoleLog("%s\n", SDL_GetError());
+        //ConsoleLog("Could not open %s: %s\n", fileLocation, SDL_GetError());
+	}
+
+    if (spec.format != driverSpec.format || 
+		spec.channels != driverSpec.channels || 
+		spec.freq != driverSpec.freq)
     {
 
 		// Change 1024 stereo sample frames at 48000Hz from Float32 to Int16.
 		SDL_AudioCVT cvt;
-		if (SDL_BuildAudioCVT(&cvt, data.spec.format, data.spec.channels, data.spec.freq, 
-                                audioData.driverSpec.format, audioData.driverSpec.channels, audioData.driverSpec.freq) < 0)
+		if (SDL_BuildAudioCVT(&cvt, spec.format, spec.channels, spec.freq,
+							  driverSpec.format, driverSpec.channels, driverSpec.freq) < 0)
+		{
             ConsoleLog("Failed at SDL_BuildAudioCVT for %s: %s\n", fileLocation, SDL_GetError());
+		}
         else
         {
 			SDL_assert(cvt.needed); // obviously, this one is always needed.
-			cvt.len = data.length;//1024 * 2 * 4;  // 1024 stereo float32 sample frames.
+			cvt.len = length;//1024 * 2 * 4;  // 1024 stereo float32 sample frames.
 			cvt.buf = (uint8*)SDL_malloc(cvt.len * cvt.len_mult);
 			// read your float32 data into cvt.buf here.
 			uint8* writeBuffer = cvt.buf;
 			for (int32 i = 0; i < cvt.len; i++)
 			{
-				*writeBuffer = *(data.buffer + i);
+				*writeBuffer = *(buffer + i);
 				writeBuffer++;
 			}
 			if (SDL_ConvertAudio(&cvt))
 				ConsoleLog("Could not change format on %s: %s\n", fileLocation, SDL_GetError());
 			// cvt.buf has cvt.len_cvt bytes of converted data now.
 
-			SDL_free(data.buffer);
-			data.buffer = cvt.buf;
-            data.length = cvt.len;
-            data.spec.channels = audioData.driverSpec.channels;
-            data.spec.format= audioData.driverSpec.format;
-            data.spec.freq= audioData.driverSpec.freq;
+			SDL_free(buffer);
+			buffer = cvt.buf;
+            length = cvt.len;
+            spec.channels = driverSpec.channels;
+            spec.format= driverSpec.format;
+            spec.freq= driverSpec.freq;
         }
     }
 
-    assert(data.spec.channels == audioData.driverSpec.channels);
-    assert(data.spec.format == audioData.driverSpec.format);
-    assert(data.spec.freq == audioData.driverSpec.freq);
-    assert(data.spec.samples == audioData.driverSpec.samples);
-    return data;
+    assert(spec.channels == driverSpec.channels);
+    assert(spec.format == driverSpec.format);
+    assert(spec.freq == driverSpec.freq);
+    assert(spec.samples == driverSpec.samples);
+	return { buffer, length};
 }
 
-double previousTime = 0;
+std::vector<uint8> s_streamBuffer;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 {
-    uint16* writeBuff = reinterpret_cast<uint16*>(stream);
-    int32 count = len / sizeof(*writeBuff);
-    AudioDriverData* audioDataInfo = reinterpret_cast<AudioDriverData*>(userdata);
-	AudioFile audioFile = audioList["Halo"];
+	s_streamBuffer.reserve(len);
+	uint8* realStream = reinterpret_cast<uint8*>(stream);
+	uint8* bufferStream = reinterpret_cast<uint8*>(s_streamBuffer.data());
+	uint8* writeBuffer = bufferStream;
+    int32 count = len / sizeof(*writeBuffer);
+	FileData* audioFile = &s_audioFiles["Halo"];
 
-#if 1
-	for (int32 i = 0; i < count; i++)
+	//Clear Buffer
+	for (int32 i = 0; i < len; i++)
 	{
-        
-        *writeBuff = 0;//USHRT_MAX / 2;
-		writeBuff++;
+
+		*writeBuffer = 0;
+		*realStream = 0;
+		writeBuffer++;
+		realStream++;
 	}
+    assert((uintptr_t)writeBuffer == uintptr_t(s_streamBuffer.data() + len));
 
-    if (audioFile.buffer)
-    {
 
-		uint8* readBuffer = audioFile.buffer + audioDataInfo->samplesTaken;
+	//Blend Audio into Buffer
+	std::vector<AudioID> audioMarkedForDeletion;
+	for (int32 i = 0; i < s_audioPlaying.size(); i++)
+	{
 
-        audioDataInfo->samplesTaken = (audioDataInfo->samplesTaken + len) % audioFile.length;
-		SDL_MixAudioFormat(stream, readBuffer, audioData.driverSpec.format, len, 20);
-    }
+		AudioFile* audio = &s_audioPlaying[i];
+		FileData* file = &s_audioFiles[audio->name];
+		uint8* readBuffer = file->buffer + file->incrimenter;
+		uint8* writeBuffer = bufferStream;
+		int32 length = len;
+		if (file->incrimenter + len > file->length)
+			length = file->length - file->incrimenter;
 
-    assert((uintptr_t)writeBuff == uintptr_t(stream + len));
+		for (int32 j = 0; j < length; j++)
+		{
 
-#else
+			*writeBuffer += *readBuffer;
+			writeBuffer++;
+			readBuffer++;
+		}
+		file->incrimenter += length;
+		if (file->incrimenter >= file->length)
+		{
+			if (audio->repeat)
+			{
+				if (audio->repeat != UINT_MAX)
+					audio->repeat--;
+				length = len - length;
+				readBuffer = file->buffer;
+				for (int32 j = 0; j < length; j++)
+				{
 
+					*writeBuffer += *readBuffer;
+					writeBuffer++;
+					readBuffer++;
+				}
+				file->incrimenter = length;
+			}
+			else
+				audioMarkedForDeletion.push_back(audio->ID);
+		}
+	}
+	for (int32 i = 0; i < audioMarkedForDeletion.size(); i++)
+	{
+		StopAudio(audioMarkedForDeletion[i]);
+	}
+	audioMarkedForDeletion.clear();
+
+	//Fill Stream with Buffer
+	SDL_MixAudioFormat(stream, bufferStream, s_driverSpec.format, len, 20);
+
+
+#if 0
     //LRLRLR ordering
     //Should I use a buffer method or audio queing?
     ConsoleLog("length: %d, count: %d, timeStamp: %0.5f\n", len, count, audioDataInfo->totalTime - previousTime);
@@ -115,12 +210,11 @@ void InitilizeAudio()
 	want.format = AUDIO_S16;
 	want.channels = 2;
 	want.samples = 4096;
-	want.userdata = &audioData;
+	want.userdata = &s_driverSpec;
 	want.callback = CSH_AudioCallback;
 	//should I allow any device driver or should I prefer one like directsound?
 	audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-	audioData.frequency = (float)have.freq;
-	audioData.driverSpec = have;
+	s_driverSpec = have;
 
 	if (audioDevice == 0)
 	{
@@ -137,6 +231,16 @@ void InitilizeAudio()
 
 		//SDL_CloseAudioDevice(audioDevice);
 	}
+
 	//SDL_AudioQuit(); //used only for "shutting down audio" that was initilized with SDL_AudioInit()
-	audioList["Halo"] = LoadWavFile("C:\\Projects\\Jumper\\Assets\\10. This is the Hour.wav");
+	//audioList["Halo"] = LoadWavFile("C:\\Projects\\Jumper\\Assets\\Audio\\10. This is the Hour.wav");
+	std::string audioFiles[] = { "Button_Confirm", "Button_Hover", "Grass", "Halo", "Jump", "Punched" };
+	std::string name;
+	for (int32 i = 0; i < sizeof(audioFiles) / sizeof(audioFiles[0]); i++)
+	{
+		name = audioFiles[i];
+		audioFiles[i] = "C:\\Projects\\Jumper\\Assets\\Audio\\" + audioFiles[i] + ".wav";
+		s_audioFiles[name] = LoadWavFile(audioFiles[i].c_str());
+	}
 }
+

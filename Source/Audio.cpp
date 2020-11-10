@@ -10,7 +10,6 @@
 struct FileData {
 	uint8* buffer = nullptr;
 	uint32 length = 0;
-	uint32 incrimenter = 0;
 };
 
 AudioID s_audioID = 0;
@@ -19,6 +18,7 @@ struct AudioFile {
 	std::string name;
 	float duration;
 	uint32 repeat;
+	uint32 incrimenter = 0;
 };
 
 SDL_AudioSpec s_driverSpec;
@@ -112,7 +112,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	uint8* bufferStream = reinterpret_cast<uint8*>(s_streamBuffer.data());
 	uint8* writeBuffer = bufferStream;
     int32 count = len / sizeof(*writeBuffer);
-	FileData* audioFile = &s_audioFiles["Halo"];
+	//FileData* audioFile = &s_audioFiles["Halo"];
 
 	//Clear Buffer
 	for (int32 i = 0; i < len; i++)
@@ -133,11 +133,11 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 
 		AudioFile* audio = &s_audioPlaying[i];
 		FileData* file = &s_audioFiles[audio->name];
-		uint8* readBuffer = file->buffer + file->incrimenter;
+		uint8* readBuffer = file->buffer + audio->incrimenter;
 		uint8* writeBuffer = bufferStream;
 		int32 length = len;
-		if (file->incrimenter + len > file->length)
-			length = file->length - file->incrimenter;
+		if (audio->incrimenter + len > file->length)
+			length = file->length - audio->incrimenter;
 
 		for (int32 j = 0; j < length; j++)
 		{
@@ -146,8 +146,8 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			writeBuffer++;
 			readBuffer++;
 		}
-		file->incrimenter += length;
-		if (file->incrimenter >= file->length)
+		audio->incrimenter += length;
+		if (audio->incrimenter >= file->length)
 		{
 			if (audio->repeat)
 			{
@@ -162,7 +162,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 					writeBuffer++;
 					readBuffer++;
 				}
-				file->incrimenter = length;
+				audio->incrimenter = length;
 			}
 			else
 				audioMarkedForDeletion.push_back(audio->ID);

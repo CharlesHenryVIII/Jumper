@@ -70,7 +70,6 @@ int main(int argc, char* argv[])
 //    could make a struct but will do when/if there are more fonts
 
     InitilizeAudio();
-    //Level instantiations
     AddAllLevels();
     ConsoleLog("Loaded all Levels");
     //LoadLevel("Level 1");

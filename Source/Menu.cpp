@@ -33,7 +33,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		keyStates[SDLK_RETURN].downThisFrame || keyStates[SDLK_e].downThisFrame)
 	{
 
-        //PlayAudio("Button_Confirm");
+        PlayAudio("Button_Confirm");
 		s_menuMusic = StopAudio(s_menuMusic);
 		SwitchToGame();
 	}
@@ -49,7 +49,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		keyStates[SDLK_q].downThisFrame)
 	{
 
-        //PlayAudio("Button_Confirm");
+        PlayAudio("Button_Confirm");
 		QuitApp();
 	}
 

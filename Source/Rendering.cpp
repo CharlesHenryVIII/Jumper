@@ -643,8 +643,8 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect)
 
 //top left 0,0
 bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
-                UIX XLayout, UIY YLayout, Color BC, Color TC,
-                VectorInt mouseLoc, bool mousePressed)
+    UIX XLayout, UIY YLayout, Color BC, Color TC,
+    VectorInt mouseLoc, bool mousePressed)
 {
     bool result = false;
     //Copied from DrawText()
@@ -668,18 +668,18 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
 
     if (SDLPointRectangleCollision(mouseLoc, rect))
     {
-        AddRectToRender(RenderType::DebugFill, rect, { BC.r, BC.g, BC.b, BC.a / (uint32)2}, RenderPrio::UI, CoordinateSpace::UI);
-    }
-    if (mousePressed)
-    {
-        if (SDLPointRectangleCollision(mouseLoc, rect))
+        PlayAudio("Button_Hover");
+        AddRectToRender(RenderType::DebugFill, rect, { BC.r, BC.g, BC.b, BC.a / (uint32)2 }, RenderPrio::UI, CoordinateSpace::UI);
+        if (mousePressed)
         {
-			AddRectToRender(RenderType::DebugFill, rect, BC, RenderPrio::UI, CoordinateSpace::UI);
+
+            PlayAudio("Button_Confirm");
+            AddRectToRender(RenderType::DebugFill, rect, BC, RenderPrio::UI, CoordinateSpace::UI);
             result = true;
         }
+        DrawText(textSprite, TC, text, 1.0f, { int32(rect.botLeft.x + rect.Width() / 2), int32(rect.botLeft.y + rect.Height() / 2) }, UIX::mid, UIY::mid);
+        return result;
     }
-    DrawText(textSprite, TC, text, 1.0f, { int32(rect.botLeft.x + rect.Width() / 2), int32(rect.botLeft.y + rect.Height() / 2) }, UIX::mid, UIY::mid);
-    return result;
 }
 
 Sprite* GetSpriteFromAnimation(Actor* actor)

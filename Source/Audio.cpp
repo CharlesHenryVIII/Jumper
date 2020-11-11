@@ -13,7 +13,7 @@ struct FileData {
 };
 
 AudioID s_audioID = 0;
-struct AudioFile {
+struct AudioInstance {
 	AudioID ID = ++s_audioID;
 	std::string name;
 	float duration;
@@ -24,13 +24,14 @@ struct AudioFile {
 SDL_AudioSpec s_driverSpec;
 std::unordered_map<std::string, FileData> s_audioFiles;
 //std::vector<AudioFile> s_audioQueue;
-std::vector<AudioFile> s_audioPlaying;
+std::vector<AudioInstance> s_audioPlaying;
 //uint64 s_samplesTaken = 0;
 
+//TODO: fix
 AudioID PlayAudio(const std::string& nameOfSound, int32 loopCount, float secondsToPlay)
 {
 
-	AudioFile file;
+	AudioInstance file;
 	file.name = nameOfSound;
 	file.duration = secondsToPlay;
 	file.repeat = loopCount;
@@ -39,9 +40,10 @@ AudioID PlayAudio(const std::string& nameOfSound, int32 loopCount, float seconds
 	return file.ID;
 }
 
+//TODO: fix
 AudioID StopAudio(AudioID ID)
 {
-	std::erase_if(s_audioPlaying, [ID](AudioFile a) { return a.ID == ID; });
+	std::erase_if(s_audioPlaying, [ID](AudioInstance a) { return a.ID == ID; });
 	return 0;
 }
 
@@ -74,19 +76,12 @@ FileData LoadWavFile(const char* fileLocation)
 		}
         else
         {
-			SDL_assert(cvt.needed); // obviously, this one is always needed.
-			cvt.len = length;//1024 * 2 * 4;  // 1024 stereo float32 sample frames.
+			SDL_assert(cvt.needed);
+			cvt.len = length;
 			cvt.buf = (uint8*)SDL_malloc(cvt.len * cvt.len_mult);
-			// read your float32 data into cvt.buf here.
-			uint8* writeBuffer = cvt.buf;
-			for (int32 i = 0; i < cvt.len; i++)
-			{
-				*writeBuffer = *(buffer + i);
-				writeBuffer++;
-			}
+			memcpy(cvt.buf, buffer, cvt.len);
 			if (SDL_ConvertAudio(&cvt))
 				ConsoleLog("Could not change format on %s: %s\n", fileLocation, SDL_GetError());
-			// cvt.buf has cvt.len_cvt bytes of converted data now.
 
 			SDL_free(buffer);
 			buffer = cvt.buf;
@@ -107,65 +102,44 @@ FileData LoadWavFile(const char* fileLocation)
 std::vector<uint8> s_streamBuffer;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 {
-	s_streamBuffer.reserve(len);
-	uint8* realStream = reinterpret_cast<uint8*>(stream);
-	uint8* bufferStream = reinterpret_cast<uint8*>(s_streamBuffer.data());
-	uint8* writeBuffer = bufferStream;
-    int32 count = len / sizeof(*writeBuffer);
-	//FileData* audioFile = &s_audioFiles["Halo"];
-
-	//Clear Buffer
-	for (int32 i = 0; i < len; i++)
-	{
-
-		*writeBuffer = 0;
-		*realStream = 0;
-		writeBuffer++;
-		realStream++;
-	}
-    assert((uintptr_t)writeBuffer == uintptr_t(s_streamBuffer.data() + len));
-
+	s_streamBuffer.resize(len, 0);
+	memset(s_streamBuffer.data(), 0, len);
+	memset(stream, 0, len);
+	uint8* streamBuffer = s_streamBuffer.data();
+    int32 count = len / sizeof(*streamBuffer);
 
 	//Blend Audio into Buffer
 	std::vector<AudioID> audioMarkedForDeletion;
 	for (int32 i = 0; i < s_audioPlaying.size(); i++)
 	{
 
-		AudioFile* audio = &s_audioPlaying[i];
-		FileData* file = &s_audioFiles[audio->name];
-		uint8* readBuffer = file->buffer + audio->incrimenter;
-		uint8* writeBuffer = bufferStream;
+		AudioInstance* instance = &s_audioPlaying[i];
+		FileData* file = &s_audioFiles[instance->name];
+		uint8* readBuffer = file->buffer + instance->incrimenter;
+		uint8* writeBuffer = streamBuffer;
 		int32 length = len;
-		if (audio->incrimenter + len > file->length)
-			length = file->length - audio->incrimenter;
+		if (instance->incrimenter + len > file->length)
+			length = file->length - instance->incrimenter;
 
-		for (int32 j = 0; j < length; j++)
-		{
+		memcpy(writeBuffer, readBuffer, length);
+		writeBuffer += length;
 
-			*writeBuffer += *readBuffer;
-			writeBuffer++;
-			readBuffer++;
-		}
-		audio->incrimenter += length;
-		if (audio->incrimenter >= file->length)
+		instance->incrimenter += length;
+		//loop while there is more to write
+		if (instance->incrimenter >= file->length)
 		{
-			if (audio->repeat)
+			if (instance->repeat)
 			{
-				if (audio->repeat != UINT_MAX)
-					audio->repeat--;
+				if (instance->repeat != UINT_MAX)
+					instance->repeat--;
 				length = len - length;
 				readBuffer = file->buffer;
-				for (int32 j = 0; j < length; j++)
-				{
-
-					*writeBuffer += *readBuffer;
-					writeBuffer++;
-					readBuffer++;
-				}
-				audio->incrimenter = length;
+				
+				memcpy(writeBuffer, readBuffer, length);
+				instance->incrimenter = length;
 			}
 			else
-				audioMarkedForDeletion.push_back(audio->ID);
+				audioMarkedForDeletion.push_back(instance->ID);
 		}
 	}
 	for (int32 i = 0; i < audioMarkedForDeletion.size(); i++)
@@ -175,29 +149,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	audioMarkedForDeletion.clear();
 
 	//Fill Stream with Buffer
-	SDL_MixAudioFormat(stream, bufferStream, s_driverSpec.format, len, 20);
-
-
-#if 0
-    //LRLRLR ordering
-    //Should I use a buffer method or audio queing?
-    ConsoleLog("length: %d, count: %d, timeStamp: %0.5f\n", len, count, audioDataInfo->totalTime - previousTime);
-    previousTime = audioDataInfo->totalTime;
-    for (int32 i = 0; i < count / 2; i++)
-    {
-        
-        float sampleFreq = 1 / audioDataInfo->frequency;
-        uint16 information = (uint16)(sinf((audioDataInfo->samplesTaken++) * sampleFreq * tau * 100) * 20000 + 20000);
-
-        *buf = information;
-        buf += 1;
-        *buf = information;
-        buf++;
-    }
-
-    //audioDataInfo->samplesTaken += count / 2;
-    assert((uintptr_t)writeBuff == uintptr_t(stream + len));
-#endif
+	SDL_MixAudioFormat(stream, streamBuffer, s_driverSpec.format, len, 20);
 }
 
 void InitilizeAudio()
@@ -241,6 +193,8 @@ void InitilizeAudio()
 		name = audioFiles[i];
 		audioFiles[i] = "C:\\Projects\\Jumper\\Assets\\Audio\\" + audioFiles[i] + ".wav";
 		s_audioFiles[name] = LoadWavFile(audioFiles[i].c_str());
+		//snprintf();
+		//sprintf();
 	}
 }
 

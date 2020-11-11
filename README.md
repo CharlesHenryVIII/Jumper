@@ -16,9 +16,12 @@
 	- [x] Cache songs
 	- [x] Load Wav through SDL
 	- [x] Mix audio
+	- [ ] Audio fade out
 	- [ ] Audio stopping based on time elapsed
+	- [ ] Audio thread syncing with main thread
 - [ ] Action area or events based on region 
 	- [ ] TRIGGER VOLUME
+- [ ] load operating system files in a folder
 
 
 - [ ] GET SOME DAMN GAMEPLAY DOWN

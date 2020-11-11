@@ -33,12 +33,12 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		keyStates[SDLK_RETURN].downThisFrame || keyStates[SDLK_e].downThisFrame)
 	{
 
-        PlayAudio("Button_Confirm");
+        //PlayAudio("Button_Confirm");
 		s_menuMusic = StopAudio(s_menuMusic);
 		SwitchToGame();
 	}
-	DrawButton(g_fonts["1"], "Settings", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 64 }, 
-					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame);
+	if (DrawButton(g_fonts["1"], "Settings", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 64 }, 
+					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame))
 	{
 
         //PlayAudio("Button_Confirm");
@@ -49,7 +49,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		keyStates[SDLK_q].downThisFrame)
 	{
 
-        PlayAudio("Button_Confirm");
+        //PlayAudio("Button_Confirm");
 		QuitApp();
 	}
 

@@ -663,12 +663,9 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
 
     AddRectToRender(RenderType::DebugOutline, rect, BC, RenderPrio::UI, CoordinateSpace::UI);
 
-    //VectorInt mousePosition;
-    //bool leftButtonPressed = (SDL_GetMouseState(&mousePosition.x, &mousePosition.y) & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
-
     if (SDLPointRectangleCollision(mouseLoc, rect))
     {
-        PlayAudio("Button_Hover");
+        //PlayAudio("Button_Hover");
         AddRectToRender(RenderType::DebugFill, rect, { BC.r, BC.g, BC.b, BC.a / (uint32)2 }, RenderPrio::UI, CoordinateSpace::UI);
         if (mousePressed)
         {
@@ -677,9 +674,9 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
             AddRectToRender(RenderType::DebugFill, rect, BC, RenderPrio::UI, CoordinateSpace::UI);
             result = true;
         }
-        DrawText(textSprite, TC, text, 1.0f, { int32(rect.botLeft.x + rect.Width() / 2), int32(rect.botLeft.y + rect.Height() / 2) }, UIX::mid, UIY::mid);
-        return result;
     }
+    DrawText(textSprite, TC, text, 1.0f, { int32(rect.botLeft.x + rect.Width() / 2.0f), int32(rect.botLeft.y + rect.Height() / 2.0f) }, UIX::mid, UIY::mid);
+	return result;
 }
 
 Sprite* GetSpriteFromAnimation(Actor* actor)

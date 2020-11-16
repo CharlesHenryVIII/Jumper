@@ -20,7 +20,7 @@ void QuitApp()
 void SwitchToMenu()
 {
 	g_gameState = GameState::mainMenu;
-	s_menuMusic = PlayAudio("Halo", 4);
+	s_menuMusic = PlayAudio("Halo", 1, 0, 5.0f);
     ConsoleLog("Switched To Menu");
 }
 

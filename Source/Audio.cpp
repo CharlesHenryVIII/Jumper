@@ -16,15 +16,19 @@ AudioID s_audioID = 0;
 struct AudioInstance {
 	AudioID ID = ++s_audioID;
 	std::string name;
-	float duration;
-	uint32 repeat;
+	float duration = 0;
+	float fadeoutTime = 0;
+    float fade = 1;
+	uint32 repeat = 0;
 	uint32 incrimenter = 0;
 };
 
 SDL_AudioSpec s_driverSpec;
 std::unordered_map<std::string, FileData> s_audioFiles;
 std::vector<AudioInstance> s_audioPlaying;
-SDL_mutex* eraseSync = nullptr;
+std::vector<AudioID> s_audioMarkedForDeletion;
+SDL_mutex* s_playingAudioMutex = nullptr;
+SDL_mutex* s_deletionQueueMutex = nullptr;
 
 void LockMutex(SDL_mutex* mutex)
 {
@@ -44,28 +48,36 @@ void UnlockMutex(SDL_mutex* mutex)
 	}
 }
 
-//TODO: fix
-AudioID PlayAudio(const std::string& nameOfSound, int32 loopCount, float secondsToPlay)
+AudioID PlayAudio(const std::string& nameOfSound, float fadeOutTime, int32 loopCount, float secondsToPlay)
 {
 
-	LockMutex(eraseSync);
-	AudioInstance file;
-	file.name = nameOfSound;
-	file.duration = secondsToPlay;
-	file.repeat = loopCount;
-	s_audioPlaying.push_back(file);
-	UnlockMutex(eraseSync);
+	LockMutex(s_playingAudioMutex);
+	AudioInstance instance;
+	instance.name = nameOfSound;
+	instance.duration = secondsToPlay;
+	instance.repeat = loopCount;
+	instance.fadeoutTime = fadeOutTime;
+	s_audioPlaying.push_back(instance);
+	UnlockMutex(s_playingAudioMutex);
 
-	return file.ID;
+	return instance.ID;
 }
 
-//TODO: fix
 AudioID StopAudio(AudioID ID)
 {
-	LockMutex(eraseSync);
-	std::erase_if(s_audioPlaying, [ID](AudioInstance a) { return a.ID == ID; });
-	UnlockMutex(eraseSync);
+
+	LockMutex(s_deletionQueueMutex);
+	s_audioMarkedForDeletion.push_back(ID);
+	UnlockMutex(s_deletionQueueMutex);
 	return 0;
+}
+
+void EraseFile(AudioID ID)
+{
+
+	LockMutex(s_playingAudioMutex);
+	std::erase_if(s_audioPlaying, [ID](AudioInstance a) { return a.ID == ID; });
+	UnlockMutex(s_playingAudioMutex);
 }
 
 FileData LoadWavFile(const char* fileLocation)
@@ -78,8 +90,8 @@ FileData LoadWavFile(const char* fileLocation)
 	if (SDL_LoadWAV(fileLocation, &spec, &buffer, &length) == NULL)
         ConsoleLog("%s\n", SDL_GetError());
 
-    if (spec.format != driverSpec.format || 
-		spec.channels != driverSpec.channels || 
+    if (spec.format != driverSpec.format ||
+		spec.channels != driverSpec.channels ||
 		spec.freq != driverSpec.freq)
     {
 		SDL_AudioCVT cvt;
@@ -123,8 +135,8 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
     int32 count = len / sizeof(*streamBuffer);
 
 	//Blend Audio into Buffer
-	LockMutex(eraseSync);
-	std::vector<AudioID> audioMarkedForDeletion;
+	LockMutex(s_playingAudioMutex);
+	LockMutex(s_deletionQueueMutex);
 	for (int32 i = 0; i < s_audioPlaying.size(); i++)
 	{
 
@@ -132,15 +144,48 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 		FileData* file = &s_audioFiles[instance->name];
 		uint8* readBuffer = file->buffer + instance->incrimenter;
 		uint8* writeBuffer = streamBuffer;
-		int32 length = len;
+
+		int32 lengthToFill = len;
 		if (instance->incrimenter + len > file->length)
-			length = file->length - instance->incrimenter;
+			lengthToFill = file->length - instance->incrimenter;
+		if (instance->duration && instance->duration < lengthToFill)
+		{
+			lengthToFill = static_cast<int32>(instance->duration);
+			instance->duration -= lengthToFill;
+			if (instance->duration <= 0)
+				s_audioMarkedForDeletion.push_back(instance->ID);
+		}
+
+#if 0
+
+		if (instance->incrimenter + instance->fadeoutTime + lengthToFill >= file->length)
+		{//Do fadeout
+
+			uint8* currentWriteBuffer = writeBuffer;
+			double secondsPerByte = (1.0f / s_driverSpec.samples) / s_driverSpec.freq;
+			double totalSecondsPerCallback = (static_cast<float>(len) / s_driverSpec.samples) / s_driverSpec.freq;
 
 
-		memcpy(writeBuffer, readBuffer, length);
-		writeBuffer += length;
+			for (int32 i = 0; i < lengthToFill; i++)
+			{
+				//(bytes / samples) / frequency = seconds
+				//if ()
 
-		instance->incrimenter += length;
+				//SDL_MixAudioFormat(stream, streamBuffer, s_driverSpec.format, len, 20);
+				*currentWriteBuffer = *readBuffer;
+				currentWriteBuffer++;
+				readBuffer++;
+			}
+		}
+		else
+			memcpy(writeBuffer, readBuffer, lengthToFill);
+		writeBuffer += lengthToFill;
+#else
+
+		memcpy(writeBuffer, readBuffer, lengthToFill);
+#endif
+
+		instance->incrimenter += lengthToFill;
 		//loop while there is more to write
 		if (instance->incrimenter >= file->length)
 		{
@@ -148,22 +193,24 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			{
 				if (instance->repeat != UINT_MAX)
 					instance->repeat--;
-				length = len - length;
+				lengthToFill = len - lengthToFill;
 				readBuffer = file->buffer;
-				
-				memcpy(writeBuffer, readBuffer, length);
-				instance->incrimenter = length;
+
+				memcpy(writeBuffer, readBuffer, lengthToFill);
+				instance->incrimenter = lengthToFill;
 			}
 			else
-				audioMarkedForDeletion.push_back(instance->ID);
+				s_audioMarkedForDeletion.push_back(instance->ID);
 		}
 	}
-	for (int32 i = 0; i < audioMarkedForDeletion.size(); i++)
+	UnlockMutex(s_playingAudioMutex);
+
+	for (int32 i = 0; i < s_audioMarkedForDeletion.size(); i++)
 	{
-		StopAudio(audioMarkedForDeletion[i]);
+		EraseFile(s_audioMarkedForDeletion[i]);
 	}
-	audioMarkedForDeletion.clear();
-	UnlockMutex(eraseSync);
+	s_audioMarkedForDeletion.clear();
+	UnlockMutex(s_deletionQueueMutex);
 
 	//Fill Stream with Buffer
 	SDL_MixAudioFormat(stream, streamBuffer, s_driverSpec.format, len, 20);
@@ -171,7 +218,8 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 
 void InitilizeAudio()
 {
-	eraseSync = SDL_CreateMutex();
+	s_playingAudioMutex = SDL_CreateMutex();
+	s_deletionQueueMutex = SDL_CreateMutex();
 	SDL_AudioSpec want, have;
 	SDL_AudioDeviceID audioDevice;
 

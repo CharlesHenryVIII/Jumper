@@ -320,6 +320,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             case ActorType::Spring:
             {
 
+                //collision(CollisionType::TriggerVolume, player, actor);
                 uint32 result = CollisionWithActor(*player, *actor, *player->level);
                 if (result > 0)
                 {

@@ -106,10 +106,8 @@ void CreateOpenGLWindow()
 	if (GLEW_OK != err)
 	{
 		/* Problem: glewInit failed, something is seriously wrong. */
-		DebugPrint("Error: %s\n", glewGetErrorString(err));
         ConsoleLog("Error: %s\n", glewGetErrorString(err));
 	}
-	DebugPrint("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
     ConsoleLog("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
 	glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -220,7 +218,7 @@ GLuint JMP_CreateShader(GLenum shaderType, const char* shaderText)
 		glGetShaderiv(result, GL_INFO_LOG_LENGTH, &log_length);
 		GLchar info[4096];
 		glGetShaderInfoLog(result, log_length, NULL, info);
-		DebugPrint("CreateShader() Shader compilation error: %s\n", info);
+		ConsoleLog("CreateShader() Shader compilation error: %s\n", info);
 	}
 
     return result;
@@ -244,7 +242,7 @@ GLuint JMP_CreateShaderProgram()
 		glGetProgramiv(result, GL_INFO_LOG_LENGTH, &log_length);
 		GLchar info[4096];
 		glGetProgramInfoLog(result, log_length, NULL, info);
-		DebugPrint("Shader linking error: %s\n", info);
+		ConsoleLog("Shader linking error: %s\n", info);
 	}
     return result;
 }
@@ -273,8 +271,17 @@ void InitializeOpenGL()
 	glLineWidth(1.0f);
 }
 
-int32 size = 0;
+extern "C" {
+#ifdef _MSC_VER
+    _declspec(dllexport) uint32_t NvOptimusEnablement = 0x00000001;
+    _declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 0x00000001;
+#else
+    __attribute__((dllexport)) uint32_t NvOptimusEnablement = 0x00000001;
+    __attribute__((dllexport)) int AmdPowerXpressRequestHighPerformance = 0x00000001;
+#endif
+}
 
+int32 size = 0;
 void RenderDrawCalls()
 {
     PROFILE_FUNCTION();
@@ -382,8 +389,6 @@ void RenderDrawCalls()
     float windowWidth = (float)g_windowInfo.width;
     float windowHeight = (float)g_windowInfo.height;
     Vector cameraPixel;
-    //cameraPixel.x = (float)BlockToPixel(camera.position.x);
-    //cameraPixel.y = (float)BlockToPixel(camera.position.y);
 
     gbMat4 worldMatrix;
 	gb_mat4_ortho2d(&worldMatrix, g_camera.position.x - g_camera.size.x / 2, g_camera.position.x + g_camera.size.x / 2, g_camera.position.y - g_camera.size.y / 2, g_camera.position.y + g_camera.size.y / 2);

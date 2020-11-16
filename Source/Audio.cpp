@@ -125,6 +125,17 @@ FileData LoadWavFile(const char* fileLocation)
 	return { buffer, length};
 }
 
+int32 SecondsToBytes(double seconds)
+{
+	return static_cast<int32>(s_driverSpec.samples * seconds * s_driverSpec.freq);
+}
+
+double BytesToSeconds(int32 bytes = 1)
+{//(bytes / samples) / frequency = seconds
+
+	return (static_cast<double>(bytes) / s_driverSpec.samples) / s_driverSpec.freq;
+}
+
 std::vector<uint8> s_streamBuffer;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 {
@@ -148,9 +159,13 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 		int32 lengthToFill = len;
 		if (instance->incrimenter + len > file->length)
 			lengthToFill = file->length - instance->incrimenter;
-		if (instance->duration && instance->duration < lengthToFill)
+		if (instance->duration)
 		{
-			lengthToFill = static_cast<int32>(instance->duration);
+			if (SecondsToBytes(instance->duration < lengthToFill))
+			{
+
+				lengthToFill = SecondsToBytes(instance->duration);
+			}
 			instance->duration -= lengthToFill;
 			if (instance->duration <= 0)
 				s_audioMarkedForDeletion.push_back(instance->ID);
@@ -162,8 +177,8 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 		{//Do fadeout
 
 			uint8* currentWriteBuffer = writeBuffer;
-			double secondsPerByte = (1.0f / s_driverSpec.samples) / s_driverSpec.freq;
-			double totalSecondsPerCallback = (static_cast<float>(len) / s_driverSpec.samples) / s_driverSpec.freq;
+			double secondsPerByte = BytesToSeconds();
+			double totalSecondsPerCallback = BytesToSeconds(len);
 
 
 			for (int32 i = 0; i < lengthToFill; i++)

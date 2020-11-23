@@ -17,10 +17,11 @@
 	- [x] Load Wav through SDL
 	- [x] Mix audio
 	- [ ] Audio fade out
-	- [ ] Audio stopping based on time elapsed
+	- [x] Audio stopping based on time elapsed
 	- [x] Audio thread syncing with main thread
 		- [ ] Verify working
-- [ ] Action area or events based on region 
+	- [ ] REWRITE THE ENTIRE CALLBACK FUNCTION
+	- [ ] Action area or events based on region 
 	- [ ] TRIGGER VOLUME
 - [ ] load operating system files in a folder
 

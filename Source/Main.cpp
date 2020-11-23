@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <cmath>
 
+
 CONSOLE_FUNCTION(ExitApp)
 {
     g_running = false;

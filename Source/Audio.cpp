@@ -16,11 +16,12 @@ AudioID s_audioID = 0;
 struct AudioInstance {
 	AudioID ID = ++s_audioID;
 	std::string name;
-	float duration = 0;
+	double duration = 0;
 	float fadeoutTime = 0;
     float fade = 1;
 	uint32 repeat = 0;
 	uint32 incrimenter = 0;
+	uint16 flags = 0;
 };
 
 SDL_AudioSpec s_driverSpec;
@@ -48,15 +49,27 @@ void UnlockMutex(SDL_mutex* mutex)
 	}
 }
 
-AudioID PlayAudio(const std::string& nameOfSound, float fadeOutTime, int32 loopCount, float secondsToPlay)
+AudioID PlayAudio(const std::string& nameOfSound)
 {
 
-	LockMutex(s_playingAudioMutex);
 	AudioInstance instance;
 	instance.name = nameOfSound;
-	instance.duration = secondsToPlay;
-	instance.repeat = loopCount;
-	instance.fadeoutTime = fadeOutTime;
+	LockMutex(s_playingAudioMutex);
+	s_audioPlaying.push_back(instance);
+	UnlockMutex(s_playingAudioMutex);
+	return instance.ID;
+}
+
+AudioID PlayAudio(Audio audio)
+{
+
+	AudioInstance instance;
+	instance.name = audio.nameOfSound;
+	instance.duration = audio.secondsToPlay;
+	instance.repeat = audio.loopCount;
+	instance.fadeoutTime = audio.fadeOutTime;
+	instance.flags = audio.flags;
+	LockMutex(s_playingAudioMutex);
 	s_audioPlaying.push_back(instance);
 	UnlockMutex(s_playingAudioMutex);
 
@@ -125,15 +138,37 @@ FileData LoadWavFile(const char* fileLocation)
 	return { buffer, length};
 }
 
-int32 SecondsToBytes(double seconds)
+//int32 SecondsToBytes(double seconds)
+//{
+//	return static_cast<int32>(s_driverSpec.samples * seconds * s_driverSpec.freq);
+//}
+//
+//double BytesToSeconds(int32 bytes = 1)
+//{//(bytes / samples) / frequency = seconds
+//
+//	return (static_cast<double>(bytes) / s_driverSpec.samples) / s_driverSpec.freq;
+//}
+
+uint32 BytesToSamples(uint32 bytes)
 {
-	return static_cast<int32>(s_driverSpec.samples * seconds * s_driverSpec.freq);
+	assert((bytes % (sizeof(Sample))) == 0);
+	assert(s_driverSpec.format == AUDIO_S16);
+	return bytes / (sizeof(Sample));
 }
 
-double BytesToSeconds(int32 bytes = 1)
-{//(bytes / samples) / frequency = seconds
+uint32 SamplesToBytes(uint32 samples)
+{
+	return samples * sizeof(Sample);
+}
 
-	return (static_cast<double>(bytes) / s_driverSpec.samples) / s_driverSpec.freq;
+uint32 SecondsToSamples(double seconds, uint32 channels = s_driverSpec.channels)
+{
+	return static_cast<uint32>(s_driverSpec.freq * seconds * channels);
+}
+
+double SamplesToSeconds(uint32 samples, uint32 channels = s_driverSpec.channels)
+{
+	return static_cast<double>(samples) / (static_cast<double>(s_driverSpec.freq) * channels);
 }
 
 std::vector<uint8> s_streamBuffer;
@@ -142,74 +177,100 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	s_streamBuffer.resize(len, 0);
 	memset(s_streamBuffer.data(), 0, len);
 	memset(stream, 0, len);
-	uint8* streamBuffer = s_streamBuffer.data();
-    int32 count = len / sizeof(*streamBuffer);
+	Sample* streamBuffer = reinterpret_cast<Sample*>(s_streamBuffer.data());
+	uint32 samples = BytesToSamples(len);
+	double seconds = SamplesToSeconds(samples);
 
 	//Blend Audio into Buffer
 	LockMutex(s_playingAudioMutex);
 	LockMutex(s_deletionQueueMutex);
 	for (int32 i = 0; i < s_audioPlaying.size(); i++)
 	{
-
 		AudioInstance* instance = &s_audioPlaying[i];
-		FileData* file = &s_audioFiles[instance->name];
-		uint8* readBuffer = file->buffer + instance->incrimenter;
-		uint8* writeBuffer = streamBuffer;
+		const FileData* file = &s_audioFiles[instance->name];
+		Sample* readBuffer = reinterpret_cast<Sample*>(file->buffer) + instance->incrimenter;
+		Sample* writeBuffer = streamBuffer;
+		const uint32 fileSamples = BytesToSamples(file->length);
 
-		int32 lengthToFill = len;
-		if (instance->incrimenter + len > file->length)
-			lengthToFill = file->length - instance->incrimenter;
-		if (instance->duration)
+		uint32 lengthToFill = samples;
+		if (instance->incrimenter + samples > fileSamples)
+			lengthToFill = fileSamples - instance->incrimenter;
+		if (instance->flags & AUDIO_DURATION)
 		{
-			if (SecondsToBytes(instance->duration < lengthToFill))
-			{
 
-				lengthToFill = SecondsToBytes(instance->duration);
-			}
-			instance->duration -= lengthToFill;
+			if (uint32 instanceSecondsToSamples = SecondsToSamples(instance->duration) <= samples)
+				lengthToFill = instanceSecondsToSamples;
+
+			double instanceSeconds = SamplesToSeconds(lengthToFill);
+			instance->duration -= instanceSeconds;
 			if (instance->duration <= 0)
 				s_audioMarkedForDeletion.push_back(instance->ID);
+
 		}
+		//if (instance->flags & AUDIO_FADEOUT)
+		//{
+		//	double repeatSeconds = SamplesToSeconds((fileSamples - instance->incrimenter) + instance->repeat * fileSamples);
 
-#if 0
+		//	if ((instance->flags & AUDIO_DURATION && instance->duration <= instance->fadeoutTime) ||
+		//		(instance->flags & AUDIO_REPEAT && (instance->fadeoutTime >= repeatSeconds)))
+		//	{
+		//		if (instance->flags & AUDIO_REPEAT)
+		//		{
+		//			if (instance->flags & AUDIO_DURATION)
+		//			{
 
-		if (instance->incrimenter + instance->fadeoutTime + lengthToFill >= file->length)
-		{//Do fadeout
+		//				if (repeatSeconds > instance->duration)
+		//				{
+		//					//do audio_repeat fade
 
-			uint8* currentWriteBuffer = writeBuffer;
-			double secondsPerByte = BytesToSeconds();
-			double totalSecondsPerCallback = BytesToSeconds(len);
+		//				}
+		//				else
+		//				{
+		//					//do audio_duration fade
 
+		//				}
 
-			for (int32 i = 0; i < lengthToFill; i++)
-			{
-				//(bytes / samples) / frequency = seconds
-				//if ()
+		//			}
+		//			else
+		//			{
+		//				//do audio_Repeat fade
 
-				//SDL_MixAudioFormat(stream, streamBuffer, s_driverSpec.format, len, 20);
-				*currentWriteBuffer = *readBuffer;
-				currentWriteBuffer++;
-				readBuffer++;
-			}
+		//			}
+		//		}
+		//		else
+		//		{
+
+		//			if (instance->flags & AUDIO_DURATION)
+		//			{
+		//				//do audio_duration fade
+
+		//			}
+		//			else
+		//			{
+		//				//impossible?
+		//				assert(false);
+
+		//			}
+		//		}
+		//	}
+		//}
+
+		for (uint32 i = 0; i < lengthToFill; i++)
+		{
+			writeBuffer[i] += readBuffer[i];
 		}
-		else
-			memcpy(writeBuffer, readBuffer, lengthToFill);
-		writeBuffer += lengthToFill;
-#else
-
-		memcpy(writeBuffer, readBuffer, lengthToFill);
-#endif
+		//memcpy(writeBuffer, readBuffer, SamplesToBytes(lengthToFill));
 
 		instance->incrimenter += lengthToFill;
 		//loop while there is more to write
-		if (instance->incrimenter >= file->length)
+		if (instance->incrimenter >= fileSamples)
 		{
-			if (instance->repeat)
+			if (instance->flags & AUDIO_REPEAT && instance->repeat)
 			{
 				if (instance->repeat != UINT_MAX)
 					instance->repeat--;
-				lengthToFill = len - lengthToFill;
-				readBuffer = file->buffer;
+				lengthToFill = samples - lengthToFill;
+				readBuffer = reinterpret_cast<Sample*>(file->buffer);
 
 				memcpy(writeBuffer, readBuffer, lengthToFill);
 				instance->incrimenter = lengthToFill;
@@ -228,7 +289,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	UnlockMutex(s_deletionQueueMutex);
 
 	//Fill Stream with Buffer
-	SDL_MixAudioFormat(stream, streamBuffer, s_driverSpec.format, len, 20);
+	SDL_MixAudioFormat(stream, reinterpret_cast<uint8*>(streamBuffer), s_driverSpec.format, len, 20);
 }
 
 void InitilizeAudio()
@@ -239,7 +300,7 @@ void InitilizeAudio()
 	SDL_AudioDeviceID audioDevice;
 
 	SDL_memset(&want, 0, sizeof(want));
-	want.freq = 44100;
+	want.freq = 48000;
 	want.format = AUDIO_S16;
 	want.channels = 2;
 	want.samples = 4096;

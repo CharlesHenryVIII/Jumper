@@ -4,6 +4,8 @@
 #include <cmath>
 #include "gb_math.h"
 
+#define BIT(num) (1<<(num))
+
 using int8 = int8_t;
 using int16 = int16_t;
 using int32 = int32_t;

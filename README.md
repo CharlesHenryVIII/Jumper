@@ -16,7 +16,8 @@
 	- [x] Cache songs
 	- [x] Load Wav through SDL
 	- [x] Mix audio
-	- [ ] Audio fade out
+	- [x] Audio fade out
+		- [ ] Audio fadeout on deletion instead of time based
 	- [x] Audio stopping based on time elapsed
 	- [x] Audio thread syncing with main thread
 		- [ ] Verify working
@@ -24,7 +25,8 @@
 	- [ ] Action area or events based on region 
 	- [ ] TRIGGER VOLUME
 - [ ] load operating system files in a folder
-
+- [ ] Debug writing to disk for trouble shooting issues in release mode / other computers
+	- [ ] it works on my machine
 
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [x] Grappling

@@ -56,12 +56,12 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates();
     ConsoleLog("Loaded all Animation States");
 
-	g_fonts["1"] = CreateFont("Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
-	g_fonts["2"] = CreateFont("Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
+	g_fonts["1"] = CreateFont("Assets/Fonts/Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
+	g_fonts["2"] = CreateFont("Assets/Fonts/Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
 
-	g_sprites["spriteMap"] = CreateSprite("SpriteMap.png", SDL_BLENDMODE_BLEND);
-	g_sprites["background"] = CreateSprite("Background.png", SDL_BLENDMODE_BLEND);
-	g_sprites["MainMenuBackground"] = CreateSprite("MainMenuBackground.png", SDL_BLENDMODE_BLEND);
+	g_sprites["spriteMap"] = CreateSprite("Assets/SpriteMap.png", SDL_BLENDMODE_BLEND);
+	g_sprites["background"] = CreateSprite("Assets/Backgrounds/Background.png", SDL_BLENDMODE_BLEND);
+	g_sprites["MainMenuBackground"] = CreateSprite("Assets/Backgrounds/MainMenuBackground.png", SDL_BLENDMODE_BLEND);
 //    const char* fontFileNames[] = {
 //        "Text.png",
 //        "Text 2.png",

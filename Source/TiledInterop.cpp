@@ -108,7 +108,7 @@ T GetActorProperty(const picojson::value& props, const std::string& propertyName
 
 void CreateLevel(Level* level, const std::string& name)
 {
-	const picojson::value& v = JsonStruct(name);
+	const picojson::value& v = JsonStruct("Assets/Levels/" + name);
 	const picojson::value& layers = v.get("layers");
 
 	const picojson::value& chunks = FindChildObject("chunks", "tilelayer", layers);

@@ -207,57 +207,55 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 				s_audioMarkedForDeletion.push_back(instance->ID);
 
 		}
-		//if (instance->flags & AUDIO_FADEOUT)
-		//{
-		//	double repeatSeconds = SamplesToSeconds((fileSamples - instance->incrimenter) + instance->repeat * fileSamples);
+		if (instance->flags & AUDIO_FADEOUT)
+		{
+			double repeatSeconds = SamplesToSeconds((fileSamples - instance->incrimenter) + instance->repeat * fileSamples);
 
-		//	if ((instance->flags & AUDIO_DURATION && instance->duration <= instance->fadeoutTime) ||
-		//		(instance->flags & AUDIO_REPEAT && (instance->fadeoutTime >= repeatSeconds)))
-		//	{
-		//		if (instance->flags & AUDIO_REPEAT)
-		//		{
-		//			if (instance->flags & AUDIO_DURATION)
-		//			{
+			if ((instance->flags & AUDIO_DURATION && instance->duration <= instance->fadeoutTime) ||
+				(instance->flags & AUDIO_REPEAT && (instance->fadeoutTime >= repeatSeconds)))
+			{
+				if (instance->flags & AUDIO_REPEAT)
+				{
+					if (instance->flags & AUDIO_DURATION)
+					{
 
-		//				if (repeatSeconds > instance->duration)
-		//				{
-		//					//do audio_repeat fade
+						if (repeatSeconds > instance->duration)
+						{//do audio_repeat fade
+							
+							instance->fade = ((float)repeatSeconds / instance->fadeoutTime);
+						}
+						else
+						{//do audio_duration fade
+							
+							instance->fade = ((float)instance->duration / instance->fadeoutTime);
+						}
 
-		//				}
-		//				else
-		//				{
-		//					//do audio_duration fade
+					}
+					else
+					{//do audio_Repeat fade
+						
+						instance->fade = ((float)repeatSeconds / instance->fadeoutTime);
+					}
+				}
+				else
+				{
 
-		//				}
-
-		//			}
-		//			else
-		//			{
-		//				//do audio_Repeat fade
-
-		//			}
-		//		}
-		//		else
-		//		{
-
-		//			if (instance->flags & AUDIO_DURATION)
-		//			{
-		//				//do audio_duration fade
-
-		//			}
-		//			else
-		//			{
-		//				//impossible?
-		//				assert(false);
-
-		//			}
-		//		}
-		//	}
-		//}
+					if (instance->flags & AUDIO_DURATION)
+					{//do audio_duration fade
+						
+						instance->fade = ((float)instance->duration / instance->fadeoutTime);
+					}
+					else
+					{//impossible?
+						assert(false);
+					}
+				}
+			}
+		}
 
 		for (uint32 i = 0; i < lengthToFill; i++)
 		{
-			writeBuffer[i] += readBuffer[i];
+			writeBuffer[i] += Sample((float)readBuffer[i] * instance->fade);
 		}
 		//memcpy(writeBuffer, readBuffer, SamplesToBytes(lengthToFill));
 

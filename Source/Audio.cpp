@@ -31,6 +31,38 @@ std::vector<AudioID> s_audioMarkedForDeletion;
 SDL_mutex* s_playingAudioMutex = nullptr;
 SDL_mutex* s_deletionQueueMutex = nullptr;
 
+uint32 BytesToSamples(uint32 bytes)
+{
+	assert((bytes % (sizeof(Sample))) == 0);
+	assert(s_driverSpec.format == AUDIO_S16);
+	return bytes / (sizeof(Sample));
+}
+
+uint32 SamplesToBytes(uint32 samples)
+{
+	return samples * sizeof(Sample);
+}
+
+uint32 SecondsToSamples(double seconds, uint32 channels = s_driverSpec.channels)
+{
+	return static_cast<uint32>(s_driverSpec.freq * seconds * channels);
+}
+
+double SamplesToSeconds(uint32 samples, uint32 channels = s_driverSpec.channels)
+{
+	return static_cast<double>(samples) / (static_cast<double>(s_driverSpec.freq) * channels);
+}
+
+AudioInstance* GetAudioInstance(AudioID ID)
+{
+	for (uint32 i = 0; i < s_audioPlaying.size(); i++)
+	{
+		if (s_audioPlaying[i].ID == ID)
+			return &(s_audioPlaying[i]);
+	}
+	return nullptr;
+}
+
 void LockMutex(SDL_mutex* mutex)
 {
 	if (SDL_LockMutex(mutex))
@@ -78,10 +110,22 @@ AudioID PlayAudio(Audio audio)
 
 AudioID StopAudio(AudioID ID)
 {
-
-	LockMutex(s_deletionQueueMutex);
-	s_audioMarkedForDeletion.push_back(ID);
-	UnlockMutex(s_deletionQueueMutex);
+	LockMutex(s_playingAudioMutex);
+	if (AudioInstance* instance = GetAudioInstance(ID))
+	{
+		if (instance->flags & AUDIO_FADEOUT)
+		{
+			instance->duration = instance->fadeoutTime;
+			instance->flags |= AUDIO_DURATION;
+		}
+		else
+		{
+			LockMutex(s_deletionQueueMutex);
+			s_audioMarkedForDeletion.push_back(ID);
+			UnlockMutex(s_deletionQueueMutex);
+		}
+	}
+	UnlockMutex(s_playingAudioMutex);
 	return 0;
 }
 
@@ -138,38 +182,6 @@ FileData LoadWavFile(const char* fileLocation)
 	return { buffer, length};
 }
 
-//int32 SecondsToBytes(double seconds)
-//{
-//	return static_cast<int32>(s_driverSpec.samples * seconds * s_driverSpec.freq);
-//}
-//
-//double BytesToSeconds(int32 bytes = 1)
-//{//(bytes / samples) / frequency = seconds
-//
-//	return (static_cast<double>(bytes) / s_driverSpec.samples) / s_driverSpec.freq;
-//}
-
-uint32 BytesToSamples(uint32 bytes)
-{
-	assert((bytes % (sizeof(Sample))) == 0);
-	assert(s_driverSpec.format == AUDIO_S16);
-	return bytes / (sizeof(Sample));
-}
-
-uint32 SamplesToBytes(uint32 samples)
-{
-	return samples * sizeof(Sample);
-}
-
-uint32 SecondsToSamples(double seconds, uint32 channels = s_driverSpec.channels)
-{
-	return static_cast<uint32>(s_driverSpec.freq * seconds * channels);
-}
-
-double SamplesToSeconds(uint32 samples, uint32 channels = s_driverSpec.channels)
-{
-	return static_cast<double>(samples) / (static_cast<double>(s_driverSpec.freq) * channels);
-}
 
 std::vector<uint8> s_streamBuffer;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)

@@ -23,8 +23,7 @@ void SwitchToMenu()
 	Audio audio = {};
 	audio.nameOfSound = "Halo";
 	audio.flags |= AUDIO_FADEOUT;
-	audio.secondsToPlay = 10.0f;
-	audio.fadeOutTime = 5.0f;
+	audio.fadeOutTime = 3.0f;
 	s_menuMusic = PlayAudio(audio);
     ConsoleLog("Switched To Menu");
 }

@@ -17,8 +17,9 @@
 	- [x] Load Wav through SDL
 	- [x] Mix audio
 	- [x] Audio fade out
-		- [ ] Audio fadeout on deletion instead of time based
+		- [x] Audio fadeout on deletion instead of time based
 	- [x] Audio stopping based on time elapsed
+	- [ ] Audio fade in
 	- [x] Audio thread syncing with main thread
 		- [ ] Verify working
 	- [ ] REWRITE THE ENTIRE CALLBACK FUNCTION

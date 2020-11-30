@@ -22,8 +22,9 @@ void SwitchToMenu()
 	g_gameState = GameState::mainMenu;
 	Audio audio = {};
 	audio.nameOfSound = "Halo";
-	audio.flags |= AUDIO_FADEOUT;
+	audio.flags |= AUDIO_FADEOUT | AUDIO_FADEIN;
 	audio.fadeOutTime = 3.0f;
+	audio.fadeInTime = 3.0f;
 	s_menuMusic = PlayAudio(audio);
     ConsoleLog("Switched To Menu");
 }

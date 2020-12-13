@@ -68,12 +68,20 @@ enum class RenderPrio
     UI,
     Console,
     Debug,
+    PostProcess,
 };
 
 enum class CoordinateSpace
 {
     UI,
     World,
+};
+
+enum class ShaderProgram
+{
+    Sprite,
+    ChromaticAberration,
+    Count,
 };
 
 struct Vertex
@@ -100,12 +108,13 @@ struct RenderInformation
     Rectangle dRect = {};
     Rectangle scissor = {};
     RenderPrio prio;
+    ShaderProgram shader = ShaderProgram::Sprite;
     uint32 prioIndex;
-    Color color = {};
+    Color color = { 1.0f, 1.0f, 1.0f, 1.0f };
     CoordinateSpace coordSpace;
     int32 vertexIndex;
     int32 vertexLength;
-    TextureRenderUnion texture;
+    TextureRenderUnion texture; // Union?
 };
 struct Level;
 
@@ -134,7 +143,7 @@ void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
 void InitializeOpenGL();
 void AddRectToRender(RenderType type, Rectangle rect, Color color, RenderPrio prio, CoordinateSpace coordSpace);
 void AddRectToRender(Rectangle rect, Color color, RenderPrio prio, CoordinateSpace coordSpace);
-void RenderDrawCalls();
+void RenderDrawCalls(float dt);
 Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode);
 FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 actualCharWidth, int32 charPerRow);
 //difference between the player and the center of the screen

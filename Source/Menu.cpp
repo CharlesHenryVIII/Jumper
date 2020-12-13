@@ -26,6 +26,22 @@ void SwitchToMenu()
 	audio.fadeOutTime = 3.0f;
 	audio.fadeInTime = 3.0f;
 	s_menuMusic = PlayAudio(audio);
+
+	Audio temp1 = {};
+	temp1.flags |= AUDIO_FADEOUT | AUDIO_REPEAT;
+	temp1.nameOfSound = "Grass";
+	temp1.fadeOutTime = 2.0f;
+	temp1.loopCount = 10;
+	//PlayAudio(temp1);
+
+	Audio temp2 = {};
+	temp2.flags |= AUDIO_REPEAT;
+	temp2.nameOfSound = "Button_Hover";
+	temp2.fadeOutTime = 2.0f;
+	temp2.loopCount = 20;
+	temp2.secondsToPlay = 10.0f;
+	PlayAudio(temp2);
+
     ConsoleLog("Switched To Menu");
 }
 
@@ -58,5 +74,5 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		QuitApp();
 	}
 
-	AddTextureToRender({}, {}, RenderPrio::Background, g_sprites["MainMenuBackground"], {}, 0, {}, false, CoordinateSpace::UI);
+	AddTextureToRender({}, {}, RenderPrio::Background, g_sprites["MainMenuBackground"], White, 0, {}, false, CoordinateSpace::UI);
 }

@@ -411,7 +411,7 @@ void Grapple::Render()
 
 	Rectangle sRect = { {}, { ((rect.topRight.x - rect.botLeft.x) / GameWidth()) * sprite->width, (float)sprite->height } };
 	Vector rotationPoint = { 0, GameHeight() / 2.0f};
-	AddTextureToRender(sRect, rect, RenderPrio::Sprites, sprite, {}, rotation, rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
+	AddTextureToRender(sRect, rect, RenderPrio::Sprites, sprite, White, rotation, rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
 }
 
 /*********************

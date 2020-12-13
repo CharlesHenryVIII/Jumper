@@ -255,7 +255,7 @@ int main(int argc, char* argv[])
 				break;
 			}
 		}
-		RenderDrawCalls();
+		RenderDrawCalls(deltaTime);
 		SDL_GL_SwapWindow(windowInfo.SDLWindow);
     }
 

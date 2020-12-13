@@ -3,6 +3,7 @@
 
 #include "SDL.h"
 
+#include <mutex>
 #include <unordered_map>
 #include <cassert>
 
@@ -12,6 +13,18 @@ struct FileData {
 	uint32 length = 0;
 };
 
+
+enum class AudioState {
+	None,
+	Playing,
+	FadingIn,
+	FadingOut,
+	Repeating,
+	Ending,
+	Count,
+};
+
+#if 1
 AudioID s_audioID = 0;
 struct AudioInstance {
 	AudioID ID = ++s_audioID;
@@ -27,14 +40,35 @@ struct AudioInstance {
 	bool b_fadeout = false;
 	bool b_fadein = false;
 	bool b_repeat = false;
+
+};
+#else
+
+AudioID s_audioID = 0;
+struct AudioInstance {
+	AudioID ID = ++s_audioID;
+	std::string name;
+	double duration = 0;
+	double playedDuration = 0;
+	float fadeoutTime = 0;
+	float fadeinTime = 0;
+    float fade = 1;
+	uint32 flags = 0;
+	uint32 repeat = 0;
+	uint32 playOffset = 0;
+	AudioState audioState = AudioState::None;
 };
 
+#endif
 SDL_AudioSpec s_driverSpec;
 std::unordered_map<std::string, FileData> s_audioFiles;
 std::vector<AudioInstance> s_audioPlaying;
 std::vector<AudioID> s_audioMarkedForDeletion;
 SDL_mutex* s_playingAudioMutex = nullptr;
 SDL_mutex* s_deletionQueueMutex = nullptr;
+std::mutex s_playingAudioMutex2;
+std::mutex s_deletionQueueMutex2;
+
 
 uint32 BytesToSamples(uint32 bytes)
 {
@@ -60,6 +94,7 @@ double SamplesToSeconds(uint32 samples, uint32 channels = s_driverSpec.channels)
 
 AudioInstance* GetAudioInstance(AudioID ID)
 {
+	std::lock_guard<std::mutex> guard(s_playingAudioMutex2);
 	for (uint32 i = 0; i < s_audioPlaying.size(); i++)
 	{
 		if (s_audioPlaying[i].ID == ID)
@@ -91,12 +126,13 @@ AudioID PlayAudio(const std::string& nameOfSound)
 
 	AudioInstance instance;
 	instance.name = nameOfSound;
-	LockMutex(s_playingAudioMutex);
+	std::lock_guard<std::mutex> guard(s_playingAudioMutex2);
 	s_audioPlaying.push_back(instance);
-	UnlockMutex(s_playingAudioMutex);
+	//UnlockMutex(s_playingAudioMutex);
 	return instance.ID;
 }
 
+#if 1
 AudioID PlayAudio(Audio audio)
 {
 
@@ -114,16 +150,41 @@ AudioID PlayAudio(Audio audio)
 		instance.fade = 0;
 	else if (instance.b_fadeout)
 		instance.fade = 1;
-	LockMutex(s_playingAudioMutex);
+	std::lock_guard<std::mutex> guard(s_playingAudioMutex2);
 	s_audioPlaying.push_back(instance);
-	UnlockMutex(s_playingAudioMutex);
+	//UnlockMutex(s_playingAudioMutex);
 
 	return instance.ID;
 }
 
+#else
+
+AudioID PlayAudio(Audio audio)
+{
+
+	AudioInstance instance;
+	instance.name = audio.nameOfSound;
+	instance.duration = audio.secondsToPlay;
+	instance.repeat = audio.loopCount;
+	instance.fadeoutTime = audio.fadeOutTime;
+	instance.fadeinTime = audio.fadeInTime;
+	instance.flags = audio.flags;
+	if (instance.flags & AUDIO_FADEIN)
+		instance.fade = 0;
+	else if (instance.flags & AUDIO_FADEOUT)
+		instance.fade = 1;
+	std::lock_guard<std::mutex> guard(s_playingAudioMutex2);
+	s_audioPlaying.push_back(instance);
+
+	return instance.ID;
+}
+#endif
+
+#if 1
+
 AudioID StopAudio(AudioID ID)
 {
-	LockMutex(s_playingAudioMutex);
+	//LockMutex(s_playingAudioMutex);
 	if (AudioInstance* instance = GetAudioInstance(ID))
 	{
 		if (instance->b_fadeout)
@@ -133,21 +194,47 @@ AudioID StopAudio(AudioID ID)
 		}
 		else
 		{
-			LockMutex(s_deletionQueueMutex);
+			std::lock_guard<std::mutex> guard(s_deletionQueueMutex2);
 			s_audioMarkedForDeletion.push_back(ID);
-			UnlockMutex(s_deletionQueueMutex);
+			//UnlockMutex(s_deletionQueueMutex);
 		}
 	}
-	UnlockMutex(s_playingAudioMutex);
+	//UnlockMutex(s_playingAudioMutex);
 	return 0;
 }
+
+#else
+
+AudioID StopAudio(AudioID ID)
+{
+	//LockMutex(s_playingAudioMutex);
+	if (AudioInstance* instance = GetAudioInstance(ID))
+	{
+		if (instance->flags & AUDIO_FADEOUT)
+		{
+			instance->duration = instance->fadeoutTime;
+			instance->flags |= AUDIO_DURATION;
+		}
+		else
+		{
+			std::lock_guard<std::mutex> guard(s_deletionQueueMutex2);
+			s_audioMarkedForDeletion.push_back(ID);
+			//UnlockMutex(s_deletionQueueMutex);
+		}
+	}
+	//UnlockMutex(s_playingAudioMutex);
+	return 0;
+}
+
+
+#endif
 
 void EraseFile(AudioID ID)
 {
 
-	LockMutex(s_playingAudioMutex);
+	//std::lock_guard<std::mutex> guard(s_playingAudioMutex2);
 	std::erase_if(s_audioPlaying, [ID](AudioInstance a) { return a.ID == ID; });
-	UnlockMutex(s_playingAudioMutex);
+	//UnlockMutex(s_playingAudioMutex);
 }
 
 FileData LoadWavFile(const char* fileLocation)
@@ -195,6 +282,22 @@ FileData LoadWavFile(const char* fileLocation)
 	return { buffer, length};
 }
 
+float FadeAmount(float current, float total)
+{
+	return Clamp<float>((current / total), 0.0f, 1.0f);
+}
+
+//void AudioFade(char* dataStream, int32 length, float currentValue, float totalValue)
+//{
+//
+//	float fade = FadeAmount(currentValue, totalValue);
+//	for (int32 i = 0; i < length; i++)
+//		dataStream[i] = dataStream[i] * fade;
+//
+//}
+
+
+#if 1
 
 std::vector<uint8> s_streamBuffer;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
@@ -206,8 +309,9 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	uint32 samples = BytesToSamples(len);
 
 	//Blend Audio into Buffer
-	LockMutex(s_playingAudioMutex);
-	LockMutex(s_deletionQueueMutex);
+
+	std::lock_guard<std::mutex> playingGuard(s_playingAudioMutex2);
+	std::lock_guard<std::mutex> deletionGuard(s_deletionQueueMutex2);
 	for (int32 i = 0; i < s_audioPlaying.size(); i++)
 	{
 		AudioInstance* instance = &s_audioPlaying[i];
@@ -236,7 +340,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 		{
 			if (instance->fadeinTime)
 			{
-				instance->fade = Clamp<float>(((float)instance->playedDuration / instance->fadeinTime), 0, 1);
+				instance->fade = FadeAmount((float)instance->playedDuration, instance->fadeinTime);
 			}
 		}
 		if (instance->b_fadeout)
@@ -252,19 +356,22 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 					if (repeatSeconds > instance->duration)
 					{//do audio_repeat fade
 
-						instance->fade = ((float)repeatSeconds / instance->fadeoutTime);
+						instance->fade = FadeAmount((float)repeatSeconds, instance->fadeoutTime);
 					}
 					else
 					{//do audio_duration fade
 
-						instance->fade = ((float)instance->duration / instance->fadeoutTime);
+						//instance->fade = ((float)instance->duration / instance->fadeoutTime);
+						instance->fade = FadeAmount((float)instance->duration, instance->fadeoutTime);
 					}
 				}
 				else
 				{
 
-					instance->fade = ((int32)(instance->b_repeat) * (((float)repeatSeconds / instance->fadeoutTime))) +
-						((int32)(instance->b_duration) * ((float)instance->duration / instance->fadeoutTime));
+					if (instance->b_repeat)
+						instance->fade = FadeAmount((float)repeatSeconds, instance->fadeoutTime);
+					else if (instance->b_duration)
+						instance->fade = FadeAmount((float)instance->duration, instance->fadeoutTime);
 				}
 			}
 		}
@@ -278,7 +385,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 		instance->playOffset += lengthToFill;
 		instance->playedDuration += SamplesToSeconds(lengthToFill);
 		//loop while there is more to write
-		if (instance->playOffset >= fileSamples)
+		if (instance->playOffset >= fileSamples - 1)
 		{
 			if (instance->b_repeat && instance->repeat)
 			{
@@ -294,18 +401,110 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 				s_audioMarkedForDeletion.push_back(instance->ID);
 		}
 	}
-	UnlockMutex(s_playingAudioMutex);
+	//UnlockMutex(s_playingAudioMutex);
 
 	for (int32 i = 0; i < s_audioMarkedForDeletion.size(); i++)
 	{
 		EraseFile(s_audioMarkedForDeletion[i]);
 	}
 	s_audioMarkedForDeletion.clear();
-	UnlockMutex(s_deletionQueueMutex);
+	//UnlockMutex(s_deletionQueueMutex);
 
 	//Fill Stream with Buffer
 	SDL_MixAudioFormat(stream, reinterpret_cast<uint8*>(streamBuffer), s_driverSpec.format, len, 20);
 }
+
+#else
+
+std::vector<uint8> s_streamBuffer;
+void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
+{
+	//play audio
+	//fade in and out
+	//end based on duration
+	//end based on seperate function call
+
+	s_streamBuffer.resize(len, 0);
+	memset(s_streamBuffer.data(), 0, len);
+	memset(stream, 0, len);
+	Sample* streamBuffer = reinterpret_cast<Sample*>(s_streamBuffer.data());
+	uint32 samples = BytesToSamples(len);
+
+	//Blend Audio into Buffer
+
+	std::lock_guard<std::mutex> playingGuard(s_playingAudioMutex2);
+	std::lock_guard<std::mutex> deletionGuard(s_deletionQueueMutex2);
+	for (int32 i = 0; i < s_audioPlaying.size(); i++)
+	{
+		AudioInstance& instance = s_audioPlaying[i];
+		const FileData* file = &s_audioFiles[instance.name];
+		Sample* readBuffer = reinterpret_cast<Sample*>(file->buffer) + instance.playOffset;
+		const uint32 fileSamples = BytesToSamples(file->length);
+		const uint32 fileSeconds = SamplesToSeconds(fileSamples);
+
+		bool repeat = true;
+		while (repeat)
+		{
+			repeat = false;
+			//Update state of audio instance
+			AudioState audioState = AudioState::Playing;
+			if (instance.playedDuration >= instance.fadeoutTime)
+				audioState = AudioState::FadingIn;
+			else if (instance.fadeinTime >= instance.playedDuration)
+				audioState = AudioState::FadingOut;
+			else if (instance.playedDuration >= fileSeconds)
+				audioState = AudioState::Ending;
+
+			//Audio Does its thing
+			switch (audioState)
+			{
+			case AudioState::None:
+			{
+				assert(false);
+				break;
+			}
+			case AudioState::Playing:
+			{
+
+				assert(false);
+				break;
+			}
+			case AudioState::FadingIn:
+			{
+
+				assert(false);
+				break;
+			}
+			case AudioState::FadingOut:
+			{
+
+				assert(false);
+				break;
+			}
+			case AudioState::Repeating:
+			{
+
+				assert(false);
+				break;
+			}
+			case AudioState::Ending:
+			{
+
+				assert(false);
+				break;
+			}
+			default:
+			{
+				assert(false);
+				break;
+			}
+
+			}
+		}
+	}
+}
+
+#endif
 
 void InitilizeAudio()
 {

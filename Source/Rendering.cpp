@@ -16,12 +16,191 @@ WindowInfo g_windowInfo = { 200, 200, 1280, 720 };
 std::unordered_map<std::string, Sprite*> g_sprites;
 std::unordered_map<std::string, FontSprite*> g_fonts;
 Camera g_camera;
+std::vector<Vertex> vertexBuffer;
+
+extern "C" {
+#ifdef _MSC_VER
+    _declspec(dllexport) uint32_t NvOptimusEnablement = 0x00000001;
+    _declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 0x00000001;
+#else
+    __attribute__((dllexport)) uint32_t NvOptimusEnablement = 0x00000001;
+    __attribute__((dllexport)) int AmdPowerXpressRequestHighPerformance = 0x00000001;
+#endif
+}
+
+static std::vector<RenderInformation> drawCalls;
+
+struct OpenGLInfo
+{
+    GLuint vao;
+    GLuint vertexBuffer;
+    GLuint whiteTexture;
+    GLuint mainBuffer;
+    GLuint mainTexture;
+    VectorInt previousWindowSize;
+    float time;
+}GLInfo = {};
+
+struct ShaderText {
+    const char* vertex = nullptr;
+    const char* pixel = nullptr;
+};
+
+enum ShaderUniform
+{
+    ShaderUniform_OrthoMatrix,
+    ShaderUniform_TextureWidth,
+    ShaderUniform_TextureHeight,
+    ShaderUniform_Color,
+    ShaderUniform_RotationMatrix,
+    ShaderUniform_Time,
+
+    ShaderUniform_Count
+};
+
+struct ShaderUniformInfo
+{
+    const char* name;
+    int32 variableCount;
+};
+
+ShaderUniformInfo s_ShaderUniformInfo[] = {
+    { "u_ortho",          16 }, // ShaderUniform_OrthoMatrix,
+    { "u_textureWidth",   1  }, // ShaderUniform_TextureWidth,
+    { "u_textureHeight",  1  }, // ShaderUniform_TextureHeight,
+    { "u_color",          4  }, // ShaderUniform_Color,
+    { "u_rotationMatrix", 16 }, // ShaderUniform_RotationMatrix,
+    { "u_time",           1  }, // ShaderUniform_Time,
+};
+#define ARRAY_COUNT(arr_) (sizeof(arr_) / sizeof(arr_[0]))
+static_assert(ARRAY_COUNT(s_ShaderUniformInfo) == ShaderUniform_Count);
+
+class Shader
+{
+private:
+
+	GLuint CreateShader(GLenum shaderType, const char* shaderText)
+	{
+		GLuint result = glCreateShader(shaderType);
+		glShaderSource(result, 1, &shaderText, NULL);
+		glCompileShader(result);
+
+		GLint status;
+		glGetShaderiv(result, GL_COMPILE_STATUS, &status);
+		if (status == GL_FALSE)
+		{
+
+			GLint log_length;
+			glGetShaderiv(result, GL_INFO_LOG_LENGTH, &log_length);
+			GLchar info[4096];
+			glGetShaderInfoLog(result, log_length, NULL, info);
+			ConsoleLog("CreateShader() Shader compilation error: %s\n", info);
+            assert(false);
+		}
+        return result;
+    }
+
+public:
+    GLuint ID;
+    ShaderProgram shader;
+    GLuint uniformLocations[ShaderUniform_Count];
+
+    void InitializeUniformLocations()
+    {
+        for (int32 i = 0; i < ShaderUniform_Count; ++i)
+        {
+            uniformLocations[i] = glGetUniformLocation(ID, s_ShaderUniformInfo[i].name);
+        }
+    }
+
+    void SetUniform(ShaderUniform uniform, const float* value)
+    {
+        GLint location = uniformLocations[uniform];
+        if (location != -1)
+        {
+            switch(s_ShaderUniformInfo[uniform].variableCount)
+            {
+            case 1:
+                glUniform1fv(location, 1, value);
+                break;
+            case 4:
+                glUniform4fv(location, 1, value);
+                break;
+            case 16:
+                glUniformMatrix4fv(location, 1, GL_FALSE, value);
+                break;
+
+            default:
+                assert(false);
+                return;
+            }
+        }
+    }
+
+    void SetUniform(ShaderUniform uniform, int value)
+	{
+        float v = (float)value;
+        SetUniform(uniform, &v);
+	}
+
+    Shader(ShaderText text)
+	{
+		GLuint vertexShaderID = CreateShader(GL_VERTEX_SHADER, text.vertex);
+		GLuint pixelShaderID = CreateShader(GL_FRAGMENT_SHADER, text.pixel);
+
+		ID = glCreateProgram();
+		glAttachShader(ID, vertexShaderID);
+		glAttachShader(ID, pixelShaderID);
+		glLinkProgram(ID);
+
+		GLint status;
+		glGetProgramiv(ID, GL_LINK_STATUS, &status);
+		if (status == GL_FALSE)
+		{
+			GLint log_length;
+			glGetProgramiv(ID, GL_INFO_LOG_LENGTH, &log_length);
+			GLchar info[4096];
+			glGetProgramInfoLog(ID, log_length, NULL, info);
+			ConsoleLog("Shader linking error: %s\n", info);
+		}
+
+        InitializeUniformLocations();
+	}
+
+	void BindShader(const RenderInformation& info, const gbMat4& orthoMatrix)
+	{
+        glUseProgram(ID);
+
+		SetUniform(ShaderUniform_OrthoMatrix,   orthoMatrix.e);
+		SetUniform(ShaderUniform_TextureWidth,  info.texture.width);
+		SetUniform(ShaderUniform_TextureHeight, info.texture.height);
+        SetUniform(ShaderUniform_Color,         &info.color.r);
+        SetUniform(ShaderUniform_Time,          &GLInfo.time); 
+
+		gbMat4 rotationMatrix;
+        if (info.texture.rotation)
+        {
+			gb_mat4_rotate(&rotationMatrix, { 0, 0, 1 }, DegToRad(info.texture.rotation));
+			gbMat4 toZeroMatrix;
+			gbMat4 fromZeroMatrix;
+			gbVec3 vec = { info.dRect.botLeft.x + info.texture.rotationPoint.x, info.dRect.botLeft.y - info.texture.rotationPoint.y, 0 };
+			gb_mat4_translate(&toZeroMatrix, -vec);
+			gb_mat4_translate(&fromZeroMatrix, vec);
+			rotationMatrix = fromZeroMatrix * rotationMatrix * toZeroMatrix;
+        }
+        else
+        {
+            gb_mat4_identity(&rotationMatrix);
+        }
+		SetUniform(ShaderUniform_RotationMatrix, rotationMatrix.e);
+	}
+};
+
 
 static std::vector<Rectangle> scissorStack;
-
 void PushScissor(Rectangle scissor)
 {
-    scissorStack.push_back(scissor);
+	scissorStack.push_back(scissor);
 }
 
 void PopScissor()
@@ -31,7 +210,6 @@ void PopScissor()
         scissorStack.pop_back();
 }
 
-
 void CheckError()
 {
     while (GLenum error = glGetError())
@@ -40,6 +218,8 @@ void CheckError()
     }
 }
 
+
+Shader* shaderPrograms[(int32)ShaderProgram::Count];
 const char* vertexShaderText = R"term(
 #version 330
 
@@ -57,13 +237,6 @@ void main()
     o_uv.x = i_uv.x / u_textureWidth;
     o_uv.y = i_uv.y / u_textureHeight;
     vec2 position;
-
-    //float sinVal = sin(u_center);
-    //float cosVal = cos(u_center);
-    //position.x = ((i_position.x - center.x)*cosValue - (i_position.y - center.y)*sinValue) + center.x;
-    //position.y = ((i_position.x - center.x)*sinValue + (i_position.y - center.y)*cosValue) + center.y;
-    //position.x = i_position.x * cosVal - i_position.y * sinVal;
-    //position.y = i_position.x * sinVal + i_position.y * cosVal;
 
     gl_Position = u_ortho * u_rotationMatrix * vec4(i_position, 0, 1);
 }
@@ -83,7 +256,33 @@ void main()
 }
 )term";
 
-std::vector<Vertex> vertexBuffer;
+const char* chromaticAberrationText = R"term(
+#version 330
+
+uniform sampler2D sampler;
+uniform vec4 u_color;
+uniform float u_time;
+
+in vec2 o_uv;
+out vec4 color;
+void main()
+{
+    vec2 red_shift   = vec2(sin(u_time) * 0.01, cos(u_time) * 0.02);
+    vec2 green_shift = vec2(sin(-u_time) * 0.05, cos(-u_time) * -0.01);
+    vec2 blue_shift  = vec2(cos(u_time) * 0.01, sin(u_time) * 0.02);
+
+    color.r = (u_color * texture(sampler, o_uv + red_shift)).r;
+    color.g = (u_color * texture(sampler, o_uv + green_shift)).g;
+    color.b = (u_color * texture(sampler, o_uv + blue_shift)).b;
+    color.a = 1.0;
+}
+
+)term";
+
+ShaderText shaderTexts[(int32)ShaderProgram::Count] = {
+    { vertexShaderText, pixelShaderText },
+    { vertexShaderText, chromaticAberrationText },
+};
 
 WindowInfo& GetWindowInfo()
 {
@@ -115,20 +314,6 @@ void CreateOpenGLWindow()
     glClearColor(1.0f,0.0f,1.0f,0.0f);
 }
 
-static std::vector<RenderInformation> drawCalls;
-
-struct OpenGLInfo
-{
-    GLuint program;
-    GLuint orthoLocation;
-    GLuint widthLocation;
-    GLuint heightLocation;
-    GLuint colorLocation;
-    GLuint rotationLocation;
-    GLuint vao;
-    GLuint vertexBuffer;
-    GLuint whiteTexture;
-}GLInfo = {};
 
 RenderInformation& AllocDrawCall()
 {
@@ -157,6 +342,8 @@ void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
     info.prio = priority;
     info.color = colorMod;
     info.coordSpace = coordSpace;
+    //if (priority = )
+    //info.shader = 
 
     info.texture.texture = sprite->texture;
     info.texture.rotation = rotation;
@@ -203,90 +390,67 @@ GLuint JMP_CreateTexture(int32 width, int32 height, uint8* data)
     return result;
 }
 
-GLuint JMP_CreateShader(GLenum shaderType, const char* shaderText)
-{
-    GLuint result = glCreateShader(shaderType);
-	glShaderSource(result, 1, &shaderText, NULL);
-    glCompileShader(result);
-
-	GLint status;
-	glGetShaderiv(result, GL_COMPILE_STATUS, &status);
-	if (status == GL_FALSE)
-	{
-
-		GLint log_length;
-		glGetShaderiv(result, GL_INFO_LOG_LENGTH, &log_length);
-		GLchar info[4096];
-		glGetShaderInfoLog(result, log_length, NULL, info);
-		ConsoleLog("CreateShader() Shader compilation error: %s\n", info);
-	}
-
-    return result;
-}
-
-GLuint JMP_CreateShaderProgram()
-{
-    GLuint vertexShaderID = JMP_CreateShader(GL_VERTEX_SHADER, vertexShaderText);
-    GLuint pixelShaderID = JMP_CreateShader(GL_FRAGMENT_SHADER, pixelShaderText);
-
-    GLuint result = glCreateProgram();
-    glAttachShader(result , vertexShaderID);
-    glAttachShader(result, pixelShaderID);
-    glLinkProgram(result);
-
-    GLint status;
-	glGetProgramiv(result, GL_LINK_STATUS, &status);
-	if (status == GL_FALSE)
-	{
-		GLint log_length;
-		glGetProgramiv(result, GL_INFO_LOG_LENGTH, &log_length);
-		GLchar info[4096];
-		glGetProgramInfoLog(result, log_length, NULL, info);
-		ConsoleLog("Shader linking error: %s\n", info);
-	}
-    return result;
-}
-
 void InitializeOpenGL()
 {
     glGenVertexArrays(1, &GLInfo.vao);
     glBindVertexArray(GLInfo.vao);
 
-    GLInfo.program = JMP_CreateShaderProgram();
+    for (int32 i = 0; i < (int32)ShaderProgram::Count; i++)
+		shaderPrograms[i] = new Shader(shaderTexts[i]);
+    
 
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
-	GLInfo.orthoLocation = glGetUniformLocation(GLInfo.program, "u_ortho");
-	GLInfo.widthLocation = glGetUniformLocation(GLInfo.program, "u_textureWidth");
-	GLInfo.heightLocation = glGetUniformLocation(GLInfo.program, "u_textureHeight");
-    GLInfo.colorLocation = glGetUniformLocation(GLInfo.program, "u_color");
-    GLInfo.rotationLocation = glGetUniformLocation(GLInfo.program, "u_rotationMatrix");
+    glGenFramebuffers(1, &GLInfo.mainBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, GLInfo.mainBuffer);
 
+    glGenTextures(1, &GLInfo.mainTexture);
+    glBindTexture(GL_TEXTURE_2D, GLInfo.mainTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_windowInfo.width, g_windowInfo.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, GLInfo.mainTexture, 0);
 
 	glGenBuffers(1, &GLInfo.vertexBuffer);
 
 	Uint8 image[] = {255, 255, 255, 255,};
     GLInfo.whiteTexture = JMP_CreateTexture(1, 1, image);
 	glLineWidth(1.0f);
+    GLInfo.previousWindowSize = { g_windowInfo.width, g_windowInfo.height };
 }
 
-extern "C" {
-#ifdef _MSC_VER
-    _declspec(dllexport) uint32_t NvOptimusEnablement = 0x00000001;
-    _declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 0x00000001;
-#else
-    __attribute__((dllexport)) uint32_t NvOptimusEnablement = 0x00000001;
-    __attribute__((dllexport)) int AmdPowerXpressRequestHighPerformance = 0x00000001;
-#endif
-}
 
 int32 size = 0;
-void RenderDrawCalls()
+void RenderDrawCalls(float dt)
 {
+    GLInfo.time += dt;
     PROFILE_FUNCTION();
     assert(scissorStack.empty()); // Unbalanced Push/Pop of scissor rectangles!
     scissorStack.clear();
+
+
+    Sprite mainTextureSprite = { GLInfo.mainTexture, g_windowInfo.width, g_windowInfo.height };
+    Rectangle sRect;
+    sRect.botLeft = { 0, 0 };
+    sRect.topRight = { (float)g_windowInfo.width, (float)g_windowInfo.height };
+
+    Rectangle dRect;
+    dRect.botLeft = { 0, 0 };
+    dRect.topRight = { (float)g_windowInfo.width, (float)g_windowInfo.height };
+
+    AddTextureToRender(sRect, dRect, RenderPrio::PostProcess, &mainTextureSprite, White, 0, {}, 0, CoordinateSpace::UI);
+    //drawCalls.back().shader = ShaderProgram::ChromaticAberration;
+
+    if (GLInfo.previousWindowSize.x != g_windowInfo.width || GLInfo.previousWindowSize.x != g_windowInfo.height )
+    {
+		glBindTexture(GL_TEXTURE_2D, GLInfo.mainTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_windowInfo.width, g_windowInfo.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        GLInfo.previousWindowSize = { g_windowInfo.width, g_windowInfo.height };
+    }
 
     vertexBuffer.clear();
     {
@@ -382,7 +546,12 @@ void RenderDrawCalls()
 		});
 	}
 
-    glClear(GL_COLOR_BUFFER_BIT);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(0, 0, g_windowInfo.width, g_windowInfo.height);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, GLInfo.mainBuffer);
+	glClear(GL_COLOR_BUFFER_BIT);
     glViewport(0, 0, g_windowInfo.width, g_windowInfo.height);
 
     //world and UI matrix
@@ -394,9 +563,6 @@ void RenderDrawCalls()
 	gb_mat4_ortho2d(&worldMatrix, g_camera.position.x - g_camera.size.x / 2, g_camera.position.x + g_camera.size.x / 2, g_camera.position.y - g_camera.size.y / 2, g_camera.position.y + g_camera.size.y / 2);
     gbMat4 UIMatrix;
 	gb_mat4_ortho2d(&UIMatrix, 0, windowWidth, windowHeight, 0);
-    gbMat4 rotationMatrix;
-    gbMat4 toZeroMatrix;
-    gbMat4 fromZeroMatrix;
 
 
 	glBindBuffer(GL_ARRAY_BUFFER, GLInfo.vertexBuffer);
@@ -405,7 +571,6 @@ void RenderDrawCalls()
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
 	glEnableVertexArrayAttrib(GLInfo.vao, 1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
-	glUseProgram(GLInfo.program);
 
     Rectangle currentScissor = {};
     bool scissorEnabled = false;
@@ -436,46 +601,36 @@ void RenderDrawCalls()
                 currentScissor = {};
             }
 
+			Shader* shader = shaderPrograms[(int32)item.shader];
+
+			gbMat4 orthoMatrix;
+			if (item.coordSpace == CoordinateSpace::World)
+				orthoMatrix = worldMatrix;
+			else if (item.coordSpace == CoordinateSpace::UI)
+				orthoMatrix = UIMatrix;
+			else
+				assert(false);
+
+            if (item.prio == RenderPrio::PostProcess)
+            {
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glDisable(GL_BLEND);
+            }
+            else
+            {
+                glBindFramebuffer(GL_FRAMEBUFFER, GLInfo.mainBuffer);
+                glEnable(GL_BLEND);
+            }
+
             switch (item.renderType)
             {
             case RenderType::DebugFill:
             case RenderType::Texture:
             {
 
-                float width = (float)item.texture.width;
-                float height = (float)item.texture.height;
-                glUniform1f(GLInfo.widthLocation, width);
-                glUniform1f(GLInfo.heightLocation, height);
-                if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
-                    glUniform4f(GLInfo.colorLocation, item.color.r, item.color.g, item.color.b, item.color.a);
-                else
-                    glUniform4f(GLInfo.colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
-
                 glBindTexture(GL_TEXTURE_2D, item.texture.texture);
 
-                gbMat4 orthoMatrix;
-                if (item.coordSpace == CoordinateSpace::World)
-                    orthoMatrix = worldMatrix;
-                else if (item.coordSpace == CoordinateSpace::UI)
-                    orthoMatrix = UIMatrix;
-                glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
-				gb_mat4_rotate(&rotationMatrix, { 0, 0, 1 }, DegToRad(item.texture.rotation));
-                if (item.texture.rotation != 0)
-				{
-
-                    gbVec3 vec = { item.dRect.botLeft.x + item.texture.rotationPoint.x, item.dRect.botLeft.y - item.texture.rotationPoint.y, 0 };
-					gb_mat4_translate(&toZeroMatrix, -vec);
-					gb_mat4_translate(&fromZeroMatrix, vec);
-					rotationMatrix = fromZeroMatrix * rotationMatrix * toZeroMatrix;
-				}
-
-                glUniformMatrix4fv(GLInfo.rotationLocation, 1, GL_FALSE, rotationMatrix.e);
-    //            glUniform1f(GLInfo.sinValueLocation, sinf(DegToRad(item.texture.rotation)));
-    //            glUniform1f(GLInfo.cosValueLocation, cosf(DegToRad(item.texture.rotation)));
-    //            //if (item.rotat)
-				//glUniform1f(GLInfo.centerRotateLocation, );
-                //gb_mat4_translate(gbMat4 *out, gbVec3 v);
-                //glUniform1f(GLInfo.centerRotateLocation, DegToRad(item.texture.rotation));
+                shader->BindShader(item, orthoMatrix);
 
                 glDrawArrays(GL_TRIANGLE_STRIP, item.vertexIndex, item.vertexLength);
 
@@ -485,23 +640,9 @@ void RenderDrawCalls()
 			{
 
 				glBindTexture(GL_TEXTURE_2D, GLInfo.whiteTexture);
-
-				glUniform1f(GLInfo.widthLocation, 1);
-				glUniform1f(GLInfo.heightLocation, 1);
-
-				gbMat4 orthoMatrix;
-				if (item.coordSpace == CoordinateSpace::World)
-					orthoMatrix = worldMatrix;
-				else if (item.coordSpace == CoordinateSpace::UI)
-					orthoMatrix = UIMatrix;
-				glUniformMatrix4fv(GLInfo.orthoLocation, 1, GL_FALSE, orthoMatrix.e);
-
-				if (item.color.r != 0 || item.color.g != 0 || item.color.b != 0 || item.color.a != 0)
-					glUniform4f(GLInfo.colorLocation, item.color.r, item.color.g, item.color.b, item.color.a);
-				else
-					glUniform4f(GLInfo.colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
-
+                shader->BindShader(item, orthoMatrix);
 				glDrawArrays(GL_LINE_LOOP, item.vertexIndex, item.vertexLength);
+
 				break;
 			}
 			}
@@ -562,7 +703,7 @@ void BackgroundRender(Sprite* sprite, Camera* camera)
 #endif
     mainRect.topRight.x = mainRect.botLeft.x + backgroundSize.x;
 
-    AddTextureToRender(mainRect, {}, RenderPrio::Sprites, sprite, {}, 0, {}, false, CoordinateSpace::UI);
+    AddTextureToRender(mainRect, {}, RenderPrio::Sprites, sprite, White, 0, {}, false, CoordinateSpace::UI);
 }
 
 
@@ -578,7 +719,7 @@ void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, V
 
     Rectangle destRect = { loc, { loc.x + itemSizeTranslatedx, loc.y +itemSizeTranslatedy } };
 
-    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite, {}, 0, {}, false, CoordinateSpace::World);
+    AddTextureToRender(blockRect, destRect, RenderPrio::Sprites, sprite, White, 0, {}, false, CoordinateSpace::World);
 }
 
 

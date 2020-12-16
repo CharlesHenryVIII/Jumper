@@ -342,8 +342,6 @@ void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
     info.prio = priority;
     info.color = colorMod;
     info.coordSpace = coordSpace;
-    //if (priority = )
-    //info.shader = 
 
     info.texture.texture = sprite->texture;
     info.texture.rotation = rotation;
@@ -586,7 +584,7 @@ void RenderDrawCalls(float dt)
             }
             else
             {
-                if (!scissorEnabled)
+                if (scissorEnabled)
                     glDisable(GL_SCISSOR_TEST);
                 scissorEnabled = false;
                 currentScissor = {};

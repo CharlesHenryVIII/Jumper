@@ -374,7 +374,7 @@ void AddRectToRender(Rectangle rect, Color color, RenderPrio prio, CoordinateSpa
     AddRectToRender(RenderType::DebugFill, rect, color, prio, coordSpace);
 }
 
-GLuint JMP_CreateTexture(int32 width, int32 height, uint8* data)
+GLuint JMP_CreateTexture(int32 width, int32 height, uint8* data = nullptr)
 {
     GLuint result;
     glGenTextures(1, &result);
@@ -398,21 +398,12 @@ void InitializeOpenGL()
     for (int32 i = 0; i < (int32)ShaderProgram::Count; i++)
 		shaderPrograms[i] = new Shader(shaderTexts[i]);
     
-
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
     glGenFramebuffers(1, &GLInfo.mainBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, GLInfo.mainBuffer);
-
-    glGenTextures(1, &GLInfo.mainTexture);
-    glBindTexture(GL_TEXTURE_2D, GLInfo.mainTexture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_windowInfo.width, g_windowInfo.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
+    GLInfo.mainTexture = JMP_CreateTexture(g_windowInfo.width, g_windowInfo.height, nullptr);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, GLInfo.mainTexture, 0);
 
 	glGenBuffers(1, &GLInfo.vertexBuffer);
@@ -432,6 +423,13 @@ void RenderDrawCalls(float dt)
     assert(scissorStack.empty()); // Unbalanced Push/Pop of scissor rectangles!
     scissorStack.clear();
 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(0, 0, g_windowInfo.width, g_windowInfo.height);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, GLInfo.mainBuffer);
+	glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(0, 0, g_windowInfo.width, g_windowInfo.height);
 
     Sprite mainTextureSprite = { GLInfo.mainTexture, g_windowInfo.width, g_windowInfo.height };
     Rectangle sRect;
@@ -546,13 +544,6 @@ void RenderDrawCalls(float dt)
 		});
 	}
 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glClear(GL_COLOR_BUFFER_BIT);
-    glViewport(0, 0, g_windowInfo.width, g_windowInfo.height);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, GLInfo.mainBuffer);
-	glClear(GL_COLOR_BUFFER_BIT);
-    glViewport(0, 0, g_windowInfo.width, g_windowInfo.height);
 
     //world and UI matrix
     float windowWidth = (float)g_windowInfo.width;
@@ -629,9 +620,7 @@ void RenderDrawCalls(float dt)
             {
 
                 glBindTexture(GL_TEXTURE_2D, item.texture.texture);
-
                 shader->BindShader(item, orthoMatrix);
-
                 glDrawArrays(GL_TRIANGLE_STRIP, item.vertexIndex, item.vertexLength);
 
                 break;

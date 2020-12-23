@@ -5,11 +5,12 @@
 
 
 typedef uint64 AudioID;
-typedef int16 Sample;
+typedef float Sample;
 #define AUDIO_FADEOUT	BIT(0)
 #define AUDIO_DURATION	BIT(1)
 #define AUDIO_REPEAT	BIT(2)
 #define AUDIO_FADEIN	BIT(3)
+#define AUDIO_MAXLOOPS	INT_MAX
 
 struct Audio {
 	std::string nameOfSound;

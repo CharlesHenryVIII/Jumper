@@ -11,6 +11,7 @@
 struct FileData {
 	uint8* buffer = nullptr;
 	uint32 length = 0;
+	Volume audioType = Volume::None;
 };
 
 
@@ -34,10 +35,11 @@ struct AudioInstance {
 	float fadeoutTime = 0;
 	float fadeinTime = 0;
     float fade = 1;
-	uint32 flags = 0;
-	uint32 repeat = 0;
-	uint32 playOffset = 0;
-	AudioState audioState = AudioState::None;
+	//uint32 flags = 0;
+	//uint32 repeat = 0;
+	//uint32 playOffset = 0;
+	//AudioState audioState = AudioState::None;
+	Volume audioType = Volume::None;
 };
 
 SDL_AudioSpec s_driverSpec;
@@ -117,19 +119,13 @@ AudioID PlayAudio(const Audio audio)
 
 	AudioInstance instance;
 	instance.name = audio.nameOfSound;
-	//instance.repeat = audio.loopCount;
-	instance.fadeoutTime = audio.fadeOutTime;
-	instance.fadeinTime = audio.fadeInTime;
-	instance.flags = audio.flags;
-
-	if (instance.flags & AUDIO_FADEIN)
-		instance.fade = 0;
-	else if (instance.flags & AUDIO_FADEOUT)
-		instance.fade = 1;
 
 	double filePlaySeconds = SamplesToSeconds(BytesToSamples(s_audioFiles[audio.nameOfSound].length));
 	double loopDurationInSeconds = ((double)audio.loopCount * filePlaySeconds);
+	if (audio.loopCount == AUDIO_MAXLOOPS)
+		loopDurationInSeconds = inf;
 
+	//Ending Time
 	if (audio.secondsToPlay && loopDurationInSeconds) //AUDIO_DURATION && AUDIO_REPEAT
 	{
 		instance.endDuration = Min<double>(audio.secondsToPlay, loopDurationInSeconds);
@@ -146,38 +142,50 @@ AudioID PlayAudio(const Audio audio)
 	{
 		instance.endDuration = filePlaySeconds;
 	}
-	// if inifinite repeat then we got problems
-
-	
 
 
-
-
-	if (instance.flags & AUDIO_REPEAT && audio.loopCount != AUDIO_MAXLOOPS)
+	//Fading
+	instance.fade = 0;
+	if (audio.fadeInDuration && audio.fadeOutDuration)
 	{
-		double filePlaySeconds = SamplesToSeconds(BytesToSamples(s_audioFiles[audio.nameOfSound].length));
-		double loopDurationInSeconds = ((double)audio.loopCount * filePlaySeconds);
-		instance.flags |= AUDIO_DURATION;
 
-	}
+		if (audio.fadeInDuration + audio.fadeOutDuration > instance.endDuration)
+		{
+			float fadeTotal = audio.fadeInDuration + audio.fadeOutDuration;
+			float diff = fadeTotal - instance.endDuration;
+			float frac = diff / fadeTotal;
 
-	if (instance.flags & AUDIO_FADEIN && instance.flags & AUDIO_FADEOUT)
-	{
-		if (instance.flags & AUDIO_REPEAT && audio.loopCount != AUDIO_MAXLOOPS)
-		{	
-			assert(audio.fadeInTime < audio.secondsToPlay);
-			assert(audio.fadeOutTime < audio.secondsToPlay);
-			if (instance.fadeinTime + instance.fadeoutTime > instance.endDuration)
-			{
-				instance.fadeinTime = audio.fadeOutTime + (audio.fadeInTime - audio.fadeOutTime);
-				instance.fadeoutTime = instance.endDuration - instance.fadeinTime;
-			}
+			instance.fadeinTime = audio.fadeInDuration - (audio.fadeInDuration * frac);
+			instance.fadeoutTime = audio.fadeOutDuration - (audio.fadeOutDuration * frac);
 		}
 		else
 		{
-			
+			instance.fadeinTime = audio.fadeInDuration;
+			instance.fadeoutTime = audio.fadeOutDuration;
 		}
 	}
+	else if (audio.fadeInDuration)
+	{
+
+		if (audio.fadeInDuration > instance.endDuration)
+			instance.fadeinTime = audio.fadeInDuration;
+		else
+			instance.fadeinTime = audio.fadeInDuration;
+	}
+	else if (audio.fadeOutDuration)
+	{
+
+		instance.fade = 1.0f;
+		if (audio.fadeOutDuration > instance.endDuration)
+			instance.fadeoutTime = audio.fadeOutDuration;
+		else
+			instance.fadeoutTime = audio.fadeOutDuration;
+	}
+	else
+	{
+		instance.fadeinTime = instance.fadeoutTime = 0;
+	}
+
 	std::lock_guard<std::mutex> guard(s_playingAudioMutex2);
 	s_audioPlaying.push_back(instance);
 
@@ -381,6 +389,10 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	}
 }
 
+struct AudioFileMetaData {
+	std::string name;
+	Volume volume = Volume::None;
+};
 
 void InitilizeAudio()
 {
@@ -418,13 +430,20 @@ void InitilizeAudio()
 
 	//SDL_AudioQuit(); //used only for "shutting down audio" that was initilized with SDL_AudioInit()
 	//audioList["Halo"] = LoadWavFile("C:\\Projects\\Jumper\\Assets\\Audio\\10. This is the Hour.wav");
-	std::string audioFiles[] = { "Button_Confirm", "Button_Hover", "Grass", "Halo", "Jump", "Punched" };
+	AudioFileMetaData audioFiles[] = {
+		{ "Button_Confirm", Volume::Effect},
+		{ "Button_Hover", Volume::Effect},
+		{ "Grass", Volume::Effect},
+		{ "Halo", Volume::Music},
+		{ "Jump", Volume::Effect},
+		{ "Punched", Volume::Effect} };
 	std::string name;
 	for (int32 i = 0; i < sizeof(audioFiles) / sizeof(audioFiles[0]); i++)
 	{
-		name = audioFiles[i];
-		audioFiles[i] = "C:\\Projects\\Jumper\\Assets\\Audio\\" + audioFiles[i] + ".wav";
-		s_audioFiles[name] = LoadWavFile(audioFiles[i].c_str());
+		name = "C:\\Projects\\Jumper\\Assets\\Audio\\" + audioFiles[i].name + ".wav";
+		s_audioFiles[audioFiles[i].name] = LoadWavFile(name.c_str());
+
+		s_audioFiles[audioFiles[i].name].audioType = audioFiles[i].volume;
 	}
 }
 

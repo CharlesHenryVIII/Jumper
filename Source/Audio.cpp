@@ -37,10 +37,6 @@ struct AudioInstance {
 	float fadeOutDuration = 0;
 	float fadeInDuration = 0;
     float fade = 1;
-	//uint32 flags = 0;
-	//uint32 repeat = 0;
-	//uint32 playOffset = 0;
-	//AudioState audioState = AudioState::None;
 	Volume audioType = Volume::None;
 };
 
@@ -105,16 +101,11 @@ void UnlockMutex(SDL_mutex* mutex)
 	}
 }
 
-AudioID PlayAudio(const std::string& nameOfSound)
+void ConsolePrintFileLine()
 {
-
-	AudioInstance instance;
-	instance.name = nameOfSound;
-	std::lock_guard<std::mutex> guard(s_playingAudioMutex2);
-	s_audioPlaying.push_back(instance);
-	return instance.ID;
+	ConsoleLog("    File: %s", __FILE__);
+	ConsoleLog("    Line: %i", __LINE__);
 }
-
 
 AudioID PlayAudio(const Audio audio)
 {
@@ -159,6 +150,10 @@ AudioID PlayAudio(const Audio audio)
 
 			instance.fadeInDuration = audio.fadeInDuration - (audio.fadeInDuration * frac);
 			instance.fadeOutDuration = audio.fadeOutDuration - (audio.fadeOutDuration * frac);
+
+			ConsoleLog("Audio fade in and fadeout larger than endDuration");
+			ConsoleLog("    Audio: %s", instance.name);
+			ConsolePrintFileLine();
 		}
 		else
 		{
@@ -194,20 +189,34 @@ AudioID PlayAudio(const Audio audio)
 	return instance.ID;
 }
 
+AudioID PlayAudio(const std::string& nameOfSound)
+{
+
+	Audio audio;
+	audio.nameOfSound = nameOfSound;
+	return PlayAudio(audio);
+}
+
 AudioID StopAudio(AudioID ID)
 {
 	if (AudioInstance* instance = GetAudioInstance(ID))
 	{
-		if (instance->flags & AUDIO_FADEOUT)
+		if (instance->fadeOutDuration)
 		{
-			instance->endDuration = instance->fadeOutDuration;
-			instance->flags |= AUDIO_DURATION;
+
+			instance->endDuration = instance->playedDuration + instance->fadeOutDuration;
 		}
 		else
 		{
+
 			std::lock_guard<std::mutex> guard(s_deletionQueueMutex2);
 			s_audioMarkedForDeletion.push_back(ID);
 		}
+	}
+	else
+	{
+		ConsoleLog("AudioID %i not found when running StopAudio()", ID);
+		ConsolePrintFileLine();
 	}
 	return 0;
 }
@@ -275,7 +284,7 @@ float UpdateFade(const float& currentFade, float incriment, float total)
 
 void UpdateStreamBuffer(float streamBuffer, const Sample readBuffer, Volume volumeType, float fade = 1.0f)
 {
-	streamBuffer += (((float)readBuffer) * g_volumes[Volume::Master] * g_volumes[volumeType] * fade);
+	streamBuffer += (((float)readBuffer) * g_volumes[volumeType] * fade);
 }
 
 std::vector<float> s_streamBuffer;
@@ -286,11 +295,11 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	//end based on duration
 	//end based on seperate function call
 
-	s_streamBuffer.resize(len, 0);
-	memset(s_streamBuffer.data(), 0, len);
 	memset(stream, 0, len);
-	//Sample* streamBuffer = reinterpret_cast<Sample*>(s_streamBuffer.data());
 	uint32 samples = BytesToSamples(len);
+	s_streamBuffer.resize(samples, 0);
+	memset(s_streamBuffer.data(), 0, samples);
+
 	float callbackSeconds = SamplesToSeconds(samples);
 
 	//Blend Audio into Buffer
@@ -410,6 +419,13 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 				updateAudio = true;
 		}
 	}
+
+	for (int32 i = 0; i < samples; i++)
+	{
+		stream[i] = (int16)(s_streamBuffer[i] * g_volumes[Volume::Master]);
+	}
+
+	
 }
 
 struct AudioFileMetaData {
@@ -442,7 +458,7 @@ void InitializeAudio()
 	else
 	{
 		if (have.format != want.format) // we let this one thing change.
-			ConsoleLog("We didn't get Float32 audio format.");
+			ConsoleLog("Audio format is not what was requested");
 
 		assert(have.format == want.format);
 		SDL_PauseAudioDevice(audioDevice, 0); /* start audio playing. */
@@ -460,6 +476,7 @@ void InitializeAudio()
 		{ "Halo", Volume::Music},
 		{ "Jump", Volume::Effect},
 		{ "Punched", Volume::Effect} };
+
 	std::string name;
 	for (int32 i = 0; i < sizeof(audioFiles) / sizeof(audioFiles[0]); i++)
 	{

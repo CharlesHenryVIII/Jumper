@@ -91,9 +91,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	if (DrawButton(g_fonts["1"], "Play Sound", { 0, 256 }, UIX::left, UIY::mid, 
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
-		Audio audio = {};
-		audio.nameOfSound = "Grass";
-		s_testSound = PlayAudio(audio);
+		s_testSound = PlayAudio("Grass");
 	}
 
 	if (DrawButton(g_fonts["1"], "Play Sound x5", { 0, 256 + 64 }, UIX::left, UIY::mid, 

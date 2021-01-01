@@ -158,7 +158,7 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);
 //top left 0,0
 bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc, 
                 UIX XLayout, UIY YLayout, Color BC, Color TC, 
-                VectorInt mouseLoc, bool mousePressed);
+                VectorInt mouseLoc, bool mousePressed, bool buttonSound = true);
 Sprite* GetSpriteFromAnimation(Actor* actor);
 void RenderBlocks(TileMap* blocks);
 void RenderMovingPlatforms(Level* level);

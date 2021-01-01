@@ -67,9 +67,9 @@ uint32 SecondsToSamples(double seconds, uint32 channels = s_driverSpec.channels)
 	return static_cast<uint32>(s_driverSpec.freq * seconds * channels);
 }
 
-double SamplesToSeconds(uint32 samples, uint32 channels = s_driverSpec.channels)
+float SamplesToSeconds(uint32 samples, uint32 channels = s_driverSpec.channels)
 {
-	return static_cast<double>(samples) / (static_cast<double>(s_driverSpec.freq) * channels);
+	return static_cast<float>(samples) / (static_cast<float>(s_driverSpec.freq) * channels);
 }
 
 AudioInstance* GetAudioInstance(AudioID ID)
@@ -112,16 +112,17 @@ AudioID PlayAudio(const Audio audio)
 
 	AudioInstance instance;
 	instance.name = audio.nameOfSound;
+	instance.audioType = s_audioFiles[audio.nameOfSound].audioType;
 
-	double filePlaySeconds = SamplesToSeconds(BytesToSamples(s_audioFiles[audio.nameOfSound].length));
-	double loopDurationInSeconds = ((double)audio.loopCount * filePlaySeconds);
+	float filePlaySeconds = SamplesToSeconds(BytesToSamples(s_audioFiles[audio.nameOfSound].length));
+	float loopDurationInSeconds = ((float)audio.loopCount * filePlaySeconds);
 	if (audio.loopCount == AUDIO_MAXLOOPS)
 		loopDurationInSeconds = inf;
 
 	//Ending Time
 	if (audio.secondsToPlay && loopDurationInSeconds) //AUDIO_DURATION && AUDIO_REPEAT
 	{
-		instance.endDuration = Min<double>(audio.secondsToPlay, loopDurationInSeconds);
+		instance.endDuration = Min<float>(audio.secondsToPlay, loopDurationInSeconds);
 	}
 	else if (audio.secondsToPlay) //AUDIO_DURATION
 	{
@@ -282,9 +283,9 @@ float UpdateFade(const float& currentFade, float incriment, float total)
 	return Clamp<float>(currentFade + (incriment / total), 0.0f, 1.0f);
 }
 
-void UpdateStreamBuffer(float streamBuffer, const Sample readBuffer, Volume volumeType, float fade = 1.0f)
+void UpdateStreamBuffer(float& streamBuffer, const Sample readBuffer, Volume volumeType, float fade = 1.0f)
 {
-	streamBuffer += (((float)readBuffer) * g_volumes[volumeType] * fade);
+	streamBuffer += (((float)readBuffer) * g_volumes[(size_t)volumeType] * fade);
 }
 
 std::vector<float> s_streamBuffer;
@@ -295,10 +296,12 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	//end based on duration
 	//end based on seperate function call
 
-	memset(stream, 0, len);
+	Sample* writeBuffer = reinterpret_cast<Sample*>(stream);
 	uint32 samples = BytesToSamples(len);
+
+	memset(stream, 0, len);
 	s_streamBuffer.resize(samples, 0);
-	memset(s_streamBuffer.data(), 0, samples);
+	//memset(s_streamBuffer.data(), 0, samples);
 
 	float callbackSeconds = SamplesToSeconds(samples);
 
@@ -311,9 +314,9 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 		AudioInstance& instance = s_audioPlaying[i];
 		const FileData* file = &s_audioFiles[instance.name];
 		const uint32 fileSamples = BytesToSamples(file->length);
-		const uint32 fileSeconds = SamplesToSeconds(fileSamples);
-		int32 lengthToWrite = samples;
-		int32 lengthWritten = 0;
+		const float fileSeconds = SamplesToSeconds(fileSamples);
+		uint32 samplesToWrite = samples;
+		uint32 samplesWritten = 0;
 
 		bool updateAudio = true;
 		while (updateAudio)
@@ -336,7 +339,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			else if (instance.playedDuration >= instance.endDuration)
 				audioState = AudioState::Ending;
 
-			else if (playDurationThisLoop + (SamplesToSeconds(lengthToWrite)) >= fileSeconds)
+			else if (playDurationThisLoop + (SamplesToSeconds(samplesToWrite)) >= fileSeconds)
 				audioState = AudioState::EndOfFile;
 
 			//else if (fmod(instance.playedDuration, fileSeconds) + SamplesToSeconds(lengthToWrite) > fileSeconds)
@@ -347,7 +350,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 
 
 			//Audio Does its thing
-			assert(instance.playedDuration + lengthToWrite <= instance.endDuration);
+			assert(instance.playedDuration + SamplesToSeconds(samplesToWrite) <= instance.endDuration);
 			switch (audioState)
 			{
 			case AudioState::None:
@@ -358,36 +361,41 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			case AudioState::Playing:
 			{
 
-				for (uint32 i = 0; i < lengthToWrite; i++)
+				for (uint32 i = 0; i < samplesToWrite; i++)
+				{
 					UpdateStreamBuffer(s_streamBuffer[i], readBuffer[i], instance.audioType);
-				instance.playedDuration += lengthToWrite;
-				lengthWritten += lengthToWrite;
+				}
+				instance.playedDuration += SamplesToSeconds(samplesToWrite);
+				samplesWritten += samplesToWrite;
 				break;
 			}
 			case AudioState::FadingIn:
 			{
 
-				float oneSampleToSeconds = SamplesToSeconds(1) / instance.fadeInDuration;
-				for (uint32 i = 0; i < lengthToWrite; i++)
+				float oneSampleToSeconds = SamplesToSeconds(1);
+				instance.fade = 1.0f;
+				for (uint32 i = 0; i < samplesToWrite; i++)
 				{
-					instance.fade = Clamp<float>(instance.fade + oneSampleToSeconds, 0.0f, 1.0f);
-					UpdateStreamBuffer(s_streamBuffer[i], readBuffer[i], instance.audioType, instance.fade);
+					//instance.fade = Clamp<float>(instance.fade + oneSampleToSeconds, 0.0f, 1.0f);
+
+					float fade = Clamp<float>(instance.playedDuration / instance.fadeInDuration + (oneSampleToSeconds * i), 0.0f, 1.0f);
+					UpdateStreamBuffer(s_streamBuffer[i], readBuffer[i], instance.audioType, fade);
 				}
-				instance.playedDuration += lengthToWrite;
-				lengthWritten += lengthToWrite;
+				instance.playedDuration += SamplesToSeconds(samplesToWrite);
+				samplesWritten += samplesToWrite;
 				break;
 			}
 			case AudioState::FadingOut:
 			{
 
 				float oneSampleToSeconds = SamplesToSeconds(1) / instance.fadeInDuration;
-				for (uint32 i = 0; i < lengthToWrite; i++)
+				for (uint32 i = 0; i < samplesToWrite; i++)
 				{
 					instance.fade = Clamp<float>(instance.fade - oneSampleToSeconds, 0.0f, 1.0f);
 					UpdateStreamBuffer(s_streamBuffer[i], readBuffer[i], instance.audioType, instance.fade);
 				}
-				instance.playedDuration += lengthToWrite;
-				lengthWritten += lengthToWrite;
+				instance.playedDuration += SamplesToSeconds(samplesToWrite);
+				samplesWritten += samplesToWrite;
 				break;
 			}
 			case AudioState::Repeating:
@@ -399,7 +407,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			case AudioState::EndOfFile:
 			{
 
-                lengthToWrite = fileSamples - SecondsToSamples(instance.playedDuration);
+                samplesToWrite = fileSamples - SecondsToSamples(instance.playedDuration);
 				break;
 			}
 			case AudioState::Ending:
@@ -415,14 +423,14 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			}
 
 			}
-			if (lengthWritten != samples)
+			if (samplesWritten != samples)
 				updateAudio = true;
 		}
 	}
 
-	for (int32 i = 0; i < samples; i++)
+	for (uint32 i = 0; i < samples; i++)
 	{
-		stream[i] = (int16)(s_streamBuffer[i] * g_volumes[Volume::Master]);
+		writeBuffer[i] = (int16)(s_streamBuffer[i] * g_volumes[(size_t)Volume::Master]);
 	}
 
 	
@@ -487,5 +495,6 @@ void InitializeAudio()
 	}
 	for (int32 i = 1; i < (size_t)Volume::Count; i++)
 		g_volumes[i] = 1.0f;
+	g_volumes[(size_t)Volume::Master] = 0.5f;
 }
 

@@ -777,7 +777,7 @@ bool SDLPointRectangleCollision(VectorInt point, Rectangle rect)
 //top left 0,0
 bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
     UIX XLayout, UIY YLayout, Color BC, Color TC,
-    VectorInt mouseLoc, bool mousePressed)
+    VectorInt mouseLoc, bool mousePressed, bool buttonSound)
 {
     bool result = false;
     //Copied from DrawText()
@@ -803,7 +803,8 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
         if (mousePressed)
         {
 
-            PlayAudio("Button_Confirm");
+            if (buttonSound)
+                PlayAudio("Button_Confirm");
             AddRectToRender(RenderType::DebugFill, rect, BC, RenderPrio::UI, CoordinateSpace::UI);
             result = true;
         }

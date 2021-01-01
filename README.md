@@ -13,6 +13,7 @@
 				-[ ] Get art assets that are consistant in size
 	- [x] Look into player linear velocity feeling slow on detach
 	- [ ] Crashing on intel driver on laptop, not loading openGL function pointers
+	- [ ] Working directory, loading files from my folder location
 - [x] Sound
 	- [x] Cache songs
 	- [x] Load Wav through SDL

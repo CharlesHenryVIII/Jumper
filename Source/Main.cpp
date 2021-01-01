@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
 //    Cant do this because I would need to pass the font information as well
 //    could make a struct but will do when/if there are more fonts
 
-    InitilizeAudio();
+    InitializeAudio();
     AddAllLevels();
     ConsoleLog("Loaded all Levels");
     //LoadLevel("Level 1");

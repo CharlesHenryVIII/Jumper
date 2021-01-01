@@ -23,21 +23,21 @@ void SwitchToMenu()
 	Audio audio = {};
 	audio.nameOfSound = "Halo";
 	audio.flags |= AUDIO_FADEOUT | AUDIO_FADEIN;
-	audio.fadeOutTime = 3.0f;
-	audio.fadeInTime = 3.0f;
+	audio.fadeOutDuration = 3.0f;
+	audio.fadeInDuration = 3.0f;
 	s_menuMusic = PlayAudio(audio);
 
 	Audio temp1 = {};
 	temp1.flags |= AUDIO_FADEOUT | AUDIO_REPEAT;
 	temp1.nameOfSound = "Grass";
-	temp1.fadeOutTime = 2.0f;
+	temp1.fadeOutDuration = 2.0f;
 	temp1.loopCount = 10;
 	//PlayAudio(temp1);
 
 	Audio temp2 = {};
 	temp2.flags |= AUDIO_REPEAT;
 	temp2.nameOfSound = "Button_Hover";
-	temp2.fadeOutTime = 2.0f;
+	temp2.fadeOutDuration = 2.0f;
 	temp2.loopCount = 20;
 	temp2.secondsToPlay = 10.0f;
 	PlayAudio(temp2);

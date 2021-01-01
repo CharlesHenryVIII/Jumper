@@ -5,13 +5,15 @@
 
 
 typedef uint64 AudioID;
-typedef float Sample;
+typedef int16 Sample;
 
 #define AUDIO_FADEIN	BIT(0)
 #define AUDIO_FADEOUT	BIT(1)
 #define AUDIO_DURATION	BIT(2)
 #define AUDIO_REPEAT	BIT(3)
 #define AUDIO_MAXLOOPS	INT_MAX
+
+extern float g_volumes[(size_t)Volume::Count];
 
 struct Audio {
 	std::string nameOfSound;
@@ -32,4 +34,4 @@ enum class Volume {
 AudioID PlayAudio(Audio audio);
 AudioID PlayAudio(const std::string& nameOfSound);
 AudioID StopAudio(AudioID ID);
-void InitilizeAudio();
+void InitializeAudio();

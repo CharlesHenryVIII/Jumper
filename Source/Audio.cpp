@@ -14,26 +14,28 @@ struct FileData {
 	Volume audioType = Volume::None;
 };
 
-
 enum class AudioState {
 	None,
 	Playing,
 	FadingIn,
 	FadingOut,
 	Repeating,
+	EndOfFile,
 	Ending,
 	Count,
 };
+
+float g_volumes[(size_t)Volume::Count];
 
 
 AudioID s_audioID = 0;
 struct AudioInstance {
 	AudioID ID = ++s_audioID;
 	std::string name;
-	double endDuration = 0;
-	double playedDuration = 0;
-	float fadeoutTime = 0;
-	float fadeinTime = 0;
+	float endDuration = 0;
+	float playedDuration = 0;
+	float fadeOutDuration = 0;
+	float fadeInDuration = 0;
     float fade = 1;
 	//uint32 flags = 0;
 	//uint32 repeat = 0;
@@ -155,35 +157,35 @@ AudioID PlayAudio(const Audio audio)
 			float diff = fadeTotal - instance.endDuration;
 			float frac = diff / fadeTotal;
 
-			instance.fadeinTime = audio.fadeInDuration - (audio.fadeInDuration * frac);
-			instance.fadeoutTime = audio.fadeOutDuration - (audio.fadeOutDuration * frac);
+			instance.fadeInDuration = audio.fadeInDuration - (audio.fadeInDuration * frac);
+			instance.fadeOutDuration = audio.fadeOutDuration - (audio.fadeOutDuration * frac);
 		}
 		else
 		{
-			instance.fadeinTime = audio.fadeInDuration;
-			instance.fadeoutTime = audio.fadeOutDuration;
+			instance.fadeInDuration = audio.fadeInDuration;
+			instance.fadeOutDuration = audio.fadeOutDuration;
 		}
 	}
 	else if (audio.fadeInDuration)
 	{
 
 		if (audio.fadeInDuration > instance.endDuration)
-			instance.fadeinTime = audio.fadeInDuration;
+			instance.fadeInDuration = audio.fadeInDuration;
 		else
-			instance.fadeinTime = audio.fadeInDuration;
+			instance.fadeInDuration = audio.fadeInDuration;
 	}
 	else if (audio.fadeOutDuration)
 	{
 
 		instance.fade = 1.0f;
 		if (audio.fadeOutDuration > instance.endDuration)
-			instance.fadeoutTime = audio.fadeOutDuration;
+			instance.fadeOutDuration = audio.fadeOutDuration;
 		else
-			instance.fadeoutTime = audio.fadeOutDuration;
+			instance.fadeOutDuration = audio.fadeOutDuration;
 	}
 	else
 	{
-		instance.fadeinTime = instance.fadeoutTime = 0;
+		instance.fadeInDuration = instance.fadeOutDuration = 0;
 	}
 
 	std::lock_guard<std::mutex> guard(s_playingAudioMutex2);
@@ -198,7 +200,7 @@ AudioID StopAudio(AudioID ID)
 	{
 		if (instance->flags & AUDIO_FADEOUT)
 		{
-			instance->endDuration = instance->fadeoutTime;
+			instance->endDuration = instance->fadeOutDuration;
 			instance->flags |= AUDIO_DURATION;
 		}
 		else
@@ -271,8 +273,12 @@ float UpdateFade(const float& currentFade, float incriment, float total)
 	return Clamp<float>(currentFade + (incriment / total), 0.0f, 1.0f);
 }
 
+void UpdateStreamBuffer(float streamBuffer, const Sample readBuffer, Volume volumeType, float fade = 1.0f)
+{
+	streamBuffer += (((float)readBuffer) * g_volumes[Volume::Master] * g_volumes[volumeType] * fade);
+}
 
-std::vector<Sample> s_streamBuffer;
+std::vector<float> s_streamBuffer;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 {
 	//play audio
@@ -283,8 +289,9 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	s_streamBuffer.resize(len, 0);
 	memset(s_streamBuffer.data(), 0, len);
 	memset(stream, 0, len);
-	Sample* streamBuffer = reinterpret_cast<Sample*>(s_streamBuffer.data());
+	//Sample* streamBuffer = reinterpret_cast<Sample*>(s_streamBuffer.data());
 	uint32 samples = BytesToSamples(len);
+	float callbackSeconds = SamplesToSeconds(samples);
 
 	//Blend Audio into Buffer
 
@@ -294,46 +301,44 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	{
 		AudioInstance& instance = s_audioPlaying[i];
 		const FileData* file = &s_audioFiles[instance.name];
-		Sample* readBuffer = reinterpret_cast<Sample*>(file->buffer) + instance.playOffset;
 		const uint32 fileSamples = BytesToSamples(file->length);
 		const uint32 fileSeconds = SamplesToSeconds(fileSamples);
-        float callbackSeconds = SamplesToSeconds(BytesToSamples(len));
-        int32 lengthToWrite = samples;
+		int32 lengthToWrite = samples;
+		int32 lengthWritten = 0;
 
 		bool updateAudio = true;
 		while (updateAudio)
 		{
 			updateAudio = false;
-			//Update state of audio instance
+			float playDurationThisLoop = fmod(instance.playedDuration, fileSeconds);
+		    Sample* readBuffer = reinterpret_cast<Sample*>(file->buffer) + SecondsToSamples(playDurationThisLoop);
 			AudioState audioState = AudioState::None;
 
-			if ((instance.flags & AUDIO_DURATION) && instance.playedDuration >= instance.endDuration)
+			//Update state of audio instance
+			if (instance.playedDuration >= instance.endDuration)
 				audioState = AudioState::Ending;
 
-			else if ((instance.flags & AUDIO_FADEOUT) && (instance.playedDuration >= (fileSeconds - instance.fadeoutTime)))
+			else if (instance.playedDuration >= instance.endDuration - instance.fadeOutDuration)//bug on equal sign?
 				audioState = AudioState::FadingOut;
 
-			else if ((instance.flags & AUDIO_FADEIN) && instance.playedDuration >= instance.fadeoutTime)
+			else if (instance.playedDuration < instance.fadeInDuration)//bug on no equal sign?
 				audioState = AudioState::FadingIn;
 
-			else if ((instance.flags & AUDIO_REPEAT) && instance.playedDuration >= fileSeconds)
-				audioState = AudioState::Repeating;
-
-			else if (instance.playedDuration >= fileSeconds)
+			else if (instance.playedDuration >= instance.endDuration)
 				audioState = AudioState::Ending;
+
+			else if (playDurationThisLoop + (SamplesToSeconds(lengthToWrite)) >= fileSeconds)
+				audioState = AudioState::EndOfFile;
+
+			//else if (fmod(instance.playedDuration, fileSeconds) + SamplesToSeconds(lengthToWrite) > fileSeconds)
+			//	audioState = AudioState::Repeating;
 
 			else
 				audioState = AudioState::Playing;
 
-            if (instance.playedDuration + callbackSeconds > fileSeconds)
-            {
-                lengthToWrite = fileSamples - SecondsToSamples(instance.playedDuration);
-                updateAudio = true;
-            }
-
-
 
 			//Audio Does its thing
+			assert(instance.playedDuration + lengthToWrite <= instance.endDuration);
 			switch (audioState)
 			{
 			case AudioState::None:
@@ -345,37 +350,53 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			{
 
 				for (uint32 i = 0; i < lengthToWrite; i++)
-					streamBuffer[i] = (Sample)((float)(streamBuffer[i]) + (float)(readBuffer[i]));
-
+					UpdateStreamBuffer(s_streamBuffer[i], readBuffer[i], instance.audioType);
+				instance.playedDuration += lengthToWrite;
+				lengthWritten += lengthToWrite;
 				break;
 			}
 			case AudioState::FadingIn:
 			{
 
+				float oneSampleToSeconds = SamplesToSeconds(1) / instance.fadeInDuration;
 				for (uint32 i = 0; i < lengthToWrite; i++)
 				{
-					UpdateFade(instance.fade, callbackSeconds, instance.fadeinTime);
-					streamBuffer[i] = streamBuffer[i] + (instance.fade * readBuffer[i]);
+					instance.fade = Clamp<float>(instance.fade + oneSampleToSeconds, 0.0f, 1.0f);
+					UpdateStreamBuffer(s_streamBuffer[i], readBuffer[i], instance.audioType, instance.fade);
 				}
-				assert(false);
+				instance.playedDuration += lengthToWrite;
+				lengthWritten += lengthToWrite;
 				break;
 			}
 			case AudioState::FadingOut:
 			{
 
-				assert(false);
+				float oneSampleToSeconds = SamplesToSeconds(1) / instance.fadeInDuration;
+				for (uint32 i = 0; i < lengthToWrite; i++)
+				{
+					instance.fade = Clamp<float>(instance.fade - oneSampleToSeconds, 0.0f, 1.0f);
+					UpdateStreamBuffer(s_streamBuffer[i], readBuffer[i], instance.audioType, instance.fade);
+				}
+				instance.playedDuration += lengthToWrite;
+				lengthWritten += lengthToWrite;
 				break;
 			}
 			case AudioState::Repeating:
 			{
+				//Theoretically dont do anything?
+                assert(false);
+				break;
+			}
+			case AudioState::EndOfFile:
+			{
 
-				assert(false);
+                lengthToWrite = fileSamples - SecondsToSamples(instance.playedDuration);
 				break;
 			}
 			case AudioState::Ending:
 			{
 
-				assert(false);
+				s_audioMarkedForDeletion.push_back(instance.ID);
 				break;
 			}
 			default:
@@ -385,6 +406,8 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			}
 
 			}
+			if (lengthWritten != samples)
+				updateAudio = true;
 		}
 	}
 }
@@ -394,7 +417,7 @@ struct AudioFileMetaData {
 	Volume volume = Volume::None;
 };
 
-void InitilizeAudio()
+void InitializeAudio()
 {
 	s_playingAudioMutex = SDL_CreateMutex();
 	s_deletionQueueMutex = SDL_CreateMutex();
@@ -445,5 +468,7 @@ void InitilizeAudio()
 
 		s_audioFiles[audioFiles[i].name].audioType = audioFiles[i].volume;
 	}
+	for (int32 i = 1; i < (size_t)Volume::Count; i++)
+		g_volumes[i] = 1.0f;
 }
 

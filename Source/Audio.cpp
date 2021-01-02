@@ -19,7 +19,6 @@ enum class AudioState {
 	Playing,
 	FadingIn,
 	FadingOut,
-	Repeating,
 	EndOfFile,
 	Ending,
 	Count,
@@ -302,31 +301,19 @@ void UpdateStreamBuffer(float& streamBuffer, const Sample readBuffer, Volume vol
 std::vector<float> s_streamBuffer;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 {
-	//play audio
-	//fade in and out
-	//end based on duration
-	//end based on seperate function call
-
 	Sample* writeBuffer = reinterpret_cast<Sample*>(stream);
 	uint32 samples = BytesToSamples(len);
 
 	memset(stream, 0, len);
 	s_streamBuffer.clear();
 	s_streamBuffer.resize(samples, 0);
-	//memset(s_streamBuffer.data(), 0, samples);
-
-	float callbackSeconds = SamplesToSeconds(samples);
-
-	//Blend Audio into Buffer
 
 	std::lock_guard<std::mutex> playingGuard(s_playingAudioMutex);
 	std::lock_guard<std::mutex> deletionGuard(s_deletionQueueMutex);
 	for (int32 i = 0; i < s_audioPlaying.size(); i++)
 	{
 		AudioInstance& instance = s_audioPlaying[i];
-		const FileData* file = &s_audioFiles[instance.name];
-		const uint32 fileSamples = BytesToSamples(file->length);
-		//const float fileSeconds = SamplesToSeconds(fileSamples);
+		const uint32 fileSamples = BytesToSamples(s_audioFiles[instance.name].length);
 		uint32 samplesToWrite = samples;
 		uint32 samplesWritten = 0;
 
@@ -336,34 +323,28 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			updateAudio = false;
 			uint32 playedSamplesThisLoop = instance.playedSamples % fileSamples;
 			float* writeBuffer = s_streamBuffer.data() + samplesWritten;
-		    Sample* readBuffer = reinterpret_cast<Sample*>(file->buffer) + playedSamplesThisLoop;
+		    Sample* readBuffer = reinterpret_cast<Sample*>(s_audioFiles[instance.name].buffer) + playedSamplesThisLoop;
 			AudioState audioState = AudioState::None;
 
-			//Update state of audio instance
 			if (instance.playedSamples >= instance.endSamples)
-				audioState = AudioState::Ending;
-
-			else if (instance.playedSamples >= instance.endSamples - instance.fadeOutSamples)//bug on equal sign?
-				audioState = AudioState::FadingOut;
-
-			else if (instance.playedSamples < instance.fadeInSamples)//bug on no equal sign?
-				audioState = AudioState::FadingIn;
-
-			else if (instance.playedSamples >= instance.endSamples)
 				audioState = AudioState::Ending;
 
 			else if (playedSamplesThisLoop + samplesToWrite > fileSamples)
 				audioState = AudioState::EndOfFile;
 
-			//else if (fmod(instance.playedDuration, fileSeconds) + SamplesToSeconds(lengthToWrite) > fileSeconds)
-			//	audioState = AudioState::Repeating;
+			else if (instance.playedSamples >= instance.endSamples - instance.fadeOutSamples)
+				audioState = AudioState::FadingOut;
+
+			else if (instance.playedSamples < instance.fadeInSamples)
+				audioState = AudioState::FadingIn;
+
+			else if (instance.playedSamples >= instance.endSamples)
+				audioState = AudioState::Ending;
 
 			else
 				audioState = AudioState::Playing;
 
 
-			//Audio Does its thing
-			//assert(instance.playedDuration + SamplesToSeconds(samplesToWrite) <= instance.endDuration);
 			switch (audioState)
 			{
 			case AudioState::None:
@@ -390,13 +371,10 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			case AudioState::FadingIn:
 			{
 
-				//TODO: fix fading in and out clipping/sound issues
-				instance.fade = 1.0f;
-				for (uint32 i = 0; i < samplesToWrite; i += 2)
+				for (uint32 i = 0; i < samplesToWrite; i++)
 				{
 					instance.fade = Clamp<float>((float)(instance.playedSamples) / instance.fadeInSamples, 0.0f, 1.0f);
 					UpdateStreamBuffer(writeBuffer[i], readBuffer[i], instance.audioType, instance.fade);
-					UpdateStreamBuffer(writeBuffer[i + 1], readBuffer[i + 1], instance.audioType, instance.fade);
 					instance.playedSamples++;
 					samplesWritten++;
 				}
@@ -410,11 +388,10 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			case AudioState::FadingOut:
 			{
 
-				for (uint32 i = 0; i < samplesToWrite; i += 2)
+				for (uint32 i = 0; i < samplesToWrite; i++)
 				{
 					instance.fade = Clamp<float>(instance.fade - (1.0f / instance.fadeInSamples), 0.0f, 1.0f);
 					UpdateStreamBuffer(writeBuffer[i], readBuffer[i], instance.audioType, instance.fade);
-					UpdateStreamBuffer(writeBuffer[i + 1], readBuffer[i + 1], instance.audioType, instance.fade);
 					instance.playedSamples++;
 					samplesWritten++;
 				}
@@ -423,12 +400,6 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 					samplesToWrite = samples - samplesWritten;
 					updateAudio = true;
 				}
-				break;
-			}
-			case AudioState::Repeating:
-			{
-				//Theoretically dont do anything?
-				assert(false);
 				break;
 			}
 			case AudioState::EndOfFile:

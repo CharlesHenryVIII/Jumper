@@ -28,6 +28,7 @@ float g_volumes[(size_t)Volume::Count];
 
 
 AudioID s_audioID = 0;
+
 struct AudioInstance {
 	AudioID ID = ++s_audioID;
 	std::string name;
@@ -35,9 +36,26 @@ struct AudioInstance {
 	uint32 endSamples = 0;
 	uint32 fadeOutSamples = 0;
 	uint32 fadeInSamples = 0;
+	float volumes[AUDIO_MAX_CHANNELS];
     float fade = 1;
 	Volume audioType = Volume::None;
 };
+
+//volumes and AUDIO_CHANNELS are:
+// For mono, stereo, and Quad:
+// 0 = (front) left or mono
+// 1 = (front) right
+// 2 = rear left
+// 3 = rear right
+//
+// For 5.1:
+// 0 = front left
+// 1 = front right
+// 2 = center
+// 3 = low freq
+// 4 = rear left
+// 5 = rear right
+
 
 SDL_AudioSpec s_driverSpec;
 std::unordered_map<std::string, FileData> s_audioFiles;
@@ -49,8 +67,8 @@ std::mutex s_deletionQueueMutex;
 
 uint32 BytesToSamples(uint32 bytes)
 {
-	assert((bytes % (sizeof(Sample))) == 0);
-	assert(s_driverSpec.format == AUDIO_S16);
+	//assert((bytes % (sizeof(Sample))) == 0);
+	//assert(s_driverSpec.format == AUDIO_S16);
 	return bytes / (sizeof(Sample));
 }
 
@@ -107,10 +125,14 @@ void UnlockMutex(SDL_mutex* mutex)
 	}
 }
 
-void ConsolePrintFileLine()
+#define ERROR_REPORT(consoleInput)  ConsoleLog("ERROR:  "); \
+									ConsoleLog(consoleInput); \
+									ConsolePrintFileLine(__FILE__, __LINE__)
+
+void ConsolePrintFileLine(const char* file, const char* line)
 {
-	ConsoleLog("    File: %s", __FILE__);
-	ConsoleLog("    Line: %i", __LINE__);
+	ConsoleLog("    File: %s", file);
+	ConsoleLog("    Line: %i", line);
 }
 
 AudioID PlayAudio(const Audio audio)
@@ -119,6 +141,9 @@ AudioID PlayAudio(const Audio audio)
 	AudioInstance instance;
 	instance.name = audio.nameOfSound;
 	instance.audioType = s_audioFiles[audio.nameOfSound].audioType;
+	//memset(instance.volumes, , sizeof(instance.volumes) * AUDIO_CHANNELS);
+	for (int32 i = 0; i < s_driverSpec.channels; i++)
+		instance.volumes[i] = 1.0f;
 
 	uint32 filePlaySamples = (BytesToSamples(s_audioFiles[audio.nameOfSound].length));
 	uint32 loopDuration = audio.loopCount * filePlaySamples;
@@ -146,7 +171,9 @@ AudioID PlayAudio(const Audio audio)
 
 
 	//Fading
-	instance.fade = 0;
+	instance.fade = 1.0f;
+	assert(audio.fadeInDuration >= 0);
+	assert(audio.fadeOutDuration >= 0);
 	uint32 fadeInDuration = SecondsToSamples(audio.fadeInDuration);
 	uint32 fadeOutDuration = SecondsToSamples(audio.fadeOutDuration);
 	if (audio.fadeInDuration && audio.fadeOutDuration)
@@ -154,16 +181,17 @@ AudioID PlayAudio(const Audio audio)
 
 		if (fadeInDuration + fadeOutDuration > instance.endSamples)
 		{
-			float fadeTotal = audio.fadeInDuration + audio.fadeOutDuration;
+			float fadeTotal = (float)fadeInDuration + fadeOutDuration;
 			float diff = fadeTotal - (float)instance.endSamples;
 			float frac = diff / fadeTotal;
 
 			instance.fadeInSamples  = (uint32)(fadeInDuration  - (fadeInDuration  * frac) + 0.5f);
 			instance.fadeOutSamples = (uint32)(fadeOutDuration - (fadeOutDuration * frac) + 0.5f);
 
-			ConsoleLog("Audio fade in and fadeout larger than endSamples");
-			ConsoleLog("    Audio: %s", instance.name);
-			ConsolePrintFileLine();
+			//ERROR_REPORT("Audio fade in and fadeout larger than endSamples on: %s", instance.name);
+			//ConsoleLog("Audio fade in and fadeout larger than endSamples");
+			ConsoleLog("    Audio: %s", instance.name.data());
+			//ConsolePrintFileLine();
 		}
 		else
 		{
@@ -207,7 +235,7 @@ AudioID PlayAudio(const std::string& nameOfSound)
 	return PlayAudio(audio);
 }
 
-AudioID StopAudio(AudioID ID)
+void StopAudio(AudioID& ID)
 {
 	if (AudioInstance* instance = GetAudioInstance(ID))
 	{
@@ -226,15 +254,28 @@ AudioID StopAudio(AudioID ID)
 	else
 	{
 		ConsoleLog("AudioID %i not found when running StopAudio()", ID);
-		ConsolePrintFileLine();
+		//ConsolePrintFileLine();
 	}
-	return 0;
+	ID = 0;
 }
 
 
 void EraseFile(AudioID ID)
 {
 	std::erase_if(s_audioPlaying, [ID](AudioInstance a) { return a.ID == ID; });
+}
+
+uint64 GetFormatBytes(uint32 format)
+{
+	if (format == AUDIO_S8 || format == AUDIO_U8)
+		return 1;
+	if (format == AUDIO_S16 || format == AUDIO_U16)
+		return 2;
+	else if (format == AUDIO_S32 || format == AUDIO_F32)
+		return 4;
+	else
+		assert(false);
+	return 0;
 }
 
 FileData LoadWavFile(const char* fileLocation)
@@ -245,35 +286,43 @@ FileData LoadWavFile(const char* fileLocation)
     const SDL_AudioSpec& driverSpec = s_driverSpec;
 
 	if (SDL_LoadWAV(fileLocation, &spec, &buffer, &length) == NULL)
-        ConsoleLog("%s\n", SDL_GetError());
+		ConsoleLog("%s\n", SDL_GetError());
 
-    if (spec.format != driverSpec.format ||
-		spec.channels != driverSpec.channels ||
-		spec.freq != driverSpec.freq)
-    {
-		SDL_AudioCVT cvt;
-		if (SDL_BuildAudioCVT(&cvt, spec.format, spec.channels, spec.freq,
-							  driverSpec.format, driverSpec.channels, driverSpec.freq) < 0)
-		{
-            ConsoleLog("Failed at SDL_BuildAudioCVT for %s: %s\n", fileLocation, SDL_GetError());
-		}
-        else
-        {
-			SDL_assert(cvt.needed);
-			cvt.len = length;
-			cvt.buf = (uint8*)SDL_malloc(cvt.len * cvt.len_mult);
-			memcpy(cvt.buf, buffer, cvt.len);
-			if (SDL_ConvertAudio(&cvt))
-				ConsoleLog("Could not change format on %s: %s\n", fileLocation, SDL_GetError());
+	SDL_AudioCVT cvt = {};
+	int32 result = SDL_BuildAudioCVT(&cvt, spec.format, spec.channels, spec.freq, driverSpec.format, driverSpec.channels, driverSpec.freq);
+	if (result < 0)
+	{
+		ConsoleLog("Failed at SDL_BuildAudioCVT for %s: %s\n", fileLocation, SDL_GetError());
+	}
+	else if (result == 0)
+	{
+		//No Conversion Required
+	}
+	else
+	{
+		SDL_assert(cvt.needed);
 
-			SDL_free(buffer);
-			buffer = cvt.buf;
-            length = cvt.len;
-            spec.channels = driverSpec.channels;
-            spec.format= driverSpec.format;
-            spec.freq= driverSpec.freq;
-        }
-    }
+		uint64 specFormat = GetFormatBytes(spec.format);
+		uint64 driverFormat = GetFormatBytes(driverSpec.format);
+
+		uint64 newLength = (length * (driverSpec.channels * driverSpec.freq * driverFormat))
+			/ (spec.channels * spec.freq * specFormat);
+		cvt.len = (int32)length;
+		cvt.buf = (uint8*)SDL_malloc(cvt.len * cvt.len_mult);
+		memcpy(cvt.buf, buffer, cvt.len);
+		if (SDL_ConvertAudio(&cvt))
+			ConsoleLog("Could not change format on %s: %s\n", fileLocation, SDL_GetError());
+
+		SDL_free(buffer);
+		buffer = cvt.buf;
+
+		//cvt.len_ratio is always garbage unless we build it ourselves
+		length = cvt.len_cvt;
+
+		spec.channels = driverSpec.channels;
+		spec.format = driverSpec.format;
+		spec.freq = driverSpec.freq;
+	}
 
     assert(spec.channels == driverSpec.channels);
     assert(spec.format == driverSpec.format);
@@ -282,21 +331,31 @@ FileData LoadWavFile(const char* fileLocation)
 	return { buffer, length};
 }
 
-float FadeAmount(float current, float total)
+void UpdateStreamBuffer(float* streamBuffer, const Sample* readBuffer, const AudioInstance& instance)
 {
-	return Clamp<float>((current / total), 0.0f, 1.0f);
+	assert(instance.fade >= 0.0f && instance.fade <= 1.0f);
+    for (int32 i = 0; i < s_driverSpec.channels; i++)
+    {
+        streamBuffer[i] += (((float)readBuffer[i]) * g_volumes[(size_t)instance.audioType] * instance.fade * instance.volumes[i]);
+    }
 }
 
-float UpdateFade(const float& currentFade, float incriment, float total)
+
+float NoFade(const AudioInstance& i)
 {
-	return Clamp<float>(currentFade + (incriment / total), 0.0f, 1.0f);
+	return 1.0f;
 }
 
-void UpdateStreamBuffer(float& streamBuffer, const Sample readBuffer, Volume volumeType, float fade = 1.0f)
+float FadeIn(const AudioInstance& i)
 {
-	assert(fade >= 0.0f && fade <= 1.0f);
-	streamBuffer += (((float)readBuffer) * g_volumes[(size_t)volumeType] * fade);
+	return Clamp<float>((float)(i.playedSamples) / i.fadeInSamples, 0.0f, 1.0f);
 }
+
+float FadeOut(const AudioInstance& i)
+{
+	return Clamp<float>((((float)i.endSamples - i.playedSamples) / i.fadeOutSamples), 0.0f, 1.0f);
+}
+
 
 std::vector<float> s_streamBuffer;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
@@ -344,7 +403,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			else
 				audioState = AudioState::Playing;
 
-
+			float (*fadeFunc)(const AudioInstance&) = nullptr;
 			switch (audioState)
 			{
 			case AudioState::None:
@@ -355,51 +414,19 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			case AudioState::Playing:
 			{
 
-				for (uint32 i = 0; i < samplesToWrite; i++)
-				{
-					UpdateStreamBuffer(writeBuffer[i], readBuffer[i], instance.audioType);
-					instance.playedSamples++;
-					samplesWritten++;
-				}
-				if (samplesWritten != samples)
-				{
-					samplesToWrite = samples - samplesWritten;
-					updateAudio = true;
-				}
+				fadeFunc = NoFade;
 				break;
 			}
 			case AudioState::FadingIn:
 			{
 
-				for (uint32 i = 0; i < samplesToWrite; i++)
-				{
-					instance.fade = Clamp<float>((float)(instance.playedSamples) / instance.fadeInSamples, 0.0f, 1.0f);
-					UpdateStreamBuffer(writeBuffer[i], readBuffer[i], instance.audioType, instance.fade);
-					instance.playedSamples++;
-					samplesWritten++;
-				}
-				if (samplesWritten != samples)
-				{
-					samplesToWrite = samples - samplesWritten;
-					updateAudio = true;
-				}
+				fadeFunc = FadeIn;
 				break;
 			}
 			case AudioState::FadingOut:
 			{
 
-				for (uint32 i = 0; i < samplesToWrite; i++)
-				{
-					instance.fade = Clamp<float>(instance.fade - (1.0f / instance.fadeInSamples), 0.0f, 1.0f);
-					UpdateStreamBuffer(writeBuffer[i], readBuffer[i], instance.audioType, instance.fade);
-					instance.playedSamples++;
-					samplesWritten++;
-				}
-				if (samplesWritten != samples)
-				{
-					samplesToWrite = samples - samplesWritten;
-					updateAudio = true;
-				}
+				fadeFunc = FadeOut;
 				break;
 			}
 			case AudioState::EndOfFile:
@@ -422,12 +449,30 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 			}
 
 			}
+
+			if (fadeFunc)
+			{
+
+				for (uint32 i = 0; i < samplesToWrite; i += s_driverSpec.channels)
+				{
+					instance.fade = fadeFunc(instance);
+                    UpdateStreamBuffer(&writeBuffer[i], &readBuffer[i], instance);
+					instance.playedSamples += s_driverSpec.channels;
+					samplesWritten += s_driverSpec.channels;
+				}
+
+				if (samplesWritten != samples)
+				{
+					samplesToWrite = samples - samplesWritten;
+					updateAudio = true;
+				}
+			}
 		}
 	}
 
 	for (uint32 i = 0; i < samples; i++)
 	{
-		writeBuffer[i] = (int16)((s_streamBuffer[i] * g_volumes[(size_t)Volume::Master]));
+		writeBuffer[i] = (Sample)((s_streamBuffer[i] * g_volumes[(size_t)Volume::Master]));
 	}
 
 	for (int32 i = 0; i < s_audioMarkedForDeletion.size(); i++)
@@ -449,9 +494,9 @@ void InitializeAudio()
 	SDL_AudioDeviceID audioDevice;
 
 	SDL_memset(&want, 0, sizeof(want));
-	want.freq = 48000;
+	want.freq = 44100;
 	want.format = AUDIO_S16;
-	want.channels = 2;
+	want.channels = AUDIO_MAX_CHANNELS;
 	want.samples = 4096;
 	want.userdata = &s_driverSpec;
 	want.callback = CSH_AudioCallback;

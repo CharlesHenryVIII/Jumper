@@ -14,6 +14,7 @@
 	- [x] Look into player linear velocity feeling slow on detach
 	- [ ] Crashing on intel driver on laptop, not loading openGL function pointers
 	- [ ] Working directory, loading files from my folder location
+	- [ ] Error output with line and file
 - [x] Sound
 	- [x] Cache songs
 	- [x] Load Wav through SDL
@@ -23,7 +24,7 @@
 	- [x] Audio stopping based on time elapsed
 	- [x] Audio fade in
 	- [x] Audio thread syncing with main thread
-	- [ ] REWRITE THE ENTIRE CALLBACK FUNCTION
+	- [x] REWRITE THE ENTIRE CALLBACK FUNCTION
 		- [ ] Generic fade function
 	- [ ] Action area or events based on region 
 	- [ ] TRIGGER VOLUME

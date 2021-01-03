@@ -52,15 +52,13 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		keyStates[SDLK_RETURN].downThisFrame || keyStates[SDLK_e].downThisFrame)
 	{
 
-        //PlayAudio("Button_Confirm");
-		s_menuMusic = StopAudio(s_menuMusic);
+		StopAudio(s_menuMusic);
 		SwitchToGame();
 	}
 	if (DrawButton(g_fonts["1"], "Settings", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 64 }, 
 					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame))
 	{
 
-        //PlayAudio("Button_Confirm");
 	}
 
 	if (DrawButton(g_fonts["1"], "Quit", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 128 },
@@ -68,7 +66,6 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		keyStates[SDLK_q].downThisFrame)
 	{
 
-        //PlayAudio("Button_Confirm");
 		QuitApp();
 	}
 
@@ -130,13 +127,24 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	}
 
 	if (DrawButton(g_fonts["1"], "Play Button Sound", { 0, 512 + 64 }, UIX::left, UIY::mid,
-		Red, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
+		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
 		Audio audio = {};
 		audio.nameOfSound = "Button_Hover";
 		audio.fadeOutDuration = 2.0f;
 		audio.loopCount = 20;
 		audio.secondsToPlay = 4.0f;
+		PlayAudio(audio);
+	}
+
+	if (DrawButton(g_fonts["1"], "Play Button Sound Broken", { 0, 512 + 128 }, UIX::left, UIY::mid,
+		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
+	{
+		Audio audio = {};
+		audio.nameOfSound = "Button_Hover";
+		audio.fadeInDuration = 10.0f;
+		audio.fadeOutDuration = 12.0f;
+		audio.loopCount = 5;
 		PlayAudio(audio);
 	}
 	AddTextureToRender({}, {}, RenderPrio::Background, g_sprites["MainMenuBackground"], White, 0, {}, false, CoordinateSpace::UI);

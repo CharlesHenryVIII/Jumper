@@ -12,6 +12,7 @@ typedef int16 Sample;
 //#define AUDIO_DURATION	BIT(2)
 //#define AUDIO_REPEAT	BIT(3)
 #define AUDIO_MAXLOOPS	INT_MAX
+#define AUDIO_MAX_CHANNELS	2
 
 struct Audio {
 	std::string nameOfSound;
@@ -33,5 +34,5 @@ extern float g_volumes[(size_t)Volume::Count];
 
 AudioID PlayAudio(Audio audio);
 AudioID PlayAudio(const std::string& nameOfSound);
-AudioID StopAudio(AudioID ID);
+void StopAudio(AudioID& ID);
 void InitializeAudio();

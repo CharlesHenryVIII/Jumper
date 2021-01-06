@@ -680,6 +680,15 @@ void SurroundBlockUpdate(Block* block, bool updateTop, Level* level)
 		level->blocks.UpdateBlock(&level->blocks.GetBlock({ block->location.x, block->location.y + 1 }));
 }
 
+bool TriggerVolumePoint(const Rectangle& rect, const Vector& v)
+{
+	return (v.x >= rect.botLeft.x && v.x <= rect.botLeft.x) && (v.y >= rect.topRight.y && v.y <= rect.topRight.y);
+}
+
+bool TriggerVolumeRectangle()
+{
+	
+}
 
 void ClickUpdate(Block* block, bool updateTop, Level* level)
 {
@@ -950,7 +959,6 @@ Portal* GetPortalsPointer(Portal* basePortal)
 	}
 
 	assert(false);
-	//DebugPrint("Failed to get Portal from %s at portalID %d", basePortal->levelPointer.c_str(), basePortal->portalPointerID);
 	ConsoleLog("Failed to get Portal from %s at portalID %d", basePortal->levelPointer, basePortal->portalPointerID);
 	return nullptr;
 }
@@ -1201,7 +1209,7 @@ void LoadAnimationStates(std::vector<AnimationData> * animationData)
 			for (int32 j = 1; true; j++)
 			{
 				std::string combinedName = "Assets/" + std::string(data->name) + "/" + stateStrings[i] + " (" + std::to_string(j) + ").png";
-				Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
+				Sprite* sprite = CreateSprite(combinedName.c_str());
 				if (sprite == nullptr)
 					break;
 				else

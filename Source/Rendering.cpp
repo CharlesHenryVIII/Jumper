@@ -639,7 +639,7 @@ void RenderDrawCalls(float dt)
 }
 
 
-Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
+Sprite* CreateSprite(const char* name)
 {
 	int32 colorChannels;
 	Sprite* result = new Sprite();
@@ -654,9 +654,9 @@ Sprite* CreateSprite(const char* name, SDL_BlendMode blendMode)
 }
 
 
-FontSprite* CreateFont(const char* name, SDL_BlendMode blendMode, int32 charSize, int32 actualCharWidth, int32 charPerRow)
+FontSprite* CreateFont(const char* name, int32 charSize, int32 actualCharWidth, int32 charPerRow)
 {
-    Sprite* SP = CreateSprite(name, blendMode);;
+    Sprite* SP = CreateSprite(name);;
     if (SP == nullptr)
         return nullptr;
 

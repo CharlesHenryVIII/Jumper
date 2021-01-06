@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
     std::unordered_map<int32, Key> keyStates;
     VectorInt mouseLocation;
     g_running = true;
-
+    g_workingDir = "C:\\Projects\\Jumper\\";
 	g_gameState = GameState::game;
 
     CreateOpenGLWindow();
@@ -56,12 +56,14 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates();
     ConsoleLog("Loaded all Animation States");
 
-	g_fonts["1"] = CreateFont("Assets/Fonts/Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
-	g_fonts["2"] = CreateFont("Assets/Fonts/Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
+    //std::string fontDir = g_workingDir + "Assets/Fonts/";
+    //std::vector<std::string> fontNames = GetFilesInDir(fontDir, true);
+	g_fonts["1"] = CreateFont("Assets/Fonts/Text.png", 32, 20, 16);
+	g_fonts["2"] = CreateFont("Assets/Fonts/Text 2.png", 20, 20, 15);
 
-	g_sprites["spriteMap"] = CreateSprite("Assets/SpriteMap.png", SDL_BLENDMODE_BLEND);
-	g_sprites["background"] = CreateSprite("Assets/Backgrounds/Background.png", SDL_BLENDMODE_BLEND);
-	g_sprites["MainMenuBackground"] = CreateSprite("Assets/Backgrounds/MainMenuBackground.png", SDL_BLENDMODE_BLEND);
+	g_sprites["spriteMap"] = CreateSprite("Assets/SpriteMap.png");
+	g_sprites["background"] = CreateSprite("Assets/Backgrounds/Background.png");
+	g_sprites["MainMenuBackground"] = CreateSprite("Assets/Backgrounds/MainMenuBackground.png");
 //    const char* fontFileNames[] = {
 //        "Text.png",
 //        "Text 2.png",

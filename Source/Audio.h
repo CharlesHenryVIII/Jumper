@@ -3,14 +3,9 @@
 
 #include <string>
 
-
 typedef uint64 AudioID;
 typedef int16 Sample;
 
-//#define AUDIO_FADEIN	BIT(0)
-//#define AUDIO_FADEOUT	BIT(1)
-//#define AUDIO_DURATION	BIT(2)
-//#define AUDIO_REPEAT	BIT(3)
 #define AUDIO_MAXLOOPS	INT_MAX
 #define AUDIO_MAX_CHANNELS	2
 
@@ -32,7 +27,10 @@ enum class Volume {
 
 extern float g_volumes[(size_t)Volume::Count];
 
-AudioID PlayAudio(Audio audio);
-AudioID PlayAudio(const std::string& nameOfSound);
+AudioID PlayAudio_(Audio audio, const char* file, int line);
+AudioID PlayAudio_(const std::string& nameOfSound, const char* file, int line);
 void StopAudio(AudioID& ID);
 void InitializeAudio();
+
+#define PlayAudio(arg) PlayAudio_(arg, __FILE__, __LINE__)
+

@@ -11,10 +11,9 @@
 		- [ ] Change how texture scaling is being handled, time to refactor old code
 			- [ ] replace ScaledWidth with a scale value.
 				-[ ] Get art assets that are consistant in size
-	- [x] Look into player linear velocity feeling slow on detach
 	- [ ] Crashing on intel driver on laptop, not loading openGL function pointers
 	- [ ] Working directory, loading files from my folder location
-	- [ ] Error output with line and file
+	- [x] Error output with line and file
 - [x] Sound
 	- [x] Cache songs
 	- [x] Load Wav through SDL
@@ -25,13 +24,14 @@
 	- [x] Audio fade in
 	- [x] Audio thread syncing with main thread
 	- [x] REWRITE THE ENTIRE CALLBACK FUNCTION
-		- [ ] Generic fade function
-	- [ ] Action area or events based on region 
-	- [ ] TRIGGER VOLUME
-	- [ ] function to return vector and lock/unlock
-- [ ] load operating system files in a folder
+		- [x] Generic fade function
+- [ ] Action area or events based on region 
+- [ ] TRIGGER VOLUME
+- [x] load operating system files in a folder
 - [ ] Debug writing to disk for trouble shooting issues in release mode / other computers
 	- [ ] it works on my machine
+
+-[ ] errors based on tags and levels
 
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [x] Grappling

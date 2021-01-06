@@ -7,6 +7,16 @@
 #include <unordered_map>
 #include <cassert>
 
+#define AUDIO_ERROR(file, line, fmt, ...)							\
+ConsoleLog(LogLevel_Error, "Audio: " fmt, __VA_ARGS__);				\
+ConsoleLog(LogLevel_Error, "    At: %s(%d)", __FILE__, __LINE__);   \
+ConsoleLog(LogLevel_Error, "    Caller: %s(%d)", file, line)
+
+#define AUDIO_WARNING(file, line, fmt, ...)							\
+ConsoleLog(LogLevel_Warning, "Audio: " fmt, __VA_ARGS__);			\
+ConsoleLog(LogLevel_Warning, "    At: %s(%d)", __FILE__, __LINE__);	\
+ConsoleLog(LogLevel_Warning, "    Caller: %s(%d)", file, line)
+
 
 struct FileData {
 	uint8* buffer = nullptr;
@@ -67,8 +77,6 @@ std::mutex s_deletionQueueMutex;
 
 uint32 BytesToSamples(uint32 bytes)
 {
-	//assert((bytes % (sizeof(Sample))) == 0);
-	//assert(s_driverSpec.format == AUDIO_S16);
 	return bytes / (sizeof(Sample));
 }
 
@@ -125,23 +133,12 @@ void UnlockMutex(SDL_mutex* mutex)
 	}
 }
 
-#define ERROR_REPORT(consoleInput)  ConsoleLog("ERROR:  "); \
-									ConsoleLog(consoleInput); \
-									ConsolePrintFileLine(__FILE__, __LINE__)
-
-void ConsolePrintFileLine(const char* file, const char* line)
-{
-	ConsoleLog("    File: %s", file);
-	ConsoleLog("    Line: %i", line);
-}
-
-AudioID PlayAudio(const Audio audio)
+AudioID PlayAudio_(Audio audio, const char* file, int line)
 {
 
 	AudioInstance instance;
 	instance.name = audio.nameOfSound;
 	instance.audioType = s_audioFiles[audio.nameOfSound].audioType;
-	//memset(instance.volumes, , sizeof(instance.volumes) * AUDIO_CHANNELS);
 	for (int32 i = 0; i < s_driverSpec.channels; i++)
 		instance.volumes[i] = 1.0f;
 
@@ -169,6 +166,8 @@ AudioID PlayAudio(const Audio audio)
 		instance.endSamples = filePlaySamples;
 	}
 
+    AUDIO_ERROR(file, line, "Playing audio: %s", instance.name.c_str());
+
 
 	//Fading
 	instance.fade = 1.0f;
@@ -188,10 +187,7 @@ AudioID PlayAudio(const Audio audio)
 			instance.fadeInSamples  = (uint32)(fadeInDuration  - (fadeInDuration  * frac) + 0.5f);
 			instance.fadeOutSamples = (uint32)(fadeOutDuration - (fadeOutDuration * frac) + 0.5f);
 
-			//ERROR_REPORT("Audio fade in and fadeout larger than endSamples on: %s", instance.name);
-			//ConsoleLog("Audio fade in and fadeout larger than endSamples");
-			ConsoleLog("    Audio: %s", instance.name.data());
-			//ConsolePrintFileLine();
+			AUDIO_ERROR(file, line, "Invalid fade values for: %s", instance.name.c_str());
 		}
 		else
 		{
@@ -227,12 +223,12 @@ AudioID PlayAudio(const Audio audio)
 	return instance.ID;
 }
 
-AudioID PlayAudio(const std::string& nameOfSound)
+AudioID PlayAudio_(const std::string& nameOfSound, const char* file, int line)
 {
 
 	Audio audio;
 	audio.nameOfSound = nameOfSound;
-	return PlayAudio(audio);
+	return PlayAudio_(audio, file, line);
 }
 
 void StopAudio(AudioID& ID)
@@ -254,7 +250,6 @@ void StopAudio(AudioID& ID)
 	else
 	{
 		ConsoleLog("AudioID %i not found when running StopAudio()", ID);
-		//ConsolePrintFileLine();
 	}
 	ID = 0;
 }
@@ -302,11 +297,6 @@ FileData LoadWavFile(const char* fileLocation)
 	{
 		SDL_assert(cvt.needed);
 
-		uint64 specFormat = GetFormatBytes(spec.format);
-		uint64 driverFormat = GetFormatBytes(driverSpec.format);
-
-		uint64 newLength = (length * (driverSpec.channels * driverSpec.freq * driverFormat))
-			/ (spec.channels * spec.freq * specFormat);
 		cvt.len = (int32)length;
 		cvt.buf = (uint8*)SDL_malloc(cvt.len * cvt.len_mult);
 		memcpy(cvt.buf, buffer, cvt.len);
@@ -521,7 +511,7 @@ void InitializeAudio()
 	}
 
 	//SDL_AudioQuit(); //used only for "shutting down audio" that was initilized with SDL_AudioInit()
-	//audioList["Halo"] = LoadWavFile("C:\\Projects\\Jumper\\Assets\\Audio\\10. This is the Hour.wav");
+
 	AudioFileMetaData audioFiles[] = {
 		{ "Button_Confirm", Volume::Effect},
 		{ "Button_Hover", Volume::Effect},

@@ -133,8 +133,13 @@ void UnlockMutex(SDL_mutex* mutex)
 	}
 }
 
-AudioID PlayAudio_(Audio audio, const char* file, int line)
+AudioID PlayAudio_(AudioParams audio, const char* file, int line)
 {
+	AudioParams test = {
+		.nameOfSound = audio.nameOfSound,
+		.fadeInDuration = audio.fadeInDuration,
+		.loopCount = audio.loopCount,
+	};
 
 	AudioInstance instance;
 	instance.name = audio.nameOfSound;
@@ -226,7 +231,7 @@ AudioID PlayAudio_(Audio audio, const char* file, int line)
 AudioID PlayAudio_(const std::string& nameOfSound, const char* file, int line)
 {
 
-	Audio audio;
+	AudioParams audio;
 	audio.nameOfSound = nameOfSound;
 	return PlayAudio_(audio, file, line);
 }
@@ -255,7 +260,7 @@ void StopAudio(AudioID& ID)
 }
 
 
-void EraseFile(AudioID ID)
+void EraseInstance(AudioID ID)
 {
 	std::erase_if(s_audioPlaying, [ID](AudioInstance a) { return a.ID == ID; });
 }
@@ -467,7 +472,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 
 	for (int32 i = 0; i < s_audioMarkedForDeletion.size(); i++)
 	{
-		EraseFile(s_audioMarkedForDeletion[i]);
+		EraseInstance(s_audioMarkedForDeletion[i]);
 	}
 	s_audioMarkedForDeletion.clear();
 
@@ -523,6 +528,7 @@ void InitializeAudio()
 	std::string name;
 	for (int32 i = 0; i < sizeof(audioFiles) / sizeof(audioFiles[0]); i++)
 	{
+		//name = g_workingDirectory;
 		name = "C:\\Projects\\Jumper\\Assets\\Audio\\" + audioFiles[i].name + ".wav";
 		s_audioFiles[audioFiles[i].name] = LoadWavFile(name.c_str());
 

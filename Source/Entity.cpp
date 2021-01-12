@@ -120,11 +120,11 @@ void Projectile::OnInit(const ProjectileInfo& info)
 	AttachAnimation(this);
 	PlayAnimation(this, ActorState::idle);
 	terminalVelocity = { 1000, 1000 };
-	Vector adjustedPlayerPosition = { info.player->position.x/* + 0.5f*/, 
+	Vector adjustedPlayerPosition = { info.player->position.x/* + 0.5f*/,
 									  info.player->position.y + 1 };
-	Vector playerPosAdjusted = { adjustedPlayerPosition.x + (info.player->GameWidth() / 2), 
+	Vector playerPosAdjusted = { adjustedPlayerPosition.x + (info.player->GameWidth() / 2),
 							     adjustedPlayerPosition.y };
-	
+
 	destination = info.mouseLoc;
 	rotation = RadToDeg(atan2f(destination.y - adjustedPlayerPosition.y, destination.x - adjustedPlayerPosition.x));
 
@@ -349,7 +349,7 @@ void Grapple::Update(float deltaTime)
 		}
 		case GrappleState::Sending:
 		{
-			
+
 			//TODO: change to work with moving platforms
 			//CollisionWithBlocks(this, false)
 			Block* blockPointer = level->blocks.TryGetBlock({ position.x, position.y });
@@ -378,7 +378,7 @@ void Grapple::Update(float deltaTime)
 			DoAttached:
 			if (player->jumpCount == 0)
 				player->jumpCount++;
-			
+
 			break;
 		}
 		case GrappleState::Retracting:
@@ -396,7 +396,7 @@ void Grapple::Update(float deltaTime)
 			break;
 		}
 	}
-	
+
 	UpdateAnimationIndex(this, deltaTime);
 }
 
@@ -687,7 +687,7 @@ bool TriggerVolumePoint(const Rectangle& rect, const Vector& v)
 
 bool TriggerVolumeRectangle()
 {
-	
+	return true;
 }
 
 void ClickUpdate(Block* block, bool updateTop, Level* level)
@@ -797,7 +797,7 @@ uint32 CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* act
 }
 
 //TODO: move to be a member function in the Block struct
-void CollisionWithBlocks(Actor* actor, bool isEnemy) 
+void CollisionWithBlocks(Actor* actor, bool isEnemy)
 {
 	bool grounded = false;
 	float checkOffset = 1;
@@ -850,7 +850,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 						grapple->angularVelocity = 0;
 						attachable = false;
 					}
-					
+
 				}
 				if (attachable)
 				{
@@ -881,7 +881,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			actor->parent = 0;
 		}
 	}
-	
+
 
 	//Grounded Logic
 	if (actor->grounded != grounded)
@@ -1096,7 +1096,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 		player->position = { grapple->grappleDistance * cosf(angularPosition) - player->GameWidth() / 2.0f, grapple->grappleDistance * sinf(angularPosition) - player->GameHeight() / 2.0f };
 		player->position += grapple->position;
 		int test = 0;
-		
+
 	}
 	else
 	{
@@ -1183,6 +1183,24 @@ void RenderActorHealthBars(Actor& actor)
     AddRectToRender(RenderType::DebugFill, actual, Green, RenderPrio::UI, CoordinateSpace::World);
 }
 
+void LoadFonts()
+{
+    std::string fontLocation = "Assets/Fonts/";
+    std::vector<std::string> fontNames = GetFilesInDir(fontLocation);
+    assert(fontNames.size() == 2);
+	int32 fontMetaData[] = { 32, 20, 16, 21, 20, 15 };
+    //Load data from JSON file ^
+    int32 i = 0;
+    for (std::string string : fontNames)
+    {
+		std::string combo = fontLocation + string;
+        g_fonts[string] = CreateFont(combo.c_str(), fontMetaData[i + 0],
+                                                    fontMetaData[i + 1],
+                                                    fontMetaData[i + 2]);
+        i += 3;
+    }
+}
+
 void LoadAnimationStates(std::vector<AnimationData> * animationData)
 {
 	assert(animationData);
@@ -1259,7 +1277,7 @@ void LoadAnimationStates(std::vector<AnimationData> * animationData)
 			animationList->scaledWidth = (float)sprite->width;
 		else
 			actorAnimations[data->name].scaledWidth = data->scaledWidth;
-		
+
 	}
 }
 

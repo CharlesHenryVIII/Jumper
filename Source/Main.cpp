@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
     std::unordered_map<int32, Key> keyStates;
     VectorInt mouseLocation;
     g_running = true;
-    g_workingDir = "C:\\Projects\\Jumper\\";
+    //g_workingDir = "C:\\Projects\\Jumper\\";
 	g_gameState = GameState::game;
 
     CreateOpenGLWindow();
@@ -56,10 +56,10 @@ int main(int argc, char* argv[])
     LoadAllAnimationStates();
     ConsoleLog("Loaded all Animation States");
 
-    //std::string fontDir = g_workingDir + "Assets/Fonts/";
-    //std::vector<std::string> fontNames = GetFilesInDir(fontDir, true);
-	g_fonts["1"] = CreateFont("Assets/Fonts/Text.png", 32, 20, 16);
-	g_fonts["2"] = CreateFont("Assets/Fonts/Text 2.png", 20, 20, 15);
+    //std::vector<std::string> fontNames = GetFilesInDir("Assets/Fonts/", false);
+	//g_fonts["1"] = CreateFont("Assets/Fonts/Text.png", 32, 20, 16);
+	//g_fonts["2"] = CreateFont("Assets/Fonts/Text 2.png", 21, 20, 15);
+    LoadFonts();
 
 	g_sprites["spriteMap"] = CreateSprite("Assets/SpriteMap.png");
 	g_sprites["background"] = CreateSprite("Assets/Backgrounds/Background.png");

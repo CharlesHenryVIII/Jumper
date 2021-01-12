@@ -72,7 +72,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	if (DrawButton(g_fonts["1"], "Play Music", { 0, 128 }, UIX::left, UIY::mid, 
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
-		AudioParams audio = {};
+		Audio audio = {};
 		audio.nameOfSound = "Halo";
 		audio.fadeOutDuration = 3.0f;
 		audio.fadeInDuration = 3.0f;
@@ -94,7 +94,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	if (DrawButton(g_fonts["1"], "Play Sound x5", { 0, 256 + 64 }, UIX::left, UIY::mid, 
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
-		AudioParams audio = {};
+		Audio audio = {};
 		audio.nameOfSound = "Grass";
 		audio.loopCount = 5;
 		s_testSound = PlayAudio(audio);
@@ -103,7 +103,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	if (DrawButton(g_fonts["1"], "Play Sound inf", { 0, 256 + 128 }, UIX::left, UIY::mid, 
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
-		AudioParams audio = {};
+		Audio audio = {};
 		audio.nameOfSound = "Grass";
 		audio.loopCount = AUDIO_MAXLOOPS;
 		s_testSound = PlayAudio(audio);
@@ -112,7 +112,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	if (DrawButton(g_fonts["1"], "Play Sound inf fadein and Fadeout", { 0, 256 + 128 + 64}, UIX::left, UIY::mid, 
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
-		AudioParams audio = {};
+		Audio audio = {};
 		audio.nameOfSound = "Grass";
 		audio.loopCount = AUDIO_MAXLOOPS;
 		audio.fadeInDuration  = 1.0f;
@@ -129,7 +129,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	if (DrawButton(g_fonts["1"], "Play Button Sound", { 0, 512 + 64 }, UIX::left, UIY::mid,
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
-		AudioParams audio = {};
+		Audio audio = {};
 		audio.nameOfSound = "Button_Hover";
 		audio.fadeOutDuration = 2.0f;
 		audio.loopCount = 20;
@@ -140,7 +140,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 	if (DrawButton(g_fonts["1"], "Play Button Sound Broken", { 0, 512 + 128 }, UIX::left, UIY::mid,
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
-		AudioParams audio = {};
+		Audio audio = {};
 		audio.nameOfSound = "Button_Hover";
 		audio.fadeInDuration = 10.0f;
 		audio.fadeOutDuration = 12.0f;

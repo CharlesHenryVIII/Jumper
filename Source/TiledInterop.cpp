@@ -46,7 +46,6 @@ std::string ReadEntireFileAsString(const std::string &fileName)
 picojson::value JsonStruct(const std::string& name)
 {
 	std::string data = ReadEntireFileAsString(name + ".json");
-	//DebugPrint(data.c_str());
 	picojson::value v;
 	std::string err = picojson::parse(v, data);
 	if (!err.empty())
@@ -83,7 +82,6 @@ const picojson::value& GetActorPropertyValue(const picojson::value& props, const
 			return props.get<picojson::array>()[i].get("value");
 		}
 	}
-	//assert(false);
 	ConsoleLog("GetActorPropertyValue failed to return a value for %s\n", propertyName.c_str());
 	static picojson::value result;
 	success = false;
@@ -176,7 +174,7 @@ void CreateLevel(Level* level, const std::string& name)
 
 			PortalInfo info;
 			info.PortalID = (int32)GetActorProperty<double>(props, "PortalID");
-			info.levelName = GetActorProperty<std::string>(props, "PortalPointerLevel"); 
+			info.levelName = GetActorProperty<std::string>(props, "PortalPointerLevel");
 			info.levelPortalID = (int32)GetActorProperty<double>(props, "PortalPointerID");
 			Portal* portal = level->CreateActor<Portal>(info);
 			portal->position = loc;
@@ -185,7 +183,7 @@ void CreateLevel(Level* level, const std::string& name)
 		else if (type == "SpringType")
 		{
 			// Do Spring Stuff
-			
+
 			Spring* spring = level->CreateActor<Spring>();
 			spring->position = loc;
 		}
@@ -251,5 +249,20 @@ void LoadLevel(Level* level, const std::string& name)
 		return;
 	}
 	CreateLevel(level, name);
+}
+struct FontSprite;
+
+std::unordered_map<FontSprite> LoadFontMetadata()
+{
+
+    picojson::value metadata = JsonStruct("Assets/Fonts/Metadata");
+
+	for (int32 i = 0; i < metadata.get<picojson::array>().size(); i++)
+	{
+		picojson::object obj = metadata.get<picojson::array>()[i].get<picojson::object>();
+
+	}
+
+
 }
 

@@ -1,14 +1,14 @@
-"Fonts" : [
+[
     {
-	"name" : "Title",
-    "charSize" : 32,
-    "actualCharWidth" : 20,
-    "charPerRow" : 16
+        "name" : "Title",
+            "charSize" : 32,
+            "actualCharWidth" : 20,
+            "charPerRow" : 16
     },
     {
-	"name" : "Main",
-    "charSize" : 21, 
-    "actualCharWidth" : 20,
-    "charPerRow" : 15
+        "name" : "Main",
+        "charSize" : 21, 
+        "actualCharWidth" : 20,
+        "charPerRow" : 15
     }
 ]

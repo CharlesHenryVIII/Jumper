@@ -498,6 +498,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateEnemiesPosition(std::vector<Actor*>* actors, float gravity, float deltaTime);
 void RenderActors(std::vector<Actor*>* actors);
 void RenderActorHealthBars(Actor& actor);
+void LoadFonts();
 void LoadAllAnimationStates();
 void LoadAnimationStates(std::vector<AnimationData>* animationData);
 void AttachAnimation(Actor* actor, ActorType overrideType = ActorType::None);

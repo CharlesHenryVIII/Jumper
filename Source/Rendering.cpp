@@ -175,7 +175,7 @@ public:
 		SetUniform(ShaderUniform_TextureWidth,  info.texture.width);
 		SetUniform(ShaderUniform_TextureHeight, info.texture.height);
         SetUniform(ShaderUniform_Color,         &info.color.r);
-        SetUniform(ShaderUniform_Time,          &GLInfo.time); 
+        SetUniform(ShaderUniform_Time,          &GLInfo.time);
 
 		gbMat4 rotationMatrix;
         if (info.texture.rotation)
@@ -395,7 +395,7 @@ void InitializeOpenGL()
 
     for (int32 i = 0; i < (int32)ShaderProgram::Count; i++)
 		shaderPrograms[i] = new Shader(shaderTexts[i]);
-    
+
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
@@ -460,7 +460,7 @@ void RenderDrawCalls(float dt)
 			item.prioIndex = i++;
 			if (item.renderType == RenderType::Texture)
 			{
-                
+
 				float uvxo = item.sRect.botLeft.x;
 				float uvyo = item.sRect.botLeft.y;
 				float uvxd = item.sRect.topRight.x;
@@ -683,7 +683,7 @@ void BackgroundRender(Sprite* sprite, Camera* camera)
     //Jumpy looking background with integers:
     mainRect.botLeft.x = float(int(distanceFromCenter.x - backgroundSize.x / 2.0f + 0.5f) % sprite->width);
 
-#else 
+#else
     //Smooth looking background with floats:
     mainRect.botLeft.x = distanceFromCenter.x - backgroundSize.x / 2.0f;
 

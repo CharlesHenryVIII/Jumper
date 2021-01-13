@@ -654,9 +654,10 @@ Sprite* CreateSprite(const char* name)
 }
 
 
-FontSprite* CreateFont(const char* name, int32 charSize, int32 actualCharWidth, int32 charPerRow)
+FontSprite* CreateFont(const std::string& name, int32 charSize, int32 actualCharWidth, int32 charPerRow)
 {
-    Sprite* SP = CreateSprite(name);;
+    std::string nameAppended = "Assets/Fonts/" + name + ".png";
+    Sprite* SP = CreateSprite(nameAppended.c_str());
     if (SP == nullptr)
         return nullptr;
 

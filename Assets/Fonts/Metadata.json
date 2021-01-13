@@ -1,13 +1,13 @@
 [
     {
-        "name" : "Title",
-            "charSize" : 32,
-            "actualCharWidth" : 20,
-            "charPerRow" : 16
+        "name" : "Main",
+        "charSize" : 32,
+        "actualCharWidth" : 20,
+        "charPerRow" : 16
     },
     {
-        "name" : "Main",
-        "charSize" : 21, 
+        "name" : "Title",
+        "charSize" : 20, 
         "actualCharWidth" : 20,
         "charPerRow" : 15
     }

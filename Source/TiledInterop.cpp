@@ -4,11 +4,11 @@
 #include "Entity.h"
 #include "TiledInterop.h"
 #include "Console.h"
+#include "Rendering.h"
 #include <cassert>
 #include <iostream>
 
 std::unordered_map<std::string, Level> levels_internal;
-
 
 const char* ReadEntireFileAsString(const char* fileName)
 {
@@ -250,19 +250,26 @@ void LoadLevel(Level* level, const std::string& name)
 	}
 	CreateLevel(level, name);
 }
-struct FontSprite;
 
-std::unordered_map<FontSprite> LoadFontMetadata()
+void LoadFonts()
 {
-
     picojson::value metadata = JsonStruct("Assets/Fonts/Metadata");
 
 	for (int32 i = 0; i < metadata.get<picojson::array>().size(); i++)
 	{
 		picojson::object obj = metadata.get<picojson::array>()[i].get<picojson::object>();
+		const char* name = obj["name"].get<std::string>().c_str();
+
+		g_fonts[name] = CreateFont(	name,
+									static_cast<int32>(obj["charSize"].get<double>()),
+									static_cast<int32>(obj["actualCharWidth"].get<double>()),
+									static_cast<int32>(obj["charPerRow"].get<double>()));
+		if (g_fonts[name] == nullptr)
+		{
+			ConsoleLog(LogLevel::LogLevel_Warning, "Failed to load font: %s", name);
+			assert(false);
+		}
 
 	}
-
-
 }
 

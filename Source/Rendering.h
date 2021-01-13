@@ -145,7 +145,7 @@ void AddRectToRender(RenderType type, Rectangle rect, Color color, RenderPrio pr
 void AddRectToRender(Rectangle rect, Color color, RenderPrio prio, CoordinateSpace coordSpace);
 void RenderDrawCalls(float dt);
 Sprite* CreateSprite(const char* name);
-FontSprite* CreateFont(const char* name, int32 charSize, int32 actualCharWidth, int32 charPerRow);
+FontSprite* CreateFont(const std::string& name, int32 charSize, int32 actualCharWidth, int32 charPerRow);
 //difference between the player and the center of the screen
 void BackgroundRender(Sprite* sprite, Camera* camera);
 void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc);

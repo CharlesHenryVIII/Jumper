@@ -1183,24 +1183,6 @@ void RenderActorHealthBars(Actor& actor)
     AddRectToRender(RenderType::DebugFill, actual, Green, RenderPrio::UI, CoordinateSpace::World);
 }
 
-void LoadFonts()
-{
-    std::string fontLocation = "Assets/Fonts/";
-    std::vector<std::string> fontNames = GetFilesInDir(fontLocation);
-    assert(fontNames.size() == 2);
-	int32 fontMetaData[] = { 32, 20, 16, 21, 20, 15 };
-    //Load data from JSON file ^
-    int32 i = 0;
-    for (std::string string : fontNames)
-    {
-		std::string combo = fontLocation + string;
-        g_fonts[string] = CreateFont(combo.c_str(), fontMetaData[i + 0],
-                                                    fontMetaData[i + 1],
-                                                    fontMetaData[i + 2]);
-        i += 3;
-    }
-}
-
 void LoadAnimationStates(std::vector<AnimationData> * animationData)
 {
 	assert(animationData);

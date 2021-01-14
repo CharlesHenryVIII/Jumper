@@ -2,7 +2,7 @@
 #include "WinUtilities.h"
 #include "Math.h"
 #include "Entity.h"
-#include "TiledInterop.h"
+#include "JSONInterop.h"
 #include "Console.h"
 #include "Rendering.h"
 #include <cassert>

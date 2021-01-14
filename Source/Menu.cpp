@@ -55,7 +55,7 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		StopAudio(s_menuMusic);
 		SwitchToGame();
 	}
-	if (DrawButton(g_fonts["1"], "Settings", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 64 }, 
+	if (DrawButton(g_fonts["1"], "Settings", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 64 },
 					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame))
 	{
 
@@ -69,47 +69,57 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		QuitApp();
 	}
 
-	if (DrawButton(g_fonts["1"], "Play Music", { 0, 128 }, UIX::left, UIY::mid, 
+	if (DrawButton(g_fonts["1"], "Play Music", { 0, 128 }, UIX::left, UIY::mid,
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
 		AudioParams audio = {};
 		audio.nameOfSound = "Halo";
 		audio.fadeOutDuration = 3.0f;
 		audio.fadeInDuration = 3.0f;
-		s_menuMusic = PlayAudio(audio);
+		audio.ID = s_menuMusic;
+		PlayAudio(audio);
+		s_menuMusic = audio.ID;
 	}
 
-	if (DrawButton(g_fonts["1"], "Stop Music", { 0, 128 + 64 }, UIX::left, UIY::mid, 
+	if (DrawButton(g_fonts["1"], "Stop Music", { 0, 128 + 64 }, UIX::left, UIY::mid,
 		Red, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
 		StopAudio(s_menuMusic);
 	}
 
-	if (DrawButton(g_fonts["1"], "Play Sound", { 0, 256 }, UIX::left, UIY::mid, 
+	if (DrawButton(g_fonts["1"], "Play Sound", { 0, 256 }, UIX::left, UIY::mid,
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
-		s_testSound = PlayAudio("Grass");
+		AudioParams audio = {};
+		audio.nameOfSound = "Grass";
+		audio.ID = s_testSound;
+        PlayAudio(audio);
+		s_testSound = audio.ID;
 	}
 
-	if (DrawButton(g_fonts["1"], "Play Sound x5", { 0, 256 + 64 }, UIX::left, UIY::mid, 
+	if (DrawButton(g_fonts["1"], "Play Sound x5", { 0, 256 + 64 }, UIX::left, UIY::mid,
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
 		AudioParams audio = {};
 		audio.nameOfSound = "Grass";
 		audio.loopCount = 5;
-		s_testSound = PlayAudio(audio);
+		audio.ID = s_testSound;
+		PlayAudio(audio);
+		s_testSound = audio.ID;
 	}
 
-	if (DrawButton(g_fonts["1"], "Play Sound inf", { 0, 256 + 128 }, UIX::left, UIY::mid, 
+	if (DrawButton(g_fonts["1"], "Play Sound inf", { 0, 256 + 128 }, UIX::left, UIY::mid,
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
 		AudioParams audio = {};
 		audio.nameOfSound = "Grass";
 		audio.loopCount = AUDIO_MAXLOOPS;
-		s_testSound = PlayAudio(audio);
+		audio.ID = s_testSound;
+		PlayAudio(audio);
+		s_testSound = audio.ID;
 	}
 
-	if (DrawButton(g_fonts["1"], "Play Sound inf fadein and Fadeout", { 0, 256 + 128 + 64}, UIX::left, UIY::mid, 
+	if (DrawButton(g_fonts["1"], "Play Sound inf fadein and Fadeout", { 0, 256 + 128 + 64}, UIX::left, UIY::mid,
 		Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
 		AudioParams audio = {};
@@ -117,10 +127,12 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		audio.loopCount = AUDIO_MAXLOOPS;
 		audio.fadeInDuration  = 1.0f;
 		audio.fadeOutDuration = 1.0f;
-		s_testSound = PlayAudio(audio);
+		audio.ID = s_testSound;
+		PlayAudio(audio);
+		s_testSound = audio.ID;
 	}
 
-	if (DrawButton(g_fonts["1"], "Stop Sound", { 0, 512 }, UIX::left, UIY::mid, 
+	if (DrawButton(g_fonts["1"], "Stop Sound", { 0, 512 }, UIX::left, UIY::mid,
 		Red, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame, false))
 	{
 		StopAudio(s_testSound);

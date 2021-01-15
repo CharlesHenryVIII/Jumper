@@ -10,7 +10,6 @@ typedef int16 Sample;
 #define AUDIO_MAX_CHANNELS	2
 
 struct AudioParams {
-	AudioID ID = 0;
 	std::string nameOfSound;
 	float fadeOutDuration = 0;
 	float fadeInDuration = 0;
@@ -27,13 +26,11 @@ enum class Volume {
 };
 
 extern float g_volumes[(size_t)Volume::Count];
+extern AudioID noID;
 
-void PlayAudio_(AudioParams& audio,				const char* file, int line);
-void PlayAudio_(const std::string& nameOfSound, const char* file, int line);
-void PlayAudio_(const AudioID& ID,				const char* file, int line);
+void PlayAudio(const AudioParams& audio, AudioID& ID = noID);
+void PlayAudio(const std::string& nameOfSound, AudioID& ID = noID);
+void PlayAudio(AudioID& ID = noID);
 void PauseAudio(const AudioID& ID);
 void StopAudio(AudioID& ID);
 void InitializeAudio();
-
-#define PlayAudio(arg) PlayAudio_(arg, __FILE__, __LINE__)
-

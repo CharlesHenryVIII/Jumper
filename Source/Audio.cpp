@@ -7,15 +7,13 @@
 #include <unordered_map>
 #include <cassert>
 
-#define AUDIO_ERROR(file, line, fmt, ...)							\
+#define AUDIO_ERROR(fmt, ...)							            \
 ConsoleLog(LogLevel_Error, "Audio: " fmt, __VA_ARGS__);				\
 ConsoleLog(LogLevel_Error, "    At: %s(%d)", __FILE__, __LINE__);   \
-ConsoleLog(LogLevel_Error, "    Caller: %s(%d)", file, line)
 
-#define AUDIO_WARNING(file, line, fmt, ...)							\
+#define AUDIO_WARNING(fmt, ...)							            \
 ConsoleLog(LogLevel_Warning, "Audio: " fmt, __VA_ARGS__);			\
 ConsoleLog(LogLevel_Warning, "    At: %s(%d)", __FILE__, __LINE__);	\
-ConsoleLog(LogLevel_Warning, "    Caller: %s(%d)", file, line)
 
 
 struct FileData {
@@ -35,7 +33,7 @@ enum class AudioState {
 };
 
 float g_volumes[(size_t)Volume::Count];
-
+AudioID noID = 0;
 
 AudioID s_audioID = 0;
 
@@ -134,10 +132,10 @@ void UnlockMutex(SDL_mutex* mutex)
 	}
 }
 
-void PlayAudio_(AudioParams& audio, const char* file, int line)
+void PlayAudio(const AudioParams& audio, AudioID& ID)
 {
 
-    if (AudioInstance* i = GetAudioInstance(audio.ID))
+    if (AudioInstance* i = GetAudioInstance(ID))
     {
         if(i->playing)
             i->playedSamples = 0;
@@ -148,7 +146,7 @@ void PlayAudio_(AudioParams& audio, const char* file, int line)
         AudioInstance instance;
         instance.name = audio.nameOfSound;
         instance.audioType = s_audioFiles[audio.nameOfSound].audioType;
-		audio.ID = instance.ID;
+		ID = instance.ID;
         for (int32 i = 0; i < s_driverSpec.channels; i++)
             instance.volumes[i] = 1.0f;
 
@@ -176,7 +174,7 @@ void PlayAudio_(AudioParams& audio, const char* file, int line)
             instance.endSamples = filePlaySamples;
         }
 
-        AUDIO_ERROR(file, line, "Playing audio: %s", instance.name.c_str());
+        AUDIO_ERROR("Playing audio: %s", instance.name.c_str());
 
 
         //Fading
@@ -197,7 +195,7 @@ void PlayAudio_(AudioParams& audio, const char* file, int line)
                 instance.fadeInSamples  = (uint32)(fadeInDuration  - (fadeInDuration  * frac) + 0.5f);
                 instance.fadeOutSamples = (uint32)(fadeOutDuration - (fadeOutDuration * frac) + 0.5f);
 
-                AUDIO_ERROR(file, line, "Invalid fade values for: %s", instance.name.c_str());
+                AUDIO_ERROR("Invalid fade values for: %s", instance.name.c_str());
             }
             else
             {
@@ -233,21 +231,15 @@ void PlayAudio_(AudioParams& audio, const char* file, int line)
     }
 }
 
-//void PlayAudio_(AudioParams audio, const char* file, int line)
-//{
-//	AudioID a = 0;
-//	PlayAudio_(a, audio, file, line);
-//}
-
-void PlayAudio_(const std::string& nameOfSound, const char* file, int line)
+void PlayAudio(const std::string& nameOfSound, AudioID& ID)
 {
 
 	AudioParams audio;
 	audio.nameOfSound = nameOfSound;
-	PlayAudio_(audio, file, line);
+	PlayAudio(audio, ID);
 }
 
-void PlayAudio_(const AudioID& ID, const char* file, int line)
+void PlayAudio(AudioID& ID)
 {
     AudioInstance* instance = GetAudioInstance(ID);
     if (instance)

@@ -79,6 +79,9 @@ int main(int argc, char* argv[])
     SwitchToMenu();
 
     ConsoleAddCommand("exit", ExitApp);
+    ConsoleAddCommand("play", c_PlayAudio);
+    ConsoleAddCommand("stop", c_StopAudio);
+    ConsoleAddCommand("pause", c_PauseAudio);
 
     //Start Of Running Program
     while (g_running)

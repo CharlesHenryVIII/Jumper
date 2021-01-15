@@ -26,7 +26,11 @@
 	- [x] REWRITE THE ENTIRE CALLBACK FUNCTION
 		- [x] Generic fade function
 	- [ ] Audio replay based on ID in play function
-		- [ ] play, stop, pause, panning/stereo
+		- [x] play
+        - [x] stop
+        - [x] pause
+        - [ ] panning/stereo
+    - [ ] Console audio functionality
 - [ ] Action area or events based on region 
 - [ ] TRIGGER VOLUME
 - [x] load operating system files in a folder

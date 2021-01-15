@@ -143,6 +143,11 @@ void PlayAudio(const AudioParams& audio, AudioID& ID)
     }
     else
     {
+		if (s_audioFiles.find(audio.nameOfSound) == s_audioFiles.end())
+		{
+			ConsoleLog("Audio file '%s' doesn't exist", audio.nameOfSound.c_str());
+			return;
+		}
         AudioInstance instance;
         instance.name = audio.nameOfSound;
         instance.audioType = s_audioFiles[audio.nameOfSound].audioType;
@@ -174,8 +179,7 @@ void PlayAudio(const AudioParams& audio, AudioID& ID)
             instance.endSamples = filePlaySamples;
         }
 
-        AUDIO_ERROR("Playing audio: %s", instance.name.c_str());
-
+		ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", instance.name.c_str());
 
         //Fading
         instance.fade = 1.0f;
@@ -195,7 +199,7 @@ void PlayAudio(const AudioParams& audio, AudioID& ID)
                 instance.fadeInSamples  = (uint32)(fadeInDuration  - (fadeInDuration  * frac) + 0.5f);
                 instance.fadeOutSamples = (uint32)(fadeOutDuration - (fadeOutDuration * frac) + 0.5f);
 
-                AUDIO_ERROR("Invalid fade values for: %s", instance.name.c_str());
+                AUDIO_WARNING("Invalid fade values for: %s", instance.name.c_str());
             }
             else
             {
@@ -246,11 +250,66 @@ void PlayAudio(AudioID& ID)
         instance->playing = true;
 }
 
+AudioID s_consoleAudio = 0;
+CONSOLE_FUNCTIONA(c_PlayAudio)
+{
+    switch (args.size())
+    {
+    case 0:
+    {
+        PlayAudio(s_consoleAudio);
+        break;
+    }
+    case 1:
+    {
+
+        std::string name = args[0];
+        char& c = name[0];
+        if (c >= 'a' && c <= 'z')
+        {
+            c = c - ('a' - 'A');
+        }
+	    PlayAudio(name, s_consoleAudio);
+        break;
+    }
+    case 5:
+    {
+        
+        std::string name = args[0];
+        char& c = name[0];
+        if (c >= 'a' && c <= 'z')
+        {
+            c = c - ('a' - 'A');
+        }
+		AudioParams params = {
+			.nameOfSound = name,
+			.fadeInDuration = static_cast<float>(stoi(args[1])),
+			.fadeOutDuration = static_cast<float>(stoi(args[2])),
+			.loopCount = stoi(args[3]),
+			.secondsToPlay = static_cast<float>(stoi(args[4])),
+		};
+        PlayAudio(params, s_consoleAudio);
+        break;
+	}
+    default:
+    {
+        ConsoleLog(LogLevel::LogLevel_Warning, "Wrong number of args for 'Play': %i", args.size());
+        //assert(false);
+    }
+    }
+}
+
+
 void PauseAudio(const AudioID& ID)
 {
     AudioInstance* instance = GetAudioInstance(ID);
     if (instance)
         instance->playing = false;
+}
+
+CONSOLE_FUNCTION(c_PauseAudio)
+{
+    PauseAudio(s_consoleAudio);
 }
 
 void StopAudio(AudioID& ID)
@@ -260,7 +319,8 @@ void StopAudio(AudioID& ID)
 		if (instance->fadeOutSamples)
 		{
 
-			instance->endSamples = instance->playedSamples + instance->fadeOutSamples;
+			if (instance->playedSamples < instance->endSamples - instance->fadeOutSamples)
+				instance->endSamples = instance->playedSamples + instance->fadeOutSamples;
 		}
 		else
 		{
@@ -271,9 +331,14 @@ void StopAudio(AudioID& ID)
 	}
 	else
 	{
+		ID = 0;
 		ConsoleLog("AudioID %i not found when running StopAudio()", ID);
 	}
-	ID = 0;
+}
+
+CONSOLE_FUNCTION(c_StopAudio)
+{
+    StopAudio(s_consoleAudio);
 }
 
 void EraseInstance(AudioID ID)
@@ -370,7 +435,10 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 	for (int32 i = 0; i < s_audioPlaying.size(); i++)
 	{
 		AudioInstance& instance = s_audioPlaying[i];
+		if (!instance.playing)
+			continue;
 		const uint32 fileSamples = BytesToSamples(s_audioFiles[instance.name].length);
+
 		uint32 samplesToWrite = samples;
 		uint32 samplesWritten = 0;
 
@@ -383,9 +451,7 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 		    Sample* readBuffer = reinterpret_cast<Sample*>(s_audioFiles[instance.name].buffer) + playedSamplesThisLoop;
 			AudioState audioState = AudioState::None;
 
-            if (!instance.playing)
-                continue;
-			else if (instance.playedSamples >= instance.endSamples)
+			if (instance.playedSamples >= instance.endSamples)
 				audioState = AudioState::Ending;
 
 			else if (playedSamplesThisLoop + samplesToWrite > fileSamples)

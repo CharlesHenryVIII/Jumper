@@ -1,5 +1,6 @@
 #pragma once
 #include "Math.h"
+#include "Console.h"
 
 #include <string>
 
@@ -11,8 +12,8 @@ typedef int16 Sample;
 
 struct AudioParams {
 	std::string nameOfSound;
-	float fadeOutDuration = 0;
 	float fadeInDuration = 0;
+	float fadeOutDuration = 0;
 	int32 loopCount = 0;
 	float secondsToPlay = 0;
 };
@@ -34,3 +35,7 @@ void PlayAudio(AudioID& ID = noID);
 void PauseAudio(const AudioID& ID);
 void StopAudio(AudioID& ID);
 void InitializeAudio();
+
+CONSOLE_FUNCTIONA(c_PlayAudio);
+CONSOLE_FUNCTION(c_PauseAudio);
+CONSOLE_FUNCTION(c_StopAudio);

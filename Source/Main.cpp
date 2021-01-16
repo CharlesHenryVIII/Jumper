@@ -6,7 +6,7 @@
 #include "Math.h"
 #include "Rendering.h"
 #include "Entity.h"
-#include "TiledInterop.h"
+#include "JSONInterop.h"
 #include "WinUtilities.h"
 #include "GamePlay.h"
 #include "Menu.h"
@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
     std::unordered_map<int32, Key> keyStates;
     VectorInt mouseLocation;
     g_running = true;
-
+    //g_workingDir = "C:\\Projects\\Jumper\\";
 	g_gameState = GameState::game;
 
     CreateOpenGLWindow();
@@ -53,22 +53,12 @@ int main(int argc, char* argv[])
     SDL_Surface iconSurface = {};
     iconSurface.
     */
-    LoadAllAnimationStates();
-    ConsoleLog("Loaded all Animation States");
+    LoadAnimationStates();
+    LoadFonts();
 
-	g_fonts["1"] = CreateFont("Assets/Fonts/Text.png", SDL_BLENDMODE_BLEND, 32, 20, 16);
-	g_fonts["2"] = CreateFont("Assets/Fonts/Text 2.png", SDL_BLENDMODE_BLEND, 20, 20, 15);
-
-	g_sprites["spriteMap"] = CreateSprite("Assets/SpriteMap.png", SDL_BLENDMODE_BLEND);
-	g_sprites["background"] = CreateSprite("Assets/Backgrounds/Background.png", SDL_BLENDMODE_BLEND);
-	g_sprites["MainMenuBackground"] = CreateSprite("Assets/Backgrounds/MainMenuBackground.png", SDL_BLENDMODE_BLEND);
-//    const char* fontFileNames[] = {
-//        "Text.png",
-//        "Text 2.png",
-//    }
-//    LoadFonts(fontFileNames);
-//    Cant do this because I would need to pass the font information as well
-//    could make a struct but will do when/if there are more fonts
+	g_sprites["spriteMap"] = CreateSprite("Assets/SpriteMap.png");
+	g_sprites["background"] = CreateSprite("Assets/Backgrounds/Background.png");
+	g_sprites["MainMenuBackground"] = CreateSprite("Assets/Backgrounds/MainMenuBackground.png");
 
     InitializeAudio();
     AddAllLevels();

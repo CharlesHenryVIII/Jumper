@@ -34,13 +34,13 @@ enum class ActorType
 
 enum class ActorState
 {
-    none,
-    idle,
-    walk,
-    run,
-    jump,
-    dead,
-    count
+    None,
+    Idle,
+    Walk,
+    Run,
+    Jump,
+    Dead,
+    Count
 };
 
 enum class GrappleState
@@ -55,13 +55,13 @@ struct Animation
 {
     std::vector<Sprite*> anime;
     float fps = 10;
-    ActorState type = ActorState::none;
+    ActorState type = ActorState::None;
     Animation* fallBack = nullptr;
 };
 
 struct AnimationData {
 	const char* name = nullptr;
-    float animationFPS[int(ActorState::count)] = {};
+    float animationFPS[int(ActorState::Count)] = {};
 	Vector collisionOffset = { 0.125f, 0.25f };
 	Rectangle collisionRectangle = {};
 	float scaledWidth = 32;
@@ -177,7 +177,7 @@ public:
     bool angularUpdate = false;
     bool switchToLinearUpdate = false;
     float invinciblityTime = 0;
-    ActorState actorState = ActorState::none;
+    ActorState actorState = ActorState::None;
 
     ActorID parent = 0;
 
@@ -498,7 +498,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateEnemiesPosition(std::vector<Actor*>* actors, float gravity, float deltaTime);
 void RenderActors(std::vector<Actor*>* actors);
 void RenderActorHealthBars(Actor& actor);
-void LoadAllAnimationStates();
-void LoadAnimationStates(std::vector<AnimationData>* animationData);
+//void LoadAllAnimationStates();
+void LoadAnimationStates();
 void AttachAnimation(Actor* actor, ActorType overrideType = ActorType::None);
 

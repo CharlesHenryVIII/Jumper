@@ -1,0 +1,11 @@
+{
+	"name" : "HeadMinion",
+	"collisionRectangle" : 
+	{
+		"left" : 4,
+		"bot" : 32,
+		"right" : 27,
+		"top" : 9
+	},
+	"scaledWidth" : 0
+}

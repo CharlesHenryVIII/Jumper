@@ -1,0 +1,17 @@
+{
+	"name" : "Dino",
+	"animationFPS" : 
+	{
+		"Jump" : 30,
+		"Run" : 30
+	},
+	"collisionOffsetX" : 0.2,
+	"collisionOffsetY" : 0.3,
+	"collisionRectangle" : 
+	{
+		"left" : 130,
+		"bot" : 421,
+		"right" : 331,
+		"top" : 33
+	}
+}

@@ -1,5 +1,6 @@
 #include "Audio.h"
 #include "Console.h"
+#include "WinUtilities.h"
 
 #include "SDL.h"
 

@@ -165,7 +165,7 @@
     <ClCompile Include="Source\Menu.cpp" />
     <ClCompile Include="Source\Misc.cpp" />
     <ClCompile Include="Source\Rendering.cpp" />
-    <ClCompile Include="Source\TiledInterop.cpp" />
+    <ClCompile Include="Source\JSONinterop.cpp" />
     <ClCompile Include="Source\WinUtilities.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -177,7 +177,7 @@
     <ClInclude Include="Source\Menu.h" />
     <ClInclude Include="Source\Misc.h" />
     <ClInclude Include="Source\Rendering.h" />
-    <ClInclude Include="Source\TiledInterop.h" />
+    <ClInclude Include="Source\JSONInterop.h" />
     <ClInclude Include="Source\WinUtilities.h" />
   </ItemGroup>
   <ItemGroup>

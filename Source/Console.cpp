@@ -408,7 +408,7 @@ static Rectangle ConsoleRect()
 
 FontSprite* ConsoleFont()
 {
-	return g_fonts["1"];
+	return g_fonts["Main"];
 }
 
 static float ItemHeight()
@@ -940,6 +940,7 @@ void ConsoleLog(LogLevel level, const char* fmt, ...)
         sConsoleLog(level, buf);
     else
         AddLogToList(buf, sizeof(buf), level);
+    DebugPrint("%s\n", buf);
 }
 
 void ConsoleLog(const char* fmt, ...)

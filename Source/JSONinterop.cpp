@@ -2,13 +2,13 @@
 #include "WinUtilities.h"
 #include "Math.h"
 #include "Entity.h"
-#include "TiledInterop.h"
+#include "JSONInterop.h"
 #include "Console.h"
+#include "Rendering.h"
 #include <cassert>
 #include <iostream>
 
 std::unordered_map<std::string, Level> levels_internal;
-
 
 const char* ReadEntireFileAsString(const char* fileName)
 {
@@ -46,12 +46,12 @@ std::string ReadEntireFileAsString(const std::string &fileName)
 picojson::value JsonStruct(const std::string& name)
 {
 	std::string data = ReadEntireFileAsString(name + ".json");
-	//DebugPrint(data.c_str());
 	picojson::value v;
 	std::string err = picojson::parse(v, data);
 	if (!err.empty())
 	{
-		std::cerr << err << std::endl;
+		ConsoleLog(LogLevel::LogLevel_Error, "Error parsing: %s", name.c_str());
+		ConsoleLog(LogLevel::LogLevel_Error, "%s", err.c_str());
 	}
 	return v;
 }
@@ -83,7 +83,6 @@ const picojson::value& GetActorPropertyValue(const picojson::value& props, const
 			return props.get<picojson::array>()[i].get("value");
 		}
 	}
-	//assert(false);
 	ConsoleLog("GetActorPropertyValue failed to return a value for %s\n", propertyName.c_str());
 	static picojson::value result;
 	success = false;
@@ -176,7 +175,7 @@ void CreateLevel(Level* level, const std::string& name)
 
 			PortalInfo info;
 			info.PortalID = (int32)GetActorProperty<double>(props, "PortalID");
-			info.levelName = GetActorProperty<std::string>(props, "PortalPointerLevel"); 
+			info.levelName = GetActorProperty<std::string>(props, "PortalPointerLevel");
 			info.levelPortalID = (int32)GetActorProperty<double>(props, "PortalPointerID");
 			Portal* portal = level->CreateActor<Portal>(info);
 			portal->position = loc;
@@ -185,7 +184,7 @@ void CreateLevel(Level* level, const std::string& name)
 		else if (type == "SpringType")
 		{
 			// Do Spring Stuff
-			
+
 			Spring* spring = level->CreateActor<Spring>();
 			spring->position = loc;
 		}
@@ -253,3 +252,114 @@ void LoadLevel(Level* level, const std::string& name)
 	CreateLevel(level, name);
 }
 
+void LoadFonts()
+{
+    picojson::value metadata = JsonStruct("Assets/Fonts/Metadata");
+
+	for (int32 i = 0; i < metadata.get<picojson::array>().size(); i++)
+	{
+		picojson::object obj = metadata.get<picojson::array>()[i].get<picojson::object>();
+		const char* name = obj["name"].get<std::string>().c_str();
+
+		g_fonts[name] = CreateFont(	name,
+									static_cast<int32>(obj["charSize"].get<double>()),
+									static_cast<int32>(obj["actualCharWidth"].get<double>()),
+									static_cast<int32>(obj["charPerRow"].get<double>()));
+		if (g_fonts[name] == nullptr)
+		{
+			ConsoleLog(LogLevel::LogLevel_Warning, "Failed to load font: %s", name);
+			assert(false);
+		}
+
+	}
+}
+
+
+	//const char* name = nullptr;
+	//float animationFPS[int(ActorState::count)] = {};
+	//Vector collisionOffset = { 0.125f, 0.25f };
+	//Rectangle collisionRectangle = {};
+	//float scaledWidth = 32;
+
+
+AnimationData GetAnimationData(const std::string& name, std::string* states)
+{
+
+    picojson::value v = JsonStruct("Assets/Actor_Art/" + name + "/Metadata");
+	if (v.is<picojson::null>())
+		return {};
+
+	picojson::object obj = v.get<picojson::object>();
+
+	{
+		const char* string = "name";
+		if (obj.contains(string))
+		{
+			assert(obj[string].get<std::string>() == name);
+			AnimationData result = {
+				.name = name.c_str()
+			};
+		}
+		else
+			assert(false);
+	}
+	AnimationData result = {
+		.name = name.c_str()
+	};
+
+	{
+		const char* string = "animationFPS";
+		if (obj.contains(string))
+		{
+
+			picojson::object animationFPS = obj[string].get<picojson::object>();
+			for (int32 i = 0; i < int32(ActorState::Count); i++)
+			{
+				if(animationFPS.contains(states[i]))
+					result.animationFPS[i] = static_cast<float>(animationFPS[states[i]].get<double>());
+			}
+		}
+	}
+
+	//collisionOffset
+	{
+		const char* xString = "collisionOffsetX";
+		const char* yString = "collisionOffsetY";
+		if (obj.contains(xString))
+			result.collisionOffset.x = static_cast<float>(obj[xString].get<double>());
+		if (obj.contains(yString))
+			result.collisionOffset.y = static_cast<float>(obj[yString].get<double>());
+	}
+
+	//collisionRectangle
+	{
+		const char* string = "collisionRectangle";
+		if (obj.contains(string))
+		{
+			picojson::object colRect = obj[string].get<picojson::object>();
+			if (colRect.contains("left"))
+				result.collisionRectangle.botLeft.x = static_cast<float>(colRect["left"].get<double>());
+			if (colRect.contains("bot"))
+				result.collisionRectangle.botLeft.y = static_cast<float>(colRect["bot"].get<double>());
+			if (colRect.contains("right"))
+				result.collisionRectangle.topRight.x = static_cast<float>(colRect["right"].get<double>());
+			if (colRect.contains("top"))
+				result.collisionRectangle.topRight.y = static_cast<float>(colRect["top"].get<double>());
+		}
+	}
+
+	//scaledWidth
+	{
+		const char* string = "scaledWidth";
+		if (obj.contains(string))
+		{
+			float f = static_cast<float>(obj[string].get<double>());
+			if (f == 0)
+				result.scaledWidth = inf;
+			else
+				result.scaledWidth = f;
+		}
+	}
+
+	return result;
+}

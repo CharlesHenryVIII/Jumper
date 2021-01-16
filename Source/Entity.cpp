@@ -4,7 +4,7 @@
 #include "GamePlay.h"
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
-#include "TiledInterop.h"
+#include "JSONInterop.h"
 #include "WinUtilities.h"
 #include "Misc.h"
 #include "Console.h"
@@ -41,9 +41,9 @@ void Player::Update(float deltaTime)
 	if (grounded == true)
 	{
 		if (velocity.x != 0)
-			PlayAnimation(this, ActorState::run);
+			PlayAnimation(this, ActorState::Run);
 		else
-			PlayAnimation(this, ActorState::idle);
+			PlayAnimation(this, ActorState::Idle);
 	}
 	UpdateAnimationIndex(this, deltaTime);
 }
@@ -75,7 +75,7 @@ void Enemy::OnInit()
 	damage = 25;
 	enemyType = EnemyType::head;
 	AttachAnimation(this);
-    PlayAnimation(this, ActorState::walk);
+    PlayAnimation(this, ActorState::Walk);
 }
 
 void Enemy::Update(float deltaTime)
@@ -86,9 +86,9 @@ void Enemy::Update(float deltaTime)
 	if (grounded == true)
 	{
 		if (velocity.x != 0)
-			PlayAnimation(this, ActorState::run);
+			PlayAnimation(this, ActorState::Run);
 		else
-			PlayAnimation(this, ActorState::idle);
+			PlayAnimation(this, ActorState::Idle);
 	}
 	UpdateAnimationIndex(this, deltaTime);
 }
@@ -118,13 +118,13 @@ void Projectile::OnInit(const ProjectileInfo& info)
 	paintType = info.blockToBeType;
 	allowRenderFlip = false;
 	AttachAnimation(this);
-	PlayAnimation(this, ActorState::idle);
+	PlayAnimation(this, ActorState::Idle);
 	terminalVelocity = { 1000, 1000 };
-	Vector adjustedPlayerPosition = { info.player->position.x/* + 0.5f*/, 
+	Vector adjustedPlayerPosition = { info.player->position.x/* + 0.5f*/,
 									  info.player->position.y + 1 };
-	Vector playerPosAdjusted = { adjustedPlayerPosition.x + (info.player->GameWidth() / 2), 
+	Vector playerPosAdjusted = { adjustedPlayerPosition.x + (info.player->GameWidth() / 2),
 							     adjustedPlayerPosition.y };
-	
+
 	destination = info.mouseLoc;
 	rotation = RadToDeg(atan2f(destination.y - adjustedPlayerPosition.y, destination.x - adjustedPlayerPosition.x));
 
@@ -175,7 +175,7 @@ void Dummy::OnInit(const DummyInfo& info)
 	health = 0;
 	inUse = true;
 	AttachAnimation(this, info.mimicType);
-	PlayAnimation(this, ActorState::dead);
+	PlayAnimation(this, ActorState::Dead);
 }
 
 void Dummy::Update(float deltaTime)
@@ -208,7 +208,7 @@ void Portal::OnInit(const PortalInfo& info)
     portalID = info.PortalID;
 	damage = 0;
 	AttachAnimation(this);
-	PlayAnimation(this, ActorState::idle);
+	PlayAnimation(this, ActorState::Idle);
 }
 
 void Portal::Update(float deltaTime)
@@ -232,7 +232,7 @@ void Spring::OnInit()
 
 	damage = 0;
 	AttachAnimation(this);
-	PlayAnimation(this, ActorState::idle);
+	PlayAnimation(this, ActorState::Idle);
 }
 void Spring::Update(float deltaTime)
 {
@@ -259,7 +259,7 @@ void MovingPlatform::OnInit()
 	damage = 0;
 	allowRenderFlip = false;
 	AttachAnimation(this);
-	PlayAnimation(this, ActorState::idle);
+	PlayAnimation(this, ActorState::Idle);
 	level->movingPlatforms.push_back(id);
 }
 void MovingPlatform::Update(float deltaTime)
@@ -313,7 +313,7 @@ void Grapple::OnInit(const GrappleInfo& info)
 	//TODO:  make sure there isnt a valid grapple already attached to the player
 
 	AttachAnimation(this);
-	PlayAnimation(this, ActorState::idle);
+	PlayAnimation(this, ActorState::Idle);
 	attachedActor = info.actorID;
 	Player* player = level->FindActor<Player>(attachedActor);
 	assert(player);
@@ -349,7 +349,7 @@ void Grapple::Update(float deltaTime)
 		}
 		case GrappleState::Sending:
 		{
-			
+
 			//TODO: change to work with moving platforms
 			//CollisionWithBlocks(this, false)
 			Block* blockPointer = level->blocks.TryGetBlock({ position.x, position.y });
@@ -378,7 +378,7 @@ void Grapple::Update(float deltaTime)
 			DoAttached:
 			if (player->jumpCount == 0)
 				player->jumpCount++;
-			
+
 			break;
 		}
 		case GrappleState::Retracting:
@@ -396,7 +396,7 @@ void Grapple::Update(float deltaTime)
 			break;
 		}
 	}
-	
+
 	UpdateAnimationIndex(this, deltaTime);
 }
 
@@ -680,6 +680,15 @@ void SurroundBlockUpdate(Block* block, bool updateTop, Level* level)
 		level->blocks.UpdateBlock(&level->blocks.GetBlock({ block->location.x, block->location.y + 1 }));
 }
 
+bool TriggerVolumePoint(const Rectangle& rect, const Vector& v)
+{
+	return (v.x >= rect.botLeft.x && v.x <= rect.botLeft.x) && (v.y >= rect.topRight.y && v.y <= rect.topRight.y);
+}
+
+bool TriggerVolumeRectangle()
+{
+	return true;
+}
 
 void ClickUpdate(Block* block, bool updateTop, Level* level)
 {
@@ -788,7 +797,7 @@ uint32 CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* act
 }
 
 //TODO: move to be a member function in the Block struct
-void CollisionWithBlocks(Actor* actor, bool isEnemy) 
+void CollisionWithBlocks(Actor* actor, bool isEnemy)
 {
 	bool grounded = false;
 	float checkOffset = 1;
@@ -841,7 +850,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 						grapple->angularVelocity = 0;
 						attachable = false;
 					}
-					
+
 				}
 				if (attachable)
 				{
@@ -872,13 +881,13 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			actor->parent = 0;
 		}
 	}
-	
+
 
 	//Grounded Logic
 	if (actor->grounded != grounded)
 	{
 		if (!grounded && (actor->GetActorType() == ActorType::Player || actor->GetActorType() == ActorType::Enemy))
-			PlayAnimation(actor, ActorState::jump);
+			PlayAnimation(actor, ActorState::Jump);
 	}
 	actor->grounded = grounded;
 }
@@ -950,7 +959,6 @@ Portal* GetPortalsPointer(Portal* basePortal)
 	}
 
 	assert(false);
-	//DebugPrint("Failed to get Portal from %s at portalID %d", basePortal->levelPointer.c_str(), basePortal->portalPointerID);
 	ConsoleLog("Failed to get Portal from %s at portalID %d", basePortal->levelPointer, basePortal->portalPointerID);
 	return nullptr;
 }
@@ -961,7 +969,7 @@ void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 	laser.paintType = paintType;
 	laser.inUse = true;
 	AttachAnimation(&laser);
-	PlayAnimation(&laser, ActorState::idle);
+	PlayAnimation(&laser, ActorState::Idle);
 	Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block
@@ -970,12 +978,12 @@ void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 
 	Vector ToDest = Normalize(laser.destination - adjustedPlayerPosition);
 	laser.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
-	PlayAnimation(&laser, ActorState::idle);
+	PlayAnimation(&laser, ActorState::Idle);
 }
 
 void UpdateAnimationIndex(Actor* actor, float deltaTime)
 {
-	bool ignoringStates = actor->actorState == ActorState::dead || actor->actorState == ActorState::jump;
+	bool ignoringStates = actor->actorState == ActorState::Dead || actor->actorState == ActorState::Jump;
 
 	if (actor->animationCountdown < 0)
 	{
@@ -1010,8 +1018,8 @@ void PlayAnimation(Actor* actor, ActorState state)
 	ActorType actorType = actor->GetActorType();
 	if (actor->animationList->GetAnimation(state) == nullptr)
 	{
-		ActorState holdingState = ActorState::none;
-		for (int32 i = 1; i < (int32)ActorState::count; i++)
+		ActorState holdingState = ActorState::None;
+		for (int32 i = 1; i < (int32)ActorState::Count; i++)
 		{
 			if (actor->animationList->GetAnimation((ActorState)i) != nullptr)
 			{
@@ -1019,7 +1027,7 @@ void PlayAnimation(Actor* actor, ActorState state)
 				break;
 			}
 		}
-		if (holdingState == ActorState::none)
+		if (holdingState == ActorState::None)
 		{
 			//no valid animation to use
 			assert(false);
@@ -1028,7 +1036,7 @@ void PlayAnimation(Actor* actor, ActorState state)
 		}
 		state = holdingState;
 	}
-	if (actor->actorState != state || state == ActorState::jump)
+	if (actor->actorState != state || state == ActorState::Jump)
 	{
 		actor->actorState = state;
 		actor->index = 0;
@@ -1063,7 +1071,7 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 			Dummy* dummy = level.CreateActor<Dummy>(info);
 			dummy->position			= actor->position;
 			dummy->lastInputWasLeft	= actor->lastInputWasLeft;
-			PlayAnimation(dummy, ActorState::dead);
+			PlayAnimation(dummy, ActorState::Dead);
 			actor->inUse = false;
 		}
 	}
@@ -1088,7 +1096,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 		player->position = { grapple->grappleDistance * cosf(angularPosition) - player->GameWidth() / 2.0f, grapple->grappleDistance * sinf(angularPosition) - player->GameHeight() / 2.0f };
 		player->position += grapple->position;
 		int test = 0;
-		
+
 	}
 	else
 	{
@@ -1121,7 +1129,7 @@ void UpdateLocation(Actor* actor, float gravity, float deltaTime)
 		ActorType actorType = actor->GetActorType();
 		if (actor->velocity.x == 0 && actor->velocity.y == 0 &&
 			(actorType == ActorType::Player || actorType == ActorType::Enemy))
-			PlayAnimation(actor, ActorState::idle);
+			PlayAnimation(actor, ActorState::Idle);
 		//DebugPrint("VelocityScale: %0.3f\n", velocityScale);
 
 		if (actorType != ActorType::Player)
@@ -1175,33 +1183,40 @@ void RenderActorHealthBars(Actor& actor)
     AddRectToRender(RenderType::DebugFill, actual, Green, RenderPrio::UI, CoordinateSpace::World);
 }
 
-void LoadAnimationStates(std::vector<AnimationData> * animationData)
+void LoadAnimationStates(/*std::vector<AnimationData>* animationData*/)
 {
-	assert(animationData);
+	std::vector<std::string> dirNames = GetDirNames("Assets/Actor_Art", false);
 
-	for (int i = 0; i < animationData->size(); i++)
+	std::string stateStrings[] = { "Error", "Idle", "Walk", "Run", "Jump", "Dead" };
+	static_assert(sizeof(stateStrings) / sizeof(stateStrings[0]) == (size_t)ActorState::Count, "Change in count");
+
+	AnimationData data;
+	for (const std::string& string : dirNames)
 	{
-		AnimationData* data = &((*animationData)[i]);
-		if (actorAnimations.find(data->name) != actorAnimations.end())
+		data = {};
+		data = GetAnimationData(string, stateStrings);
+
+		if (actorAnimations.find(data.name) != actorAnimations.end())
+		{
+			ConsoleLog(LogLevel::LogLevel_Warning, "Already found animation: %s", data.name);
 			continue;
+		}
 
-		std::string stateStrings[] = { "error", "Idle", "Walk", "Run", "Jump", "Dead" };
-		static_assert(sizeof(stateStrings) / sizeof(stateStrings[0]) == (size_t)ActorState::count, "Change in count");
 
-		AnimationList* animationList = &actorAnimations[data->name];
-		animationList->animations.reserve((int32)ActorState::count);
+		AnimationList* animationList = &actorAnimations[data.name];
+		animationList->animations.reserve((int32)ActorState::Count);
 
-		for (int32 i = 1; i < (int32)ActorState::count; i++)
+		for (int32 i = 1; i < (int32)ActorState::Count; i++)
 		{
 			Animation* animeP = new Animation();
 			animeP->type = (ActorState)i;
 			animeP->anime.reserve(20);
-			if (data->animationFPS[i])
-				animeP->fps = data->animationFPS[i];
+			if (data.animationFPS[i])
+				animeP->fps = data.animationFPS[i];
 			for (int32 j = 1; true; j++)
 			{
-				std::string combinedName = "Assets/" + std::string(data->name) + "/" + stateStrings[i] + " (" + std::to_string(j) + ").png";
-				Sprite* sprite = CreateSprite(combinedName.c_str(), SDL_BLENDMODE_BLEND);
+				std::string combinedName = "Assets/Actor_Art/" + std::string(data.name) + "/" + stateStrings[i] + " (" + std::to_string(j) + ").png";
+				Sprite* sprite = CreateSprite(combinedName.c_str());
 				if (sprite == nullptr)
 					break;
 				else
@@ -1213,111 +1228,47 @@ void LoadAnimationStates(std::vector<AnimationData> * animationData)
 				delete animeP;
 		}
 
-		//std::swap(data->collisionRectangle.botLeft.y, data->collisionRectangle.topRight.y);
+		//std::swap(data.collisionRectangle.botLeft.y, data.collisionRectangle.topRight.y);
 		Sprite* sprite = animationList->GetAnyValidAnimation()->anime[0];
 		assert(sprite);
-		if (data->collisionRectangle.botLeft.y)
-			data->collisionRectangle.botLeft.y = sprite->height - data->collisionRectangle.botLeft.y;
-		if (data->collisionRectangle.topRight.y)
-			data->collisionRectangle.topRight.y = sprite->height - data->collisionRectangle.topRight.y;
+		if (data.collisionRectangle.botLeft.y)
+			data.collisionRectangle.botLeft.y = sprite->height - data.collisionRectangle.botLeft.y;
+		if (data.collisionRectangle.topRight.y)
+			data.collisionRectangle.topRight.y = sprite->height - data.collisionRectangle.topRight.y;
 
-		if (data->collisionRectangle.botLeft.x == 0 &&
-			data->collisionRectangle.botLeft.y == 0 &&
-			data->collisionRectangle.topRight.x == 0 &&
-			data->collisionRectangle.topRight.y == 0)
+		if (data.collisionRectangle.botLeft.x == 0 &&
+			data.collisionRectangle.botLeft.y == 0 &&
+			data.collisionRectangle.topRight.x == 0 &&
+			data.collisionRectangle.topRight.y == 0)
 		{
-			data->collisionRectangle = { { 0, 0 }, { (float)sprite->width, (float)sprite->height } };
+			data.collisionRectangle = { { 0, 0 }, { (float)sprite->width, (float)sprite->height } };
 
 		}
 		else
 		{
-			if (data->collisionRectangle.botLeft.x == inf)
-				data->collisionRectangle.botLeft.x = (float)sprite->width;
-			if (data->collisionRectangle.topRight.x == inf)
-				data->collisionRectangle.topRight.x = (float)sprite->width;
-			if (data->collisionRectangle.botLeft.y == inf)
-				data->collisionRectangle.botLeft.y = (float)sprite->height;
-			if (data->collisionRectangle.topRight.y == inf)
-				data->collisionRectangle.topRight.y = (float)sprite->height;
+			if (data.collisionRectangle.botLeft.x == inf)
+				data.collisionRectangle.botLeft.x = (float)sprite->width;
+			if (data.collisionRectangle.topRight.x == inf)
+				data.collisionRectangle.topRight.x = (float)sprite->width;
+			if (data.collisionRectangle.botLeft.y == inf)
+				data.collisionRectangle.botLeft.y = (float)sprite->height;
+			if (data.collisionRectangle.topRight.y == inf)
+				data.collisionRectangle.topRight.y = (float)sprite->height;
 		}
 
-		animationList->colOffset = data->collisionOffset;
-		animationList->colRect.bottomLeft.x = (int32)data->collisionRectangle.botLeft.x;
-		animationList->colRect.bottomLeft.y = (int32)data->collisionRectangle.botLeft.y;
-		animationList->colRect.topRight.x  = (int32)data->collisionRectangle.topRight.x;
-		animationList->colRect.topRight.y  = (int32)data->collisionRectangle.topRight.y;
+		animationList->colOffset = data.collisionOffset;
+		animationList->colRect.bottomLeft.x = (int32)data.collisionRectangle.botLeft.x;
+		animationList->colRect.bottomLeft.y = (int32)data.collisionRectangle.botLeft.y;
+		animationList->colRect.topRight.x  = (int32)data.collisionRectangle.topRight.x;
+		animationList->colRect.topRight.y  = (int32)data.collisionRectangle.topRight.y;
 
-		if (data->scaledWidth == inf)
+		if (data.scaledWidth == inf)
 			animationList->scaledWidth = (float)sprite->width;
 		else
-			actorAnimations[data->name].scaledWidth = data->scaledWidth;
-		
+			actorAnimations[data.name].scaledWidth = data.scaledWidth;
+
 	}
 }
-
-void LoadAllAnimationStates()
-{
-	std::vector<AnimationData> animationData;
-
-	AnimationData dino = {};
-	dino.name = "Dino";
-	dino.animationFPS[int(ActorState::jump)] = 30.0f;
-	dino.animationFPS[int(ActorState::run)] = 30.0f;
-	dino.collisionOffset = { 0.2f, 0.3f };
-	dino.collisionRectangle = { { 130, 421 }, { 331, 33 } };
-	animationData.push_back(dino);
-
-	AnimationData headMinion = {};
-	headMinion.name = "HeadMinion";
-	headMinion.collisionRectangle = { { 4, 32 }, { 27, 9 } };
-	headMinion.scaledWidth = inf;
-	animationData.push_back(headMinion);
-
-	AnimationData bullet;
-	bullet.name = "Bullet";
-	bullet.collisionRectangle = {};
-	bullet.scaledWidth = inf;
-	animationData.push_back(bullet);
-
-	AnimationData portal;
-	portal.name = "Portal";
-	portal.animationFPS[int(ActorState::idle)] = 20.0f;
-	portal.collisionRectangle = { { 85, 299 }, { 229, 19 } };
-	animationData.push_back(portal);
-
-	AnimationData striker;
-	striker.name = "Striker";
-	striker.animationFPS[(int)ActorState::run] = 20.0f;
-	striker.collisionRectangle = { { 36, 67 }, { 55, 35 } };//35
-	striker.scaledWidth = 40;
-	animationData.push_back(striker);
-
-	AnimationData spring;
-	spring.name = "Spring";
-	spring.collisionRectangle = {};
-	animationData.push_back(spring);
-
-	AnimationData MP;
-	MP.name = "MovingPlatform";
-	MP.collisionOffset = {};
-	MP.collisionRectangle = {};
-	animationData.push_back(MP);
-
-	AnimationData grapple;
-	grapple.name = "Grapple";
-	grapple.collisionOffset = {};
-	grapple.scaledWidth = inf;
-	animationData.push_back(grapple);
-
-	AnimationData knight;
-	knight.name = "Knight";
-	knight.collisionRectangle = { { 419, (44 + 814) }, { 419 + 360, 44} };
-	MP.scaledWidth = 30;
-	animationData.push_back(knight);
-
-	LoadAnimationStates(&animationData);
-}
-
 
 void AttachAnimation(Actor* actor, ActorType overrideType)
 {

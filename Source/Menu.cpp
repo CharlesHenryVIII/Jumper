@@ -33,9 +33,9 @@ void SwitchToMenu()
 
 void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, VectorInt mouseLocation)
 {
-	DrawText(g_fonts["2"], White, "J U M P E R", 4.0f, { g_windowInfo.width / 2, g_windowInfo.height / 4 }, UIX::mid, UIY::mid);
+	DrawText(g_fonts["Title"], White, "J U M P E R", 4.0f, { g_windowInfo.width / 2, g_windowInfo.height / 4 }, UIX::mid, UIY::mid);
 
-	if (DrawButton(g_fonts["1"], "Start Game", { g_windowInfo.width / 2, g_windowInfo.height / 2 },
+	if (DrawButton(g_fonts["Main"], "Start Game", { g_windowInfo.width / 2, g_windowInfo.height / 2 },
 		UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame) ||
 		keyStates[SDLK_RETURN].downThisFrame || keyStates[SDLK_e].downThisFrame)
 	{
@@ -43,13 +43,13 @@ void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		StopAudio(s_menuMusic);
 		SwitchToGame();
 	}
-	if (DrawButton(g_fonts["1"], "Settings", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 64 },
+	if (DrawButton(g_fonts["Main"], "Settings", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 64 }, 
 					UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame))
 	{
 
 	}
 
-	if (DrawButton(g_fonts["1"], "Quit", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 128 },
+	if (DrawButton(g_fonts["Main"], "Quit", { g_windowInfo.width / 2, g_windowInfo.height / 2 + 128 },
 		UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame) ||
 		keyStates[SDLK_q].downThisFrame)
 	{

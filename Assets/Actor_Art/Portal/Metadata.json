@@ -1,0 +1,14 @@
+{
+	"name" : "Portal",
+	"animationFPS" : 
+	{
+		"Idle" : 20
+	},
+	"collisionRectangle" : 
+	{
+		"left" : 85,
+		"bot" : 299,
+		"right" : 229,
+		"top" : 19
+	}
+}

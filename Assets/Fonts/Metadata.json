@@ -1,0 +1,14 @@
+[
+    {
+        "name" : "Main",
+        "charSize" : 32,
+        "actualCharWidth" : 20,
+        "charPerRow" : 16
+    },
+    {
+        "name" : "Title",
+        "charSize" : 20, 
+        "actualCharWidth" : 20,
+        "charPerRow" : 15
+    }
+]

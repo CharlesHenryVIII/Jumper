@@ -1,7 +1,7 @@
 #include "GamePlay.h"
 #include "Rendering.h"
 #include "Entity.h"
-#include "TiledInterop.h"
+#include "JSONInterop.h"
 #include "WinUtilities.h"
 #include "Misc.h"
 #include "Menu.h"
@@ -46,7 +46,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 
     if (s_paused)
     {
-        if (DrawButton(g_fonts["1"], "QUIT TO MAIN MENU", { g_windowInfo.width / 2, g_windowInfo.height / 4 }, 
+        if (DrawButton(g_fonts["Main"], "QUIT TO MAIN MENU", { g_windowInfo.width / 2, g_windowInfo.height / 4 }, 
                         UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame)
             || keyStates[SDLK_RETURN].downThisFrame)
             SwitchToMenu();
@@ -97,7 +97,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             {
                 player->velocity.y = 20.0f;
                 player->jumpCount -= 1;
-                PlayAnimation(player, ActorState::jump);
+                PlayAnimation(player, ActorState::Jump);
                 PlayAudio("Jump");
             }
         }
@@ -382,22 +382,22 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     {
 
         if (player->grappleReady)
-            DrawText(g_fonts["1"], Green, "Grapple Ready", 1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot);
+            DrawText(g_fonts["Main"], Green, "Grapple Ready", 1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot);
         else
-            DrawText(g_fonts["1"], Red, "Grapple Ready", 1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot);
+            DrawText(g_fonts["Main"], Red, "Grapple Ready", 1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot);
     }
 
-    DrawText(g_fonts["1"], Green, std::to_string(1 / deltaTime) + "fps", 1.0f, { 0, 0 }, UIX::left, UIY::top);
+    DrawText(g_fonts["Main"], Green, std::to_string(1 / deltaTime) + "fps", 1.0f, { 0, 0 }, UIX::left, UIY::top);
     if (player != nullptr)
     {
-        DrawText(g_fonts["1"], Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, g_windowInfo.height - 60 }, UIX::left, UIY::bot);
-        DrawText(g_fonts["1"], Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, g_windowInfo.height - 40 }, UIX::left, UIY::bot);
-        DrawText(g_fonts["1"], Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, g_windowInfo.height - 20}, UIX::left, UIY::bot);
+        DrawText(g_fonts["Main"], Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, g_windowInfo.height - 60 }, UIX::left, UIY::bot);
+        DrawText(g_fonts["Main"], Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, g_windowInfo.height - 40 }, UIX::left, UIY::bot);
+        DrawText(g_fonts["Main"], Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, g_windowInfo.height - 20}, UIX::left, UIY::bot);
         if (player->grapple)
-			DrawText(g_fonts["1"], Green, "Angular Velocity: " + std::to_string(player->level->FindActor<Grapple>(player->grapple)->angularVelocity), 0.75f, { 0, g_windowInfo.height }, UIX::left, UIY::bot);
+			DrawText(g_fonts["Main"], Green, "Angular Velocity: " + std::to_string(player->level->FindActor<Grapple>(player->grapple)->angularVelocity), 0.75f, { 0, g_windowInfo.height }, UIX::left, UIY::bot);
     }
 
-    if (DrawButton(g_fonts["1"], "ESC", { g_windowInfo.width, g_windowInfo.height }, 
+    if (DrawButton(g_fonts["Main"], "ESC", { g_windowInfo.width, g_windowInfo.height }, 
                     UIX::right, UIY::bot, Red, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame)
                     || keyStates[SDLK_ESCAPE].downThisFrame)
         s_paused = !s_paused;

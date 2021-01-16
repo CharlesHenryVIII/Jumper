@@ -1,0 +1,11 @@
+{
+	"name" : "Knight",
+	"collisionRectangle" : 
+	{
+		"left" : 419,
+		"bot" : 858,
+		"right" : 779,
+		"top" : 44
+	},
+	"scaledWidth" : 30
+}

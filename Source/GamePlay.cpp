@@ -97,7 +97,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             {
                 player->velocity.y = 20.0f;
                 player->jumpCount -= 1;
-                PlayAnimation(player, ActorState::jump);
+                PlayAnimation(player, ActorState::Jump);
                 PlayAudio("Jump");
             }
         }

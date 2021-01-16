@@ -16,7 +16,7 @@ void DebugPrint(const char* fmt, ...)
     va_end(list);
 }
 
-std::vector<std::string> GetFilesInDir(std::string dir, bool appendFilePath)
+std::vector<std::string> GetNames(std::string dir, bool appendFilePath, bool wantDir)
 {
 	assert(dir.length());
 	std::vector<std::string> result;
@@ -30,12 +30,13 @@ std::vector<std::string> GetFilesInDir(std::string dir, bool appendFilePath)
 
 	HANDLE handle = {};
 	BOOL hasFile = true;
-	for (	HANDLE tempHandle = FindFirstFileA(wildDir.c_str(), &fileData);
-			tempHandle != INVALID_HANDLE_VALUE && hasFile;
-			hasFile = FindNextFileA(tempHandle, &fileData))
+	for (HANDLE tempHandle = FindFirstFileA(wildDir.c_str(), &fileData);
+		tempHandle != INVALID_HANDLE_VALUE && hasFile;
+		hasFile = FindNextFileA(tempHandle, &fileData))
 	{
 		handle = tempHandle;
-		if (!(fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+		bool isdir = (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
+		if (((isdir && wantDir) || (!isdir && !wantDir)) && *fileData.cFileName != '.')
 		{
 
 			if (appendFilePath)
@@ -43,6 +44,7 @@ std::vector<std::string> GetFilesInDir(std::string dir, bool appendFilePath)
 			else
 				result.push_back(fileData.cFileName);
 		}
+
 	}
 
 	if (handle != INVALID_HANDLE_VALUE)
@@ -50,4 +52,14 @@ std::vector<std::string> GetFilesInDir(std::string dir, bool appendFilePath)
 		FindClose(handle);
 	}
 	return result;
+}
+
+std::vector<std::string> GetFileNames(std::string dir, bool appendFilePath)
+{
+	return GetNames(dir, appendFilePath, false);
+}
+
+std::vector<std::string> GetDirNames(const std::string& dir, bool appendFilePath)
+{
+	return GetNames(dir, appendFilePath, true);
 }

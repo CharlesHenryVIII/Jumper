@@ -50,7 +50,8 @@ picojson::value JsonStruct(const std::string& name)
 	std::string err = picojson::parse(v, data);
 	if (!err.empty())
 	{
-		std::cerr << err << std::endl;
+		ConsoleLog(LogLevel::LogLevel_Error, "Error parsing: %s", name.c_str());
+		ConsoleLog(LogLevel::LogLevel_Error, "%s", err.c_str());
 	}
 	return v;
 }
@@ -273,3 +274,92 @@ void LoadFonts()
 	}
 }
 
+
+	//const char* name = nullptr;
+	//float animationFPS[int(ActorState::count)] = {};
+	//Vector collisionOffset = { 0.125f, 0.25f };
+	//Rectangle collisionRectangle = {};
+	//float scaledWidth = 32;
+
+
+AnimationData GetAnimationData(const std::string& name, std::string* states)
+{
+
+    picojson::value v = JsonStruct("Assets/Actor_Art/" + name + "/Metadata");
+	if (v.is<picojson::null>())
+		return {};
+
+	picojson::object obj = v.get<picojson::object>();
+
+	{
+		const char* string = "name";
+		if (obj.contains(string))
+		{
+			assert(obj[string].get<std::string>() == name);
+			AnimationData result = {
+				.name = name.c_str()
+			};
+		}
+		else
+			assert(false);
+	}
+	AnimationData result = {
+		.name = name.c_str()
+	};
+
+	{
+		const char* string = "animationFPS";
+		if (obj.contains(string))
+		{
+
+			picojson::object animationFPS = obj[string].get<picojson::object>();
+			for (int32 i = 0; i < int32(ActorState::Count); i++)
+			{
+				if(animationFPS.contains(states[i]))
+					result.animationFPS[i] = static_cast<float>(animationFPS[states[i]].get<double>());
+			}
+		}
+	}
+
+	//collisionOffset
+	{
+		const char* xString = "collisionOffsetX";
+		const char* yString = "collisionOffsetY";
+		if (obj.contains(xString))
+			result.collisionOffset.x = static_cast<float>(obj[xString].get<double>());
+		if (obj.contains(yString))
+			result.collisionOffset.y = static_cast<float>(obj[yString].get<double>());
+	}
+
+	//collisionRectangle
+	{
+		const char* string = "collisionRectangle";
+		if (obj.contains(string))
+		{
+			picojson::object colRect = obj[string].get<picojson::object>();
+			if (colRect.contains("left"))
+				result.collisionRectangle.botLeft.x = static_cast<float>(colRect["left"].get<double>());
+			if (colRect.contains("bot"))
+				result.collisionRectangle.botLeft.y = static_cast<float>(colRect["bot"].get<double>());
+			if (colRect.contains("right"))
+				result.collisionRectangle.topRight.x = static_cast<float>(colRect["right"].get<double>());
+			if (colRect.contains("top"))
+				result.collisionRectangle.topRight.y = static_cast<float>(colRect["top"].get<double>());
+		}
+	}
+
+	//scaledWidth
+	{
+		const char* string = "scaledWidth";
+		if (obj.contains(string))
+		{
+			float f = static_cast<float>(obj[string].get<double>());
+			if (f == 0)
+				result.scaledWidth = inf;
+			else
+				result.scaledWidth = f;
+		}
+	}
+
+	return result;
+}

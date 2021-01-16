@@ -940,6 +940,7 @@ void ConsoleLog(LogLevel level, const char* fmt, ...)
         sConsoleLog(level, buf);
     else
         AddLogToList(buf, sizeof(buf), level);
+    DebugPrint("%s\n", buf);
 }
 
 void ConsoleLog(const char* fmt, ...)

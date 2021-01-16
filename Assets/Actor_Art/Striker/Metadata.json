@@ -1,0 +1,15 @@
+{
+	"name" : "Striker",
+	"animationFPS" : 
+	{
+		"Run" : 20
+	},
+	"collisionRectangle" : 
+	{
+		"left" : 36,
+		"bot" : 67,
+		"right" : 55,
+		"top" : 35
+	},
+	"scaledWidth" : 40
+}

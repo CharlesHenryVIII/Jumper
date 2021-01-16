@@ -33,11 +33,9 @@ CONSOLE_FUNCTION(ExitApp)
 
 int main(int argc, char* argv[])
 {
-    //Window and Program Setups:Key
     std::unordered_map<int32, Key> keyStates;
     VectorInt mouseLocation;
     g_running = true;
-    //g_workingDir = "C:\\Projects\\Jumper\\";
 	g_gameState = GameState::game;
 
     CreateOpenGLWindow();
@@ -63,8 +61,6 @@ int main(int argc, char* argv[])
     InitializeAudio();
     AddAllLevels();
     ConsoleLog("Loaded all Levels");
-    //LoadLevel("Level 1");
-    //LoadLevel("Default");
 
     SwitchToMenu();
 

@@ -275,13 +275,6 @@ void LoadFonts()
 }
 
 
-	//const char* name = nullptr;
-	//float animationFPS[int(ActorState::count)] = {};
-	//Vector collisionOffset = { 0.125f, 0.25f };
-	//Rectangle collisionRectangle = {};
-	//float scaledWidth = 32;
-
-
 AnimationData GetAnimationData(const std::string& name, std::string* states)
 {
 
@@ -291,6 +284,7 @@ AnimationData GetAnimationData(const std::string& name, std::string* states)
 
 	picojson::object obj = v.get<picojson::object>();
 
+	//name
 	{
 		const char* string = "name";
 		if (obj.contains(string))
@@ -307,6 +301,7 @@ AnimationData GetAnimationData(const std::string& name, std::string* states)
 		.name = name.c_str()
 	};
 
+	//animationFPS
 	{
 		const char* string = "animationFPS";
 		if (obj.contains(string))

@@ -600,8 +600,7 @@ void InitializeAudio()
 	std::string name;
 	for (int32 i = 0; i < sizeof(audioFiles) / sizeof(audioFiles[0]); i++)
 	{
-		//name = g_workingDirectory;
-		name = "C:\\Projects\\Jumper\\Assets\\Audio\\" + audioFiles[i].name + ".wav";
+		name = "Assets\\Audio\\" + audioFiles[i].name + ".wav";
 		s_audioFiles[audioFiles[i].name] = LoadWavFile(name.c_str());
 
 		s_audioFiles[audioFiles[i].name].audioType = audioFiles[i].volume;

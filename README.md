@@ -30,7 +30,7 @@
         - [x] stop
         - [x] pause
         - [ ] panning/stereo
-    - [ ] Console audio functionality
+    - [x] Console audio functionality
 - [ ] Action area or events based on region 
 - [ ] TRIGGER VOLUME
 - [x] load operating system files in a folder

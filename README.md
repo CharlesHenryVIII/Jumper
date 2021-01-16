@@ -30,6 +30,7 @@
         - [x] stop
         - [x] pause
         - [ ] panning/stereo
+            - [ ] How to handle 2D/3D audio and panning
     - [x] Console audio functionality
 - [ ] Action area or events based on region 
 - [ ] TRIGGER VOLUME

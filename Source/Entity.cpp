@@ -90,6 +90,11 @@ void Actor::UpdateLocation(float gravity, float deltaTime)
 				lastInputWasLeft = false;
 		}
 	}
+	
+	for (auto& [ key, value ] : actor->particleGenerators)
+	{
+		GetParticleGenerator(value)->UpdateGeneratorLocation(actor->position, actor->velocity);
+	}
 }
 
 gbMat4 Actor::GetWorldMatrix()
@@ -129,10 +134,28 @@ Vector Actor::GetWorldPosition()
 
 void Player::OnInit()
 {
-
 	damage = 100;
 	inUse = true;
 	AttachAnimation(this);
+
+	ParticleParams pp = {
+        .spawnLocation = position,
+        .initialVel = velocity,
+
+        .coneAccelDirection = Normalize(-acceleration),
+        .coneDegreeRange = { 0, 15.0f },
+        .colorRangeLo = { 0.50f, 0.50f, 0.50f, 0.50f },
+        .colorRangeHi = { 0.75f, 0.75f, 0.75f, 0.70f },
+
+        //.particleSize = 2,
+        .lifeTime = 0.75f,
+        .particlesPerSecond = 20.0f,
+        //.fadeInTime = 0;
+        //.fadeOutTime = 0;
+
+        //.terminalVelocity = {};
+    };
+    particleGenerators["Dust"] = CreateParticleGenerator(pp);
 }
 void Player::Update(float deltaTime)
 {

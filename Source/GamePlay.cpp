@@ -180,6 +180,8 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                         player->acceleration.x += airAccelerationAmount;
                 }
             }
+            if (player->grounded)
+				Play(player->particleGenerators["Dust"]);
         }
 
 

@@ -12,7 +12,7 @@
 			- [ ] replace ScaledWidth with a scale value.
 				-[ ] Get art assets that are consistant in size
 	- [ ] Crashing on intel driver on laptop, not loading openGL function pointers
-	- [ ] Working directory, loading files from my folder location
+	- [x] Working directory, loading files from my folder location
 	- [x] Error output with line and file
 - [x] Sound
 	- [x] Cache songs
@@ -43,7 +43,9 @@
 - [x] load operating system files in a folder
 - [x] Debug writing to disk for trouble shooting issues in release mode / other computers
 
--[ ] errors based on tags and levels
+- [ ] Multithreading
+- [ ] PARTICLES :D
+- [ ] errors based on tags and levels
 
 - [ ] GET SOME DAMN GAMEPLAY DOWN
 	- [x] Grappling

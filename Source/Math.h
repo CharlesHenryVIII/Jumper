@@ -110,6 +110,10 @@ struct Rectangle_Int {
     }
 };
 
+inline Vector operator-(const Vector& v)
+{
+    return { -v.x, -v.y };
+}
 
 inline Vector operator-(const Vector& lhs, const Vector& rhs)
 {
@@ -134,11 +138,15 @@ inline VectorInt operator*(const VectorInt& a, const float b)
 {
     return { int(a.x * b),  int(a.y * b) };
 }
+
 inline Vector operator/(const Vector& a, const float b)
 {
     return { a.x / b,  a.y / b };
 }
-
+inline Vector operator/(const float lhs, const Vector& rhs)
+{
+    return { lhs / rhs.x,  lhs / rhs.y };
+}
 
 inline const Vector& operator+=(Vector& lhs, const Vector& rhs)
 {
@@ -201,6 +209,13 @@ inline float DegToRad(float angle)
     return (angle / 360 ) * (tau);
 }
 
+template<typename T>
+T Random(const T& min, const T& max)
+{
+    return min + (max - min) * (rand() / T(RAND_MAX));
+}
+
+Vector CreateRandomVector(const Vector& min, const Vector& max);
 
 inline float VectorDistance(Vector A, Vector B)
 {

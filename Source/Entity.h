@@ -1,7 +1,9 @@
 #pragma once
 #include "Math.h"
 #include "Audio.h"
+#include "ParticleSystem.h"
 
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <cassert>
@@ -185,6 +187,8 @@ public:
     ActorState actorState = ActorState::None;
 
     ActorID parent = 0;
+
+    std::unordered_map<std::string, ParticleGenID> particleGenerators;
 
     Sprite* currentSprite = nullptr;
     const AnimationList* animationList = {};
@@ -496,8 +500,7 @@ public:
         actor->level = this;
     }
 };
-
-enum class CollisionDirection {
+ enum class CollisionDirection {
     right,
     left,
     top,

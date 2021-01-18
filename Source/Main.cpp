@@ -61,6 +61,7 @@ int main(int argc, char* argv[])
 	g_sprites["MainMenuBackground"] = CreateSprite("Assets/Backgrounds/MainMenuBackground.png");
 	g_sprites["Speaker"] = CreateSprite("Assets/Debug/Speaker_Small.png");
 
+    ParticleInit();
     InitializeAudio();
     AddAllLevels();
     ConsoleLog("Loaded all Levels");
@@ -263,6 +264,7 @@ int main(int argc, char* argv[])
 
 		DrawText(g_fonts["Main"], Green, 1.0f, { 0, 0 }, UIX::left, UIY::top, RenderPrio::UI, "%i fps", frameTimes.size(), 0);
 
+        UpdateParticles(deltaTime, -60.0f);
 		RenderDrawCalls(deltaTime);
 		SDL_GL_SwapWindow(windowInfo.SDLWindow);
     }

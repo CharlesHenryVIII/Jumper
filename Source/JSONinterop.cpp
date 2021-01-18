@@ -8,7 +8,7 @@
 #include <cassert>
 #include <iostream>
 
-std::unordered_map<std::string, Level> levels_internal;
+std::unordered_map<std::string, Level> s_levels;
 
 const char* ReadEntireFileAsString(const char* fileName)
 {
@@ -224,20 +224,20 @@ void AddAllLevels()
 	std::string names[] = { "Default", "Level 1" };
 	for (std::string name : names)
 	{
-		CreateLevel(&levels_internal[name], name);
+		CreateLevel(&s_levels[name], name);
 	}
 }
 
 void LoadLevel(Level* level, const std::string& name)
 {
-	if (levels_internal.find(name) != levels_internal.end())
+	if (s_levels.find(name) != s_levels.end())
 	{
 
-		*level = levels_internal[name];
+		*level = s_levels[name];
 		level->movingPlatforms.clear();
 		level->actors.clear();
 		level->playerID = 0;
-		for (Actor* actor : levels_internal[name].actors)
+		for (Actor* actor : s_levels[name].actors)
 		{
 			Actor* actorCopy = actor->Copy();
 			if (actorCopy->GetActorType() == ActorType::MovingPlatform)

@@ -18,6 +18,108 @@ Projectile laser = {};
 //Level* currentLevel = nullptr;
 std::unordered_map<std::string, AnimationList> actorAnimations;
 
+
+/*********************
+ *
+ * Actor 
+ *
+ ********/
+
+void Actor::UpdateLocation(float gravity, float deltaTime)
+{
+	if (angularUpdate)
+	{
+		//Assume no parents other than grapple, velocity will always be world space
+		//TODO: Refactor with new actor parenting methods
+		Player* player = dynamic_cast<Player*>(this);
+		assert(player);
+		Grapple* grapple = player->level->FindActor<Grapple>(player->grapple);
+		assert(grapple);
+
+		Vector acceleration = { player->acceleration.x, player->acceleration.y + gravity };
+		grapple->angularVelocity += LinearToAngularVelocity(grapple->position, player->Center(), acceleration * deltaTime);
+		Vector tension = (Center() - grapple->position);
+		float rads = atan2f(tension.y, tension.x);
+		float angularPosition = rads + (grapple->angularVelocity * tau * deltaTime);
+
+		player->position = { grapple->grappleDistance * cosf(angularPosition) - player->GameWidth() / 2.0f, grapple->grappleDistance * sinf(angularPosition) - player->GameHeight() / 2.0f };
+		player->position += grapple->position;
+		int test = 0;
+
+	}
+	else
+	{
+		if (switchToLinearUpdate)
+		{
+
+			//Assume no parents other than grapple, velocity will always be world space
+			//TODO: Refactor with new actor parenting methods
+			assert(GetActorType() == ActorType::Player);
+			Player* player = dynamic_cast<Player*>(this);
+			Grapple* grapple = player->level->FindActor<Grapple>(player->grapple);
+
+			Vector tensionPrime = Normalize(grapple->position - grapple->shotOrigin);
+			Vector tension = { tensionPrime.y, -tensionPrime.x };
+			player->velocity = tension * (grapple->grappleDistance * grapple->angularVelocity * tau);
+
+			player->switchToLinearUpdate = false;
+		}
+		else
+		{
+
+			velocity.y += gravity * deltaTime;
+			velocity.y = Clamp(velocity.y, -terminalVelocity.y, terminalVelocity.y);
+
+			velocity.x += acceleration.x * deltaTime;
+		}
+
+		//Velocity and position will be local for Audio and Particle actors
+		deltaPosition = velocity * deltaTime;
+		position += deltaPosition;
+
+		ActorType actorType = GetActorType();
+		if (velocity.x == 0 && velocity.y == 0 &&
+			(actorType == ActorType::Player || actorType == ActorType::Enemy))
+			PlayAnimation(this, ActorState::Idle);
+
+		if (actorType != ActorType::Player)
+		{
+			if (velocity.x < 0)
+				lastInputWasLeft = true;
+			else if (velocity.x > 0)
+				lastInputWasLeft = false;
+		}
+	}
+}
+
+gbMat4 Actor::GetWorldMatrix()
+{
+	gbMat4 f_rotation;
+	if (rotation)
+		gb_mat4_rotate(&f_rotation, { 0, 0, 1.0f }, rotation);
+	else
+		gb_mat4_identity(&f_rotation);
+
+	gbMat4 f_translation;
+	gb_mat4_translate(&f_translation, gbVec3({ position.x, position.y, 0 }));
+
+	gbMat4 result;
+	result = f_translation * f_rotation;
+	if (parent)
+	{
+		if (Actor* a = level->FindActorGeneric(parent))
+			result = a->GetWorldMatrix() * result;
+	}
+
+	return result;
+}
+
+Vector Actor::GetWorldPosition()
+{
+	gbVec4 vec = this->GetWorldMatrix().col[3];
+	return { vec.x, vec.y };
+}
+
 /*********************
  *
  * Player
@@ -34,7 +136,7 @@ void Player::OnInit()
 }
 void Player::Update(float deltaTime)
 {
-	UpdateLocation(this, -60.0f, deltaTime);
+	UpdateLocation(-60.0f, deltaTime);
 	CollisionWithBlocks(this, false);
 
 	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
@@ -76,11 +178,17 @@ void Enemy::OnInit()
 	enemyType = EnemyType::head;
 	AttachAnimation(this);
     PlayAnimation(this, ActorState::Walk);
+
+	AudioParams p = {
+		.nameOfSound = "Grass",
+		.loopCount = AUDIO_MAXLOOPS,
+	};
 }
 
 void Enemy::Update(float deltaTime)
 {
-	UpdateLocation(this, -60.0f, deltaTime);
+	UpdateLocation(-60.0f, deltaTime);
+
 	CollisionWithBlocks(this, true);
 	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
 	if (grounded == true)
@@ -90,7 +198,21 @@ void Enemy::Update(float deltaTime)
 		else
 			PlayAnimation(this, ActorState::Idle);
 	}
+
 	UpdateAnimationIndex(this, deltaTime);
+
+	timeToMakeSound += deltaTime;
+	float t = 0.5f;
+	if (timeToMakeSound >= t && g_gameState == GameState::Game)
+	{
+		AudioParams params = {
+	.nameOfSound = "Grass",
+		};
+		AudioPlayer* player = level->CreateActor<AudioPlayer>(params);
+		player->parent = id;
+
+		timeToMakeSound = timeToMakeSound - t;
+	}
 }
 
 void Enemy::Render()
@@ -138,7 +260,7 @@ void Projectile::OnInit(const ProjectileInfo& info)
 
 void Projectile::Update(float deltaTime)
 {
-	UpdateLocation(this, 0, deltaTime);
+	UpdateLocation(0, deltaTime);
 	float rad = DegToRad(rotation);
 	Vector realPosition = { position.x + cosf(rad)*GameWidth(), position.y - sinf(rad) * GameWidth() };
 	if (DotProduct(velocity, destination - realPosition) < 0)
@@ -180,7 +302,7 @@ void Dummy::OnInit(const DummyInfo& info)
 
 void Dummy::Update(float deltaTime)
 {
-	UpdateLocation(this, -60.0f, deltaTime);
+	UpdateLocation(-60.0f, deltaTime);
 	CollisionWithBlocks(this, false);
 	UpdateAnimationIndex(this, deltaTime);
 }
@@ -264,7 +386,7 @@ void MovingPlatform::OnInit()
 }
 void MovingPlatform::Update(float deltaTime)
 {
-	UpdateLocation(this, 0, deltaTime);
+	UpdateLocation(0, deltaTime);
 
 	if (DotProduct(velocity, dest - position) <= 0)
 	{
@@ -333,7 +455,7 @@ void Grapple::OnInit(const GrappleInfo& info)
 
 void Grapple::Update(float deltaTime)
 {
-	UpdateLocation(this, 0, deltaTime);
+	UpdateLocation(0, deltaTime);
 	Player* player = level->FindActor<Player>(attachedActor);
 	assert(player);
 
@@ -413,6 +535,67 @@ void Grapple::Render()
 	Vector rotationPoint = { 0, GameHeight() / 2.0f};
 	AddTextureToRender(sRect, rect, RenderPrio::Sprites, sprite, White, rotation, rotationPoint, SDL_FLIP_NONE, CoordinateSpace::World);
 }
+
+
+/*********************
+ *
+ * AudioPlayer
+ *
+ ********/
+
+//TODO: square, cubed ext functions
+
+float FadeInGameUnits(float min, float max, float distance)
+{
+	float minFadeDistance = 5.0f;
+	float MaxFadeDistance = 55.0f;
+    float offset = distance - min;
+
+	float lerpResult = Lerp(1.0f, 0.0f, offset / (max - min));
+
+    return Clamp(lerpResult, 0.0f, 1.0f);
+}
+
+void AudioPlayer::OnInit(AudioParams info)
+{
+	audioID = PlayAudio(info);
+
+	const Vector cSize = { g_camera.size.x * 1.1f, g_camera.size.y * 1.1f };
+	Vector diff = GetWorldPosition() - g_camera.position;
+	Vector v = {};
+
+	v.x = FadeInGameUnits(5, 55, fabs(diff.x));
+	v.x = v.x * (static_cast<float>(signbit(diff.x)) * (-1.0f));
+	SetAudioPan(audioID, v.x);
+
+	v.y = FadeInGameUnits(5, 20, fabs(diff.y));
+	SetAudioVolume(audioID, v.y);
+}
+
+void AudioPlayer::Update(float deltaTime)
+{
+	const Vector cSize = { g_camera.size.x * 1.1f, g_camera.size.y * 1.1f };
+	Vector worldPosition = GetWorldPosition();
+	Vector diff = g_camera.position - worldPosition;
+	Vector v = {};
+
+	v.x = FadeInGameUnits(5, 55, fabs(diff.x));
+	v.x = v.x * (static_cast<float>(signbit(diff.x)) * (-1.0f));
+	SetAudioPan(audioID, v.x);
+
+	v.y = FadeInGameUnits(5, 20, fabs(diff.y));
+	SetAudioVolume(audioID, v.y);
+
+	Rectangle rect = {
+		.botLeft  = { worldPosition.x - 1, worldPosition.y - 1 },
+		.topRight = { worldPosition.x + 1, worldPosition.y + 1 },
+	};
+	AddRectToRender(rect, Blue, RenderPrio::Debug, CoordinateSpace::World);
+
+	if (CheckAudio(audioID))
+		inUse = false;
+}
+
 
 /*********************
  *
@@ -719,7 +902,7 @@ uint32 CollisionWithRect(Actor* actor, Rectangle rect)
 	Rectangle xRect = CollisionXOffsetToRectangle(actor);
 	Rectangle yRect = CollisionYOffsetToRectangle(actor);
 
-	if (actor->GetActorType() == ActorType::Player && g_debugList[DebugOptions::playerCollision])
+	if (actor->GetActorType() == ActorType::Player && g_debugList[DebugOptions::PlayerCollision])
 	{
 		AddRectToRender(xRect, transGreen, RenderPrio::Debug, CoordinateSpace::World);
 		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);
@@ -826,8 +1009,36 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 		}
 	}
 
+#if 0
 
 	//Checking Moving Platforms
+	MovingPlatform* collidedPlatform = nullptr;
+	uint32 collisionFlags = 0;
+	for (ActorID ID : actor->level->movingPlatforms)
+	{
+		if (MovingPlatform* MP = actor->level->FindActor<MovingPlatform>(ID))
+		{
+
+			Rectangle MPRect = { MP->position, { MP->position.x + MP->GameWidth(), MP->position.y + MP->GameHeight() } };
+			collisionFlags = CollisionWithBlocksSubFunction(grounded, MPRect, actor, isEnemy);
+			if (collisionFlags)
+			{
+
+                collidedPlatform = MP;
+				if (Player* player = dynamic_cast<Player*>(actor))
+				{
+					if (Grapple* grapple = player->level->FindActor<Grapple>(player->grapple))
+					{
+						grapple->angularVelocity = 0;
+                        collidedPlatform = nullptr;
+					}
+				}
+			}
+		}
+	}
+
+    #else
+    //Checking Moving Platforms
 	ActorID collisionID = 0;
 	MovingPlatform* collidedPlatform = nullptr;
 	uint32 collisionFlags = 0;
@@ -860,28 +1071,24 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			}
 		}
 	}
+    #endif
 
 	//new parent is different from old parent
 	//need to remove child on old parent and put onto new parent
 	if (collidedPlatform)
 	{
-
 		collidedPlatform->childList.push_back(actor->id);
-		actor->parent = collisionID;
+		actor->parent = collidedPlatform->id;
 	}
-	else
+	else if (MovingPlatform* MP = actor->level->FindActor<MovingPlatform>(actor->parent))
 	{
 
-		if (MovingPlatform* MP = actor->level->FindActor<MovingPlatform>(actor->parent))
-		{
-			if (collisionFlags & CollisionLeft || collisionFlags & CollisionRight)
-				actor->velocity.x += MP->velocity.x;
-			else
-				actor->velocity += MP->velocity;
-			actor->parent = 0;
-		}
+		if (collisionFlags & CollisionLeft || collisionFlags & CollisionRight)
+			actor->velocity.x += MP->velocity.x;
+		else
+			actor->velocity += MP->velocity;
+		actor->parent = 0;
 	}
-
 
 	//Grounded Logic
 	if (actor->grounded != grounded)
@@ -901,7 +1108,7 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 	Rectangle xRect = CollisionXOffsetToRectangle(&enemy);
 	Rectangle yRect = CollisionYOffsetToRectangle(&enemy);
 
-	if (g_debugList[DebugOptions::playerCollision])
+	if (g_debugList[DebugOptions::PlayerCollision])
 	{
 		AddRectToRender(xRect, transGreen, RenderPrio::Debug, CoordinateSpace::World);
 		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);
@@ -1077,71 +1284,6 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 	}
 }
 
-void UpdateLocation(Actor* actor, float gravity, float deltaTime)
-{
-	if (actor->angularUpdate)
-	{
-
-		Player* player = dynamic_cast<Player*>(actor);
-		assert(player);
-		Grapple* grapple = player->level->FindActor<Grapple>(player->grapple);
-		assert(grapple);
-
-		Vector acceleration = { player->acceleration.x, player->acceleration.y + gravity };
-		grapple->angularVelocity += LinearToAngularVelocity(grapple->position, player->Center(), acceleration * deltaTime);
-		Vector tension = (actor->Center() - grapple->position);
-		float rads = atan2f(tension.y, tension.x);
-		float angularPosition = rads + (grapple->angularVelocity * tau * deltaTime);
-
-		player->position = { grapple->grappleDistance * cosf(angularPosition) - player->GameWidth() / 2.0f, grapple->grappleDistance * sinf(angularPosition) - player->GameHeight() / 2.0f };
-		player->position += grapple->position;
-		int test = 0;
-
-	}
-	else
-	{
-		if (actor->switchToLinearUpdate)
-		{
-
-			assert(actor->GetActorType() == ActorType::Player);
-			Player* player = dynamic_cast<Player*>(actor);
-			Grapple* grapple = player->level->FindActor<Grapple>(player->grapple);
-
-			Vector tensionPrime = Normalize(grapple->position - grapple->shotOrigin);
-			Vector tension = { tensionPrime.y, -tensionPrime.x };
-			player->velocity = tension * (grapple->grappleDistance * grapple->angularVelocity * tau);
-
-			player->switchToLinearUpdate = false;
-		}
-		else
-		{
-
-			actor->velocity.y += gravity * deltaTime;
-			actor->velocity.y = Clamp(actor->velocity.y, -actor->terminalVelocity.y, actor->terminalVelocity.y);
-
-			actor->velocity.x += actor->acceleration.x * deltaTime;
-			//actor->velocity.x = Clamp(actor->velocity.x, -actor->terminalVelocity.x, actor->terminalVelocity.x);
-		}
-
-		actor->deltaPosition = actor->velocity * deltaTime;
-		actor->position += actor->deltaPosition;
-
-		ActorType actorType = actor->GetActorType();
-		if (actor->velocity.x == 0 && actor->velocity.y == 0 &&
-			(actorType == ActorType::Player || actorType == ActorType::Enemy))
-			PlayAnimation(actor, ActorState::Idle);
-		//DebugPrint("VelocityScale: %0.3f\n", velocityScale);
-
-		if (actorType != ActorType::Player)
-		{
-			if (actor->velocity.x < 0)
-				actor->lastInputWasLeft = true;
-			else if (actor->velocity.x > 0)
-				actor->lastInputWasLeft = false;
-		}
-
-	}
-}
 
 
 void UpdateEnemiesPosition(std::vector<Actor*>* actors, float gravity, float deltaTime)
@@ -1151,7 +1293,7 @@ void UpdateEnemiesPosition(std::vector<Actor*>* actors, float gravity, float del
 		Actor* actor = (*actors)[i];
 		if (actor->GetActorType() == ActorType::Enemy)
 		{
-			UpdateLocation(actor, gravity, deltaTime);
+			actor->UpdateLocation(gravity, deltaTime);
 			CollisionWithBlocks(actor, true);
 		}
 	}

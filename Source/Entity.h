@@ -1,5 +1,7 @@
 #pragma once
 #include "Math.h"
+#include "Audio.h"
+
 #include <unordered_map>
 #include <vector>
 #include <cassert>
@@ -28,6 +30,7 @@ enum class ActorType
     Spring,
     MovingPlatform,
     Grapple,
+    AudioPlayer,
     Item,
     Count
 };
@@ -117,7 +120,6 @@ inline Vector PixelToGame(VectorInt loc)
     return { PixelToGame(loc.x), PixelToGame(loc.y) };
 }
 
-struct Player;
 enum class TileType {
     invalid,
     filled,
@@ -129,6 +131,7 @@ struct DummyInfo {
 	ActorType mimicType = ActorType::None;
 };
 
+struct Player;
 struct ProjectileInfo {
 
     Player* player = nullptr;
@@ -153,6 +156,7 @@ struct Actor
 {
 private:
     static ActorID lastID;
+    bool locationUpdated = false;
 
 public:
 
@@ -163,20 +167,21 @@ public:
     ActorID id;
     Vector position = {};
     Vector velocity = {};
-    Vector terminalVelocity = { 10 , 300 };
     Vector acceleration = {};
+    Vector terminalVelocity = { 10 , 300 };
     Vector deltaPosition = {};
-    int32 jumpCount = 2;
+    float rotation = 0;
     Color colorMod = White;
     float health = 100;
     float damage = 0;
+    float invinciblityTime = 0;
+    int32 jumpCount = 2;
     bool lastInputWasLeft = false;
     bool inUse = true;
     bool grounded = true;
     bool allowRenderFlip = true;
     bool angularUpdate = false;
     bool switchToLinearUpdate = false;
-    float invinciblityTime = 0;
     ActorState actorState = ActorState::None;
 
     ActorID parent = 0;
@@ -214,6 +219,17 @@ public:
     {
         return { position.x + GameWidth() / 2.0f, position.y + GameHeight() / 2.0f };
     }
+    gbMat4 GetWorldMatrix();
+    Vector GetWorldPosition();
+	//Vector GetWorldVelocity()
+	//{
+	//    Vector result = velocity;
+
+	//    if (parent)
+	//        result = level->FindActor<Actor>(parent)->GetWorldVelocity() * result;
+	//    return result;
+	//}
+    void UpdateLocation(float gravity, float deltaTime);
 };
 
 
@@ -229,12 +245,13 @@ public:
     }
 
 
-
 struct Enemy : public Actor
 {
     ACTOR_TYPE(Enemy);
 
     EnemyType enemyType;
+    float timeToMakeSound = 0;
+
     void OnInit();
     void Update(float deltaTime) override;
     void Render() override;
@@ -257,7 +274,6 @@ struct Player : public Actor
 };
 
 
-
 struct Projectile : public Actor
 {
     ACTOR_TYPE(Projectile);
@@ -267,7 +283,6 @@ struct Projectile : public Actor
     float rotation = 0;
 
     void OnInit(const ProjectileInfo& info);
-
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
@@ -335,7 +350,6 @@ struct Grapple : public Actor
     //Allow the player to get closer but not fartherfrom the attached location,
     //then slowely real the actor into the location,
     //stop and delete if the player releases the mouse 1 button.
-    float rotation = 0;
     ActorID attachedActor = 0;
     GrappleState grappleState = GrappleState::None;
 	float grappleSpeed = 40.0f;
@@ -345,6 +359,17 @@ struct Grapple : public Actor
     void OnInit(const GrappleInfo& info);
     void Update(float deltaTime) override;
     void Render() override;
+    void UpdateHealth(Level& level, float deltaHealth) override {};
+};
+
+struct AudioPlayer : public Actor
+{
+    ACTOR_TYPE(AudioPlayer);
+
+    AudioID audioID = 0;
+    void OnInit(const AudioParams info);
+    void Update(float deltaTime) override;
+    void Render() override {};
     void UpdateHealth(Level& level, float deltaHealth) override {};
 };
 
@@ -494,7 +519,7 @@ void PlayAnimation(Actor* actor, ActorState state);
 void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth);
 Portal* GetPortalsPointer(Portal* basePortal);
 void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
-void UpdateLocation(Actor* actor, float gravity, float deltaTime);
+//void UpdateLocation(Actor* actor, float gravity, float deltaTime);
 void UpdateEnemiesPosition(std::vector<Actor*>* actors, float gravity, float deltaTime);
 void RenderActors(std::vector<Actor*>* actors);
 void RenderActorHealthBars(Actor& actor);

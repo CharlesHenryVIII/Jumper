@@ -1,6 +1,6 @@
 #include "Audio.h"
-#include "Console.h"
 #include "WinUtilities.h"
+#include "Misc.h"
 
 #include "SDL.h"
 
@@ -34,7 +34,7 @@ enum class AudioState {
 };
 
 float g_volumes[(size_t)Volume::Count];
-AudioID noID = 0;
+const AudioID noID = 0;
 
 AudioID s_audioID = 0;
 
@@ -45,7 +45,8 @@ struct AudioInstance {
 	uint32 endSamples = 0;
 	uint32 fadeOutSamples = 0;
 	uint32 fadeInSamples = 0;
-	float volumes[AUDIO_MAX_CHANNELS];
+	float volume = 0;
+	float pan = 1.0f;
     float fade = 1;
 	Volume audioType = Volume::None;
     bool playing = true;
@@ -133,118 +134,156 @@ void UnlockMutex(SDL_mutex* mutex)
 	}
 }
 
-void PlayAudio(const AudioParams& audio, AudioID& ID)
+////**************
+////
+//// AudioGen
+////
+//// *******
+//
+//void AudioGen::Play() {
+//    for (AudioID& id : IDs)
+//    {
+//
+//		if (CheckAudio(id))
+//        {
+//            id = PlayAudio(audioParams);
+//            return;
+//        }
+//    }
+//	
+//	AudioID newID = noID;
+//    PlayAudio(audioParams, newID);
+//	IDs.push_back(newID);
+//}
+//
+//void AudioGen::Pause() {
+//    for (AudioID id : IDs)
+//    {
+//        PauseAudio(id);
+//    }
+//}
+//
+//void AudioGen::UnPause() {
+//    for (AudioID id : IDs)
+//    {
+//        PlayAudio(id);
+//    }
+//}
+//
+//void AudioGen::Stop() {
+//    for (AudioID id : IDs)
+//    {
+//        StopAudio(id);
+//    }
+//}
+//
+//**************
+//
+//  Generic
+//
+// *******
+
+AudioID PlayAudio(const AudioParams& audio)
 {
+	if (s_audioFiles.find(audio.nameOfSound) == s_audioFiles.end())
+	{
+		ConsoleLog("Audio file '%s' doesn't exist", audio.nameOfSound.c_str());
+		return 0;
+	}
 
-    if (AudioInstance* i = GetAudioInstance(ID))
-    {
-        if(i->playing)
-            i->playedSamples = 0;
-        i->playing = true;
-    }
-    else
-    {
-		if (s_audioFiles.find(audio.nameOfSound) == s_audioFiles.end())
+	AudioInstance instance;
+	instance.name = audio.nameOfSound;
+	instance.audioType = s_audioFiles[audio.nameOfSound].audioType;
+	instance.volume = 1.0f;
+
+	uint32 filePlaySamples = (BytesToSamples(s_audioFiles[audio.nameOfSound].length));
+	uint32 loopDuration = audio.loopCount * filePlaySamples;
+	if (audio.loopCount == AUDIO_MAXLOOPS)
+		loopDuration = AUDIO_MAXLOOPS;
+	uint32 endSamples = SecondsToSamples(audio.secondsToPlay);
+
+	//Ending Time
+	if (audio.secondsToPlay && loopDuration) //AUDIO_DURATION && AUDIO_REPEAT
+	{
+		instance.endSamples = Min<uint32>(endSamples, loopDuration);
+	}
+	else if (audio.secondsToPlay) //AUDIO_DURATION
+	{
+		instance.endSamples = endSamples;
+	}
+	else if (loopDuration) //AUDIO_REPEAT
+	{
+		instance.endSamples = loopDuration;
+	}
+	else //NEITHER
+	{
+		instance.endSamples = filePlaySamples;
+	}
+
+	ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", instance.name.c_str());
+
+	//Fading
+	instance.fade = 1.0f;
+	assert(audio.fadeInDuration >= 0);
+	assert(audio.fadeOutDuration >= 0);
+	uint32 fadeInDuration = SecondsToSamples(audio.fadeInDuration);
+	uint32 fadeOutDuration = SecondsToSamples(audio.fadeOutDuration);
+	if (audio.fadeInDuration && audio.fadeOutDuration)
+	{
+
+		if (fadeInDuration + fadeOutDuration > instance.endSamples)
 		{
-			ConsoleLog("Audio file '%s' doesn't exist", audio.nameOfSound.c_str());
-			return;
+			float fadeTotal = (float)fadeInDuration + fadeOutDuration;
+			float diff = fadeTotal - (float)instance.endSamples;
+			float frac = diff / fadeTotal;
+
+			instance.fadeInSamples = (uint32)(fadeInDuration - (fadeInDuration * frac) + 0.5f);
+			instance.fadeOutSamples = (uint32)(fadeOutDuration - (fadeOutDuration * frac) + 0.5f);
+
+			AUDIO_WARNING("Invalid fade values for: %s", instance.name.c_str());
 		}
-        AudioInstance instance;
-        instance.name = audio.nameOfSound;
-        instance.audioType = s_audioFiles[audio.nameOfSound].audioType;
-		ID = instance.ID;
-        for (int32 i = 0; i < s_driverSpec.channels; i++)
-            instance.volumes[i] = 1.0f;
+		else
+		{
+			instance.fadeInSamples = fadeInDuration;
+			instance.fadeOutSamples = fadeOutDuration;
+		}
+	}
+	else if (audio.fadeInDuration)
+	{
 
-        uint32 filePlaySamples = (BytesToSamples(s_audioFiles[audio.nameOfSound].length));
-        uint32 loopDuration = audio.loopCount * filePlaySamples;
-        if (audio.loopCount == AUDIO_MAXLOOPS)
-            loopDuration = AUDIO_MAXLOOPS;
-        uint32 endSamples = SecondsToSamples(audio.secondsToPlay);
+		if (fadeInDuration > instance.endSamples)
+			instance.fadeInSamples = fadeInDuration;
+		else
+			instance.fadeInSamples = fadeInDuration;
+	}
+	else if (audio.fadeOutDuration)
+	{
 
-        //Ending Time
-        if (audio.secondsToPlay && loopDuration) //AUDIO_DURATION && AUDIO_REPEAT
-        {
-            instance.endSamples = Min<uint32>(endSamples, loopDuration);
-        }
-        else if (audio.secondsToPlay) //AUDIO_DURATION
-        {
-            instance.endSamples = endSamples;
-        }
-        else if (loopDuration) //AUDIO_REPEAT
-        {
-            instance.endSamples = loopDuration;
-        }
-        else //NEITHER
-        {
-            instance.endSamples = filePlaySamples;
-        }
+		instance.fade = 1.0f;
+		if (fadeOutDuration > instance.endSamples)
+			instance.fadeOutSamples = fadeOutDuration;
+		else
+			instance.fadeOutSamples = fadeOutDuration;
+	}
+	else
+	{
+		instance.fadeInSamples = instance.fadeOutSamples = 0;
+	}
 
-		ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", instance.name.c_str());
-
-        //Fading
-        instance.fade = 1.0f;
-        assert(audio.fadeInDuration >= 0);
-        assert(audio.fadeOutDuration >= 0);
-        uint32 fadeInDuration = SecondsToSamples(audio.fadeInDuration);
-        uint32 fadeOutDuration = SecondsToSamples(audio.fadeOutDuration);
-        if (audio.fadeInDuration && audio.fadeOutDuration)
-        {
-
-            if (fadeInDuration + fadeOutDuration > instance.endSamples)
-            {
-                float fadeTotal = (float)fadeInDuration + fadeOutDuration;
-                float diff = fadeTotal - (float)instance.endSamples;
-                float frac = diff / fadeTotal;
-
-                instance.fadeInSamples  = (uint32)(fadeInDuration  - (fadeInDuration  * frac) + 0.5f);
-                instance.fadeOutSamples = (uint32)(fadeOutDuration - (fadeOutDuration * frac) + 0.5f);
-
-                AUDIO_WARNING("Invalid fade values for: %s", instance.name.c_str());
-            }
-            else
-            {
-                instance.fadeInSamples = fadeInDuration;
-                instance.fadeOutSamples = fadeOutDuration;
-            }
-        }
-        else if (audio.fadeInDuration)
-        {
-
-            if (fadeInDuration > instance.endSamples)
-                instance.fadeInSamples = fadeInDuration;
-            else
-                instance.fadeInSamples = fadeInDuration;
-        }
-        else if (audio.fadeOutDuration)
-        {
-
-            instance.fade = 1.0f;
-            if (fadeOutDuration > instance.endSamples)
-                instance.fadeOutSamples = fadeOutDuration;
-            else
-                instance.fadeOutSamples = fadeOutDuration;
-        }
-        else
-        {
-            instance.fadeInSamples = instance.fadeOutSamples = 0;
-        }
-
-        std::lock_guard<std::mutex> guard(s_playingAudioMutex);
-        s_audioPlaying.push_back(instance);
-
-    }
+	std::lock_guard<std::mutex> guard(s_playingAudioMutex);
+	s_audioPlaying.push_back(instance);
+	return instance.ID;
 }
 
-void PlayAudio(const std::string& nameOfSound, AudioID& ID)
+AudioID PlayAudio(const std::string& nameOfSound)
 {
 
 	AudioParams audio;
 	audio.nameOfSound = nameOfSound;
-	PlayAudio(audio, ID);
+	return PlayAudio(audio);
 }
 
-void PlayAudio(AudioID& ID)
+void UnPauseAudio(AudioID ID)
 {
     AudioInstance* instance = GetAudioInstance(ID);
     if (instance)
@@ -258,7 +297,7 @@ CONSOLE_FUNCTIONA(c_PlayAudio)
     {
     case 0:
     {
-        PlayAudio(s_consoleAudio);
+        UnPauseAudio(s_consoleAudio);
         break;
     }
     case 1:
@@ -270,12 +309,13 @@ CONSOLE_FUNCTIONA(c_PlayAudio)
         {
             c = c - ('a' - 'A');
         }
-	    PlayAudio(name, s_consoleAudio);
+		StopAudio(s_consoleAudio);
+	    s_consoleAudio = PlayAudio(name);
         break;
     }
     case 5:
     {
-        
+
         std::string name = args[0];
         char& c = name[0];
         if (c >= 'a' && c <= 'z')
@@ -289,7 +329,8 @@ CONSOLE_FUNCTIONA(c_PlayAudio)
 			.loopCount = stoi(args[3]),
 			.secondsToPlay = static_cast<float>(stoi(args[4])),
 		};
-        PlayAudio(params, s_consoleAudio);
+		StopAudio(s_consoleAudio);
+        s_consoleAudio = PlayAudio(params);
         break;
 	}
     default:
@@ -300,8 +341,7 @@ CONSOLE_FUNCTIONA(c_PlayAudio)
     }
 }
 
-
-void PauseAudio(const AudioID& ID)
+void PauseAudio(AudioID ID)
 {
     AudioInstance* instance = GetAudioInstance(ID);
     if (instance)
@@ -332,7 +372,6 @@ void StopAudio(AudioID& ID)
 	}
 	else
 	{
-		ID = 0;
 		ConsoleLog("AudioID %i not found when running StopAudio()", ID);
 	}
 }
@@ -398,10 +437,53 @@ FileData LoadWavFile(const char* fileLocation)
 void UpdateStreamBuffer(float* streamBuffer, const Sample* readBuffer, const AudioInstance& instance)
 {
 	assert(instance.fade >= 0.0f && instance.fade <= 1.0f);
-    for (int32 i = 0; i < s_driverSpec.channels; i++)
-    {
-        streamBuffer[i] += (((float)readBuffer[i]) * g_volumes[(size_t)instance.audioType] * instance.fade * instance.volumes[i]);
-    }
+
+#if AUDIO_MAX_CHANNELS == 2
+
+	float lvls[AUDIO_MAX_CHANNELS] = {};
+	for (int32 i = 0; i < s_driverSpec.channels; i++)
+		lvls[i] = 1.0f;
+
+	if (!(instance.pan == 1.0f || instance.pan == 1.0f))
+	{
+		if (instance.pan > 0.0f)			//right side 
+		{
+
+			lvls[0] = instance.pan;			//left
+			lvls[1] = instance.pan / 2.0f;	//right
+		}
+		else if (instance.pan < 0.0f)		//left side
+		{
+
+			float val = fabs(instance.pan);
+			lvls[0] = val / 2.0f;
+			lvls[1] = val;
+		}
+		else
+		{
+
+			for (int32 i = 0; i < s_driverSpec.channels; i++)
+				lvls[i] = 0.0f;
+		}
+
+	}
+
+	for (int32 i = 0; i < s_driverSpec.channels; i++)
+	{
+		streamBuffer[i] += (((float)readBuffer[i]) * 
+							g_volumes[(size_t)instance.audioType] * instance.fade * instance.volume * lvls[i]);
+	}
+
+
+#elif AUDIO_MAX_CHANNELS == 1
+
+	float v = fabs(instance.pan);
+	streamBuffer[0] += (((float)readBuffer[0]) * g_volumes[(size_t)instance.audioType] * instance.fade * instance.volumes[0] * v);
+
+#else
+
+	FAIL;
+#endif
 }
 
 
@@ -550,10 +632,43 @@ void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
 
 }
 
+bool CheckAudio(AudioID ID)
+{
+	if (GetAudioInstance(ID) == nullptr)
+		return false;
+	return true;
+}
+
+void SetAudioPan(AudioID id, float v)
+{
+	v = Clamp(v, -1.0f, 1.0f);
+	AudioInstance* ai = GetAudioInstance(id);
+	ai->pan = v;
+}
+
+float GetAudioVolume(const AudioID& ID)
+{
+	return GetAudioInstance(ID)->volume;
+}
+
+void SetAudioVolume(const AudioID& ID, float volume)
+{
+
+	GetAudioInstance(ID)->volume = volume;
+}
+
 struct AudioFileMetaData {
 	std::string name;
 	Volume volume = Volume::None;
 };
+
+//AudioGen CreateAudioGenerator(const AudioParams audioParams)
+//{
+//	AudioGen ag = {
+//		.audioParams = audioParams,
+//	};
+//	return ag;
+//}
 
 void InitializeAudio()
 {
@@ -609,4 +724,5 @@ void InitializeAudio()
 		g_volumes[i] = 1.0f;
 	g_volumes[(size_t)Volume::Master] = 0.5f;
 }
+
 

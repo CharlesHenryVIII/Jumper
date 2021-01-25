@@ -834,7 +834,7 @@ void RenderBlocks(TileMap* blocks)
 			{
 				SpriteMapRender(g_sprites["spriteMap"], *block);
 
-				if (g_debugList[DebugOptions::blockCollision] && block->tileType != TileType::invalid)
+				if (g_debugList[DebugOptions::BlockCollision] && block->tileType != TileType::invalid)
                     AddRectToRender({ block->location, { block->location.x + 1 , block->location.y + 1 } }, lightRed, RenderPrio::Debug, CoordinateSpace::World);
 			}
 		}

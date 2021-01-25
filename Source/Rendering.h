@@ -17,7 +17,6 @@ struct WindowInfo
 };
 
 WindowInfo& GetWindowInfo();
-void CreateSDLWindow();
 void CreateOpenGLWindow();
 
 

@@ -35,7 +35,7 @@ void SwitchToGame()
     s_gamestate = {};
     s_levelChangePortal = nullptr;
     s_gamestate.GetLevel("Default");
-    g_gameState = GameState::game;
+    g_gameState = GameState::Game;
     s_paused = false;
 }
 
@@ -217,15 +217,15 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     }
 
 	if (keyStates[SDLK_1].downThisFrame)
-		g_debugList[DebugOptions::playerCollision] = !g_debugList[DebugOptions::playerCollision];
+		g_debugList[DebugOptions::PlayerCollision] = !g_debugList[DebugOptions::PlayerCollision];
 	if (keyStates[SDLK_2].downThisFrame)
-		g_debugList[DebugOptions::blockCollision] = !g_debugList[DebugOptions::blockCollision];
+		g_debugList[DebugOptions::BlockCollision] = !g_debugList[DebugOptions::BlockCollision];
 	if (keyStates[SDLK_3].downThisFrame)
-		g_debugList[DebugOptions::clickLocation] = !g_debugList[DebugOptions::clickLocation];
+		g_debugList[DebugOptions::ClickLocation] = !g_debugList[DebugOptions::ClickLocation];
 	if (keyStates[SDLK_4].downThisFrame)
-		g_debugList[DebugOptions::paintMethod] = !g_debugList[DebugOptions::paintMethod];
+		g_debugList[DebugOptions::PaintMethod] = !g_debugList[DebugOptions::PaintMethod];
 	if (keyStates[SDLK_5].downThisFrame)
-		g_debugList[DebugOptions::editBlocks] = !g_debugList[DebugOptions::editBlocks];
+		g_debugList[DebugOptions::EditBlocks] = !g_debugList[DebugOptions::EditBlocks];
 
     if (s_levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
     {
@@ -253,7 +253,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
      ********/
 
     laser.inUse = false;
-    if (g_debugList[DebugOptions::editBlocks] && (keyStates[SDL_BUTTON_LEFT].down || keyStates[SDL_BUTTON_RIGHT].down) && player != nullptr)
+    if (g_debugList[DebugOptions::EditBlocks] && (keyStates[SDL_BUTTON_LEFT].down || keyStates[SDL_BUTTON_RIGHT].down) && player != nullptr)
     {
         Rectangle clickRect = {};
         clickRect.botLeft = { mouseLocBlocks.x - 0.5f, mouseLocBlocks.y - 0.5f };
@@ -269,7 +269,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         else if (keyStates[SDL_BUTTON_RIGHT].down)
             paintType = TileType::invalid;
 
-        if (g_debugList[DebugOptions::paintMethod])
+        if (g_debugList[DebugOptions::PaintMethod])
         {
             UpdateLaser(player, mouseLocBlocks, paintType, deltaTime);
             blockPointer->tileType = paintType;
@@ -320,7 +320,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             case ActorType::Spring:
             {
 
-                //collision(CollisionType::TriggerVolume, player, actor);
                 uint32 result = CollisionWithActor(*player, *actor, *player->level);
                 if (result > 0)
                 {

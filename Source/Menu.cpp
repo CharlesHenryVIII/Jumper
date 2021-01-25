@@ -18,14 +18,14 @@ void QuitApp()
 
 void SwitchToMenu()
 {
-	g_gameState = GameState::mainMenu;
+	g_gameState = GameState::MainMenu;
 
 	AudioParams audio = {
 	.nameOfSound = "Halo",
 	.fadeInDuration = 3.0f,
 	.fadeOutDuration = 3.0f,
 	};
-	PlayAudio(audio, s_menuMusic);
+	s_menuMusic = PlayAudio(audio);
 
     ConsoleLog("Switched To Menu");
 }

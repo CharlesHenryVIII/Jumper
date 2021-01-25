@@ -6,15 +6,16 @@ typedef std::chrono::high_resolution_clock Clock;
 typedef std::chrono::time_point<Clock, std::chrono::nanoseconds> TimePoint;
 //typedef std::chrono::duration<long long, std::nano> duration;
 typedef std::chrono::seconds Seconds;
+#define FAIL assert(false)
 
 enum class DebugOptions
 {
 	none,
-	playerCollision,
-	blockCollision,
-	clickLocation,
-	paintMethod,
-	editBlocks
+	PlayerCollision,
+	BlockCollision,
+	ClickLocation,
+	PaintMethod,
+	EditBlocks
 };
 
 struct Key
@@ -28,8 +29,8 @@ struct Key
 enum class GameState
 {
     none,
-    mainMenu,
-    game,
+    MainMenu,
+    Game,
 };
 extern GameState g_gameState;
 extern bool g_running;

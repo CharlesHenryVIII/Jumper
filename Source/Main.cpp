@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
     std::unordered_map<int32, Key> keyStates;
     VectorInt mouseLocation;
     g_running = true;
-	g_gameState = GameState::game;
+	g_gameState = GameState::Game;
 
     CreateOpenGLWindow();
     InitializeOpenGL();
@@ -233,12 +233,12 @@ int main(int argc, char* argv[])
 
 		switch (g_gameState)
 		{
-			case GameState::mainMenu:
+			case GameState::MainMenu:
 			{
 				DoPlayMenu(deltaTime, keyStates, mouseLocation);
 				break;
 			}
-			case GameState::game:
+			case GameState::Game:
 			{
 				DoPlayGame(deltaTime, keyStates, mouseLocation);
 				break;

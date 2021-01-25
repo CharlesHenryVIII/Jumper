@@ -221,6 +221,11 @@ inline Vector NormalizeZero(Vector v)
 	return{ (v.x / hyp), (v.y / hyp) };
 }
 
+inline float Lerp(float a, float b, float t)
+{
+    return a + (b - a) * t;
+}
+
 
 /*
 Atan2f return value:

@@ -41,12 +41,6 @@ struct ExitScopeHelp
 #define ARRAY_COUNT(arr__) ((sizeof(arr__) / sizeof(arr__[0])))
 #define REF(a) ((void)a)
 
-
-inline float Lerp(float a, float b, float t)
-{
-    return a + (b - a) * t;
-}
-
 enum class TweenStyle
 {
     Linear,

@@ -367,6 +367,7 @@ struct AudioPlayer : public Actor
     ACTOR_TYPE(AudioPlayer);
 
     AudioID audioID = 0;
+    AudioParams audioParams;
     void OnInit(const AudioParams info);
     void Update(float deltaTime) override;
     void Render() override {};

@@ -208,8 +208,8 @@ void Enemy::Update(float deltaTime)
 		AudioParams params = {
 	.nameOfSound = "Grass",
 		};
-		AudioPlayer* player = level->CreateActor<AudioPlayer>(params);
-		player->parent = id;
+		AudioPlayer* ap = level->CreateActor<AudioPlayer>(params);
+		ap ->parent = id;
 
 		timeToMakeSound = timeToMakeSound - t;
 	}
@@ -547,52 +547,46 @@ void Grapple::Render()
 
 float FadeInGameUnits(float min, float max, float distance)
 {
-	float minFadeDistance = 5.0f;
-	float MaxFadeDistance = 55.0f;
+	//TODO: Change to constant?
+	float minFadeDistance = (g_camera.size.x / 20.0f);
+	float maxFadeDistance = (g_camera.size.x / 2.0f) * 1.1f;
     float offset = distance - min;
 
 	float lerpResult = Lerp(1.0f, 0.0f, offset / (max - min));
-
     return Clamp(lerpResult, 0.0f, 1.0f);
 }
 
 void AudioPlayer::OnInit(AudioParams info)
 {
-	audioID = PlayAudio(info);
-
-	const Vector cSize = { g_camera.size.x * 1.1f, g_camera.size.y * 1.1f };
-	Vector diff = GetWorldPosition() - g_camera.position;
-	Vector v = {};
-
-	v.x = FadeInGameUnits(5, 55, fabs(diff.x));
-	v.x = v.x * (static_cast<float>(signbit(diff.x)) * (-1.0f));
-	SetAudioPan(audioID, v.x);
-
-	v.y = FadeInGameUnits(5, 20, fabs(diff.y));
-	SetAudioVolume(audioID, v.y);
+	audioParams = info;
 }
 
 void AudioPlayer::Update(float deltaTime)
 {
-	const Vector cSize = { g_camera.size.x * 1.1f, g_camera.size.y * 1.1f };
+	if (!audioID)
+	{
+		audioID = PlayAudio(audioParams);
+	}
+
 	Vector worldPosition = GetWorldPosition();
 	Vector diff = g_camera.position - worldPosition;
 	Vector v = {};
 
-	v.x = FadeInGameUnits(5, 55, fabs(diff.x));
-	v.x = v.x * (static_cast<float>(signbit(diff.x)) * (-1.0f));
+	v.x = FadeInGameUnits((g_camera.size.x / 20.0f), (g_camera.size.x * 1.2f / 2.0f), fabs(diff.x));
+	if (diff.x < 0.0f)
+		v.x *= -1.0f;
 	SetAudioPan(audioID, v.x);
 
 	v.y = FadeInGameUnits(5, 20, fabs(diff.y));
 	SetAudioVolume(audioID, v.y);
 
 	Rectangle rect = {
-		.botLeft  = { worldPosition.x - 1, worldPosition.y - 1 },
-		.topRight = { worldPosition.x + 1, worldPosition.y + 1 },
+		.botLeft  = { worldPosition.x - 0.5f, worldPosition.y - 0.5f },
+		.topRight = { worldPosition.x + 0.5f, worldPosition.y + 0.5f },
 	};
 	AddRectToRender(rect, Blue, RenderPrio::Debug, CoordinateSpace::World);
 
-	if (CheckAudio(audioID))
+	if (!AudioIDValid(audioID))
 		inUse = false;
 }
 

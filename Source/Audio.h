@@ -18,16 +18,6 @@ struct AudioParams {
 	float secondsToPlay = 0;
 };
 
-//struct AudioGen {
-//	std::vector<AudioID> IDs;
-//	AudioParams audioParams = {};
-//	float accumulatedTime = 0;
-//	void Play();
-//	void Pause();
-//	void UnPause();
-//	void Stop();
-//};
-
 enum class Volume {
 	None,
 	Master,
@@ -37,16 +27,6 @@ enum class Volume {
 };
 
 extern float g_volumes[(size_t)Volume::Count];
-//extern const AudioID noID;
-
-
-//AudioGen CreateAudioGenerator(const AudioParams audioParams);
-
-//PlayAudio(&menuSound);
-
-//AudioID CreateAudio(const AudioParams& audio);
-//AudioID CreateAudio(const std::string& nameOfSound);
-//void PlayAudio(AudioID ID);
 
 AudioID PlayAudio(const AudioParams& audio);
 AudioID PlayAudio(const std::string& nameOfSound);
@@ -56,7 +36,8 @@ void UnPauseAudio(AudioID ID);
 
 void StopAudio(AudioID& ID);
 
-bool CheckAudio(AudioID ID);
+void EraseAudioIDs();
+bool AudioIDValid(AudioID ID);
 void SetAudioPan(AudioID id, float volume);
 float GetAudioVolume(const AudioID& ID);
 void SetAudioVolume(const AudioID& ID, float volume);

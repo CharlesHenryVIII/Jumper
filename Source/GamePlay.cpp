@@ -292,14 +292,13 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
      ********/
 
 
-    for (int32 i = 0; i < player->level->actors.size(); i++)
+       for (int32 i = 0; i < player->level->actors.size(); i++)
         player->level->actors[i]->Update(deltaTime);
 
     if (player != nullptr)
     {
-        for (int32 i = 0; i < player->level->actors.size(); i++)
+        for (Actor* actor : player->level->actors)
         {
-            Actor* actor =  player->level->actors[i];
             switch (actor->GetActorType())
             {
             case ActorType::Enemy:

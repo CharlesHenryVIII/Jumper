@@ -25,13 +25,14 @@
 	- [x] Audio thread syncing with main thread
 	- [x] REWRITE THE ENTIRE CALLBACK FUNCTION
 		- [x] Generic fade function
-	- [ ] Audio replay based on ID in play function
+	- [x] Audio replay based on ID in play function
 		- [x] play
         - [x] stop
         - [x] pause
-        - [ ] panning/stereo
-            - [ ] How to handle 2D/3D audio and panning
+        - [x] panning/stereo
+            - [x] How to handle 2D/3D audio and panning
     - [x] Console audio functionality
+- [ ] Case insensitve string compare
 - [ ] Action area or events based on region 
 - [ ] TRIGGER VOLUME
 - [x] load operating system files in a folder

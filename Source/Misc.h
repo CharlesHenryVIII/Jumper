@@ -15,7 +15,8 @@ enum class DebugOptions
 	BlockCollision,
 	ClickLocation,
 	PaintMethod,
-	EditBlocks
+	EditBlocks,
+	ShowAudio,
 };
 
 struct Key

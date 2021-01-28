@@ -637,6 +637,18 @@ void InitializeAudio()
 			g_volumes[(size_t)Volume::Master] = Clamp(static_cast<float>(atof(args[0].c_str())), 0.0f, 1.0f);
 		ConsoleLog(LogLevel::LogLevel_Info, "Master Audio Level is set to %.02f", g_volumes[(size_t)Volume::Master]);
 	});
+
+	//TODO: Add case insensitive string compare here
+	ConsoleAddCommand("audio_debug", [](const std::vector<std::string>& args) 
+	{ 
+		if (args.size() == 1)
+			if (args[0].compare("true") == 0 || args[0].compare("true") == 0)
+				g_debugList[DebugOptions::ShowAudio] = true;
+			else if (args[0].compare("false") == 0 || args[0].compare("False") == 0)
+				g_debugList[DebugOptions::ShowAudio] = false;
+
+		ConsoleLog(LogLevel::LogLevel_Info, "Debug Option: Show Audio is now %i", g_debugList[DebugOptions::ShowAudio]);
+	});
 }
 
 

@@ -112,7 +112,7 @@ inline VectorInt BlockToPixel(Vector loc)
 
 inline float PixelToGame(int32 loc)
 {
-    return { float(loc) / blockSize };
+    return { static_cast<float>(loc) / blockSize };
 }
 
 inline Vector PixelToGame(VectorInt loc)
@@ -370,7 +370,7 @@ struct AudioPlayer : public Actor
     AudioParams audioParams;
     void OnInit(const AudioParams info);
     void Update(float deltaTime) override;
-    void Render() override {};
+    void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override {};
 };
 

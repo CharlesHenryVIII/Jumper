@@ -58,6 +58,10 @@ int main(int argc, char* argv[])
 	g_sprites["background"] = CreateSprite("Assets/Backgrounds/Background.png");
 	g_sprites["MainMenuBackground"] = CreateSprite("Assets/Backgrounds/MainMenuBackground.png");
 
+#if _DEBUG
+	g_sprites["Speaker"] = CreateSprite("Assets/Debug/Speaker_Small.png");
+#endif
+
     InitializeAudio();
     AddAllLevels();
     ConsoleLog("Loaded all Levels");

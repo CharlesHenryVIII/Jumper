@@ -559,6 +559,8 @@ float FadeInGameUnits(float min, float max, float distance)
 void AudioPlayer::OnInit(AudioParams info)
 {
 	audioParams = info;
+	//AttachAnimation(this);
+    //PlayAnimation(this, ActorState::Idle);
 }
 
 void AudioPlayer::Update(float deltaTime)
@@ -580,16 +582,36 @@ void AudioPlayer::Update(float deltaTime)
 	v.y = FadeInGameUnits(5, 20, fabs(diff.y));
 	SetAudioVolume(audioID, v.y);
 
-	Rectangle rect = {
-		.botLeft  = { worldPosition.x - 0.5f, worldPosition.y - 0.5f },
-		.topRight = { worldPosition.x + 0.5f, worldPosition.y + 0.5f },
-	};
-	AddRectToRender(rect, Blue, RenderPrio::Debug, CoordinateSpace::World);
+	//Rectangle rect = {
+	//	.botLeft  = { worldPosition.x - 0.5f, worldPosition.y - 0.5f },
+	//	.topRight = { worldPosition.x + 0.5f, worldPosition.y + 0.5f },
+	//};
+	//AddRectToRender(rect, Blue, RenderPrio::Debug, CoordinateSpace::World);
 
 	if (!AudioIDValid(audioID))
 		inUse = false;
 }
 
+//void AddTextureToRender(Rectangle sRect, Rectangle dRect, RenderPrio priority,
+//    Sprite* sprite, Color colorMod, float rotation,
+//    Vector rotationPoint, bool flippage, CoordinateSpace coordSpace)
+
+void AudioPlayer::Render()
+{
+#if _DEBUG
+	if (g_debugList[DebugOptions::ShowAudio])
+	{
+		Sprite* sp = g_sprites["Speaker"];
+		Vector s = { (PixelToGame(sp->width) / 2.0f), (PixelToGame(sp->height) / 2.0f) };
+		Vector wp = GetWorldPosition();
+		Rectangle DR = {
+			.botLeft = wp - s,
+			.topRight = wp + s,
+		};
+		AddTextureToRender({}, DR, RenderPrio::Debug, sp, White, 0.0f, position, false, CoordinateSpace::World);
+	}
+#endif
+}
 
 /*********************
  *

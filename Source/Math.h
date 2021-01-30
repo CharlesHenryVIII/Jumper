@@ -273,3 +273,6 @@ inline float Distance(Vector a, Vector b)
 
 void Swap(void* a, void* b, const int size);
 float LinearToAngularVelocity(Vector centerOfCircle, Vector position, Vector velocity);
+gbVec3 Vec2TogbVec3(Vector v);
+Vector gbMat4ToVec2(gbMat4 m);
+Vector RotateVector(Vector v, float deg);

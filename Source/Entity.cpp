@@ -138,18 +138,26 @@ void Player::OnInit()
 	inUse = true;
 	AttachAnimation(this);
 
+	Vector coneDir;
+	float offsetDeg = 60.0f;
+	if (velocity.x > 0.0f)
+		coneDir = RotateVector({ -velocity.x, velocity.y }, -offsetDeg);
+	else
+		coneDir = RotateVector({ -velocity.x, velocity.y },  offsetDeg);
+
 	ParticleParams pp = {
         .spawnLocation = position,
-        .initialVel = velocity,
 
-        .coneAccelDirection = Normalize(-acceleration),
-        .coneDegreeRange = { 0, 15.0f },
         .colorRangeLo = { 0.50f, 0.50f, 0.50f, 0.50f },
         .colorRangeHi = { 0.75f, 0.75f, 0.75f, 0.70f },
 
+		.coneDir = coneDir,
+		.coneDeg = 10.0f,
+
         //.particleSize = 2,
-        .lifeTime = 0.75f,
-        .particlesPerSecond = 20.0f,
+		.particleSpeed = 5.0f,
+        .lifeTime = 0.25f,
+        .particlesPerSecond = 10.0f,
         //.fadeInTime = 0;
         //.fadeOutTime = 0;
 
@@ -157,6 +165,7 @@ void Player::OnInit()
     };
     particleGenerators["Dust"] = CreateParticleGenerator(pp);
 }
+
 void Player::Update(float deltaTime)
 {
 	UpdateLocation(-60.0f, deltaTime);
@@ -166,9 +175,25 @@ void Player::Update(float deltaTime)
 	if (grounded == true)
 	{
 		if (velocity.x != 0)
+		{
 			PlayAnimation(this, ActorState::Run);
+
+			Generator* g = GetParticleGenerator(particleGenerators["Dust"]);
+			g->location = position;
+
+			if (velocity.x > 0.0f)
+				g->coneDir = RotateVector({ -velocity.x, velocity.y }, -60.0f);
+			else
+				g->coneDir = RotateVector({ -velocity.x, velocity.y },  60.0f);
+
+			Play(particleGenerators["Dust"]);
+			//g->directionLo = Normalize(cosf(DegToRad(-15.0f)) / velocity);
+		}
 		else
+		{
 			PlayAnimation(this, ActorState::Idle);
+			Pause(particleGenerators["Dust"]);
+		}
 	}
 	UpdateAnimationIndex(this, deltaTime);
 

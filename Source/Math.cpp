@@ -31,3 +31,23 @@ float LinearToAngularVelocity(Vector centerOfCircle, Vector position, Vector vel
 	return Pythags(velocity) * velocityScale / (tau * radius);
 }
 
+gbVec3 Vec2TogbVec3(Vector v)
+{
+	return { v.x, v.y, 0.0f };
+}
+
+Vector gbMat4ToVec2(gbMat4 m)
+{
+	return { m.col[3].xy.x, m.col[3].xy.y };
+}
+
+Vector RotateVector(Vector v, float deg)
+{
+	gbMat4 rotatedMat;
+	gb_mat4_rotate(&rotatedMat, { 0, 0, 1 }, DegToRad(deg));
+
+	gbMat4 translateMat;
+	gb_mat4_translate(&translateMat, Vec2TogbVec3(v));
+
+	return gbMat4ToVec2(rotatedMat * translateMat);
+}

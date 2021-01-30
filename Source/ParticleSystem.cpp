@@ -9,19 +9,39 @@ struct Particle {
     Vector location = {};
     Vector velocity = {};
     Vector acceleration = {};
-    Vector terminalVelocity = {};
+    Vector terminalVelocity = { 10.0f, 10.0f };
 
     Color color = {};
     float timeLeft = 4; //seconds
     float fadeInTime = 1; //seconds
     float fadeOutTime = 1; //seconds
 
-    float size = 2.0f;
+    float size;
     ParticleGenID GenID = 0;
 
     bool inUse = true;
-};
 
+	//void UpdateParticlePosition(float gravity, float dt)
+	//{
+	//	velocity.x += acceleration.x * dt;
+	//	velocity.y += gravity * dt;
+
+	//	if (terminalVelocity.x > 0.5)
+	//	{
+	//		velocity.x -= ((velocity.x / 2.0f) * (1.5f) * dt);
+	//		velocity.x = Clamp(velocity.x, -terminalVelocity.x, terminalVelocity.x);
+	//	}
+
+	//	if (terminalVelocity.y > 0.5)
+	//	{
+	//		velocity.y -= ((velocity.y / 2.0f) * (1.5f) * dt);
+	//		velocity.y = Clamp(velocity.y, -terminalVelocity.y, terminalVelocity.y);
+	//	}
+
+	//	location += velocity * dt;
+	//}
+
+};
 
 
 std::unordered_map<ParticleGenID, Generator> s_generators;
@@ -33,13 +53,13 @@ ParticleGenID CreateParticleGenerator(ParticleParams p)
 {
     Generator g = {
         .location = p.spawnLocation,
-        .velocity = p.initialVel,
-        
-        //TODO: Update coneAccelDirection from actor
-        .directionLo = (cosf(DegToRad(p.coneDegreeRange.x)) / p.coneAccelDirection), 
-        .directionHi = (cosf(DegToRad(-p.coneDegreeRange.y)) / p.coneAccelDirection),
+
         .colorRangeLo = p.colorRangeLo,
         .colorRangeHi = p.colorRangeHi,
+
+        .coneDir = p.coneDir,
+        .coneDeg = p.coneDeg,
+        .particleSpeed = p.particleSpeed,
 
         .lifeTime = p.lifeTime,
         .particlesPerSecond = p.particlesPerSecond,
@@ -75,26 +95,6 @@ void Stop(const ParticleGenID ID)
 void Mute(const ParticleGenID ID)
 {
 
-}
-
-void UpdateParticlePosition(Particle& p, float gravity, float dt)
-{
-    p.velocity.x += p.acceleration.x * dt;
-    p.velocity.y += gravity * dt;
-
-    if (p.terminalVelocity.x > 0.5)
-    {
-        p.velocity.x -= ((p.velocity.x / 2.0f) * (1.5f) * dt);
-        p.velocity.x = Clamp(p.velocity.x, -p.terminalVelocity.x, p.terminalVelocity.x);
-    }
-
-    if (p.terminalVelocity.y > 0.5)
-    {
-        p.velocity.y -= ((p.velocity.y / 2.0f) * (1.5f) * dt);
-        p.velocity.y = Clamp(p.velocity.y, -p.terminalVelocity.y, p.terminalVelocity.y);
-    }
-
-    p.location += p.velocity * dt;
 }
 
 Color CreateRandomColor(Color min, Color max)
@@ -133,10 +133,20 @@ void UpdateParticles(float dt, float gravity)
 		while (g.inUse && g.timeLeftToSpawn <= 0)
 		{
 
-			Particle p = {
-				.location = g.location,
-				.velocity = CreateRandomVector(g.directionLo, g.directionHi),
-				.acceleration = CreateRandomVector(g.directionLo, g.directionHi),
+            Vector result = {};
+            float coneDeg = DegToRad(Random<float>(-g.coneDeg, g.coneDeg));
+
+            //gbMat4 rotateMat;
+            //gb_mat4_rotate(&rotateMat, Vec2TogbVec3(Normalize(g.coneDir) * g.particleSpeed), coneDeg);
+            //
+            //Vector vel = gbMat4ToVec2(rotateMat);
+
+            Vector vel = RotateVector(Normalize(g.coneDir), coneDeg);
+
+            Particle p = {
+                .location = g.location,
+                .velocity = vel * g.particleSpeed,
+                .acceleration = vel,
 
 				.color = CreateRandomColor(g.colorRangeLo, g.colorRangeHi),
 				.timeLeft = g.lifeTime, //seconds

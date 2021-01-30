@@ -358,3 +358,31 @@ AnimationData GetAnimationData(const std::string& name, std::string* states)
 
 	return result;
 }
+
+ void LoadAudioFiles(std::vector<AudioFileMetaData>* result)
+{
+    picojson::value metadata = JsonStruct("Assets/Audio/Metadata");
+
+	auto test = metadata.get<picojson::object>()["AudioData"].get<picojson::array>();
+	picojson::array ar = metadata.get<picojson::object>()["AudioData"].get<picojson::array>();
+
+	for (int32 i = 0; i < ar.size(); i++)
+	{
+		picojson::object obj = ar[i].get<picojson::object>();
+
+		AudioFileMetaData afmd = {};
+		afmd.name = obj["Name"].get<std::string>().c_str();
+		const std::string& type = obj["VolumeType"].get<std::string>();
+
+        afmd.volumeType = Volume::None;
+        if (type == "Effect")
+            afmd.volumeType = Volume::Effect;
+        else if (type == "Music")
+            afmd.volumeType = Volume::Music;
+        else
+            FAIL;
+
+		result->push_back(afmd);
+	}
+}
+

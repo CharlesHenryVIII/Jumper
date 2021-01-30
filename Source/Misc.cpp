@@ -25,3 +25,29 @@ float GetTimer()
 	uint64 c = SDL_GetPerformanceCounter();
 	return float(((c - ct) * 1000) / (double)f);
 }
+
+//String Compare that is not case sensative
+bool StringCompare(const std::string& a, const std::string& b)
+{
+	if (a.size() != b.size())
+		return false;
+
+	for (int32 i = 0; i < a.size(); i++)
+	{
+		if (a[i] != b[i])
+		{
+			int32 aVal = a[i];
+			int32 bVal = b[i];
+
+			if (a[i] >= 'a' && a[i] <= 'z')
+				aVal = a[i] - ('a' - 'A');
+			else if (b[i] >= 'a' && b[i] <= 'z')
+				bVal = b[i] - ('a' - 'A');
+
+			if (aVal != bVal)
+				return false;
+		}
+	}
+
+	return true;
+}

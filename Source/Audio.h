@@ -10,6 +10,14 @@ typedef int16 Sample;
 #define AUDIO_MAXLOOPS	INT_MAX
 #define AUDIO_MAX_CHANNELS	2
 
+enum class Volume {
+	None,
+	Master,
+	Effect,
+	Music,
+	Count,
+};
+
 struct AudioParams {
 	std::string nameOfSound;
 	float fadeInDuration = 0;
@@ -18,13 +26,11 @@ struct AudioParams {
 	float secondsToPlay = 0;
 };
 
-enum class Volume {
-	None,
-	Master,
-	Effect,
-	Music,
-	Count,
+struct AudioFileMetaData {
+	std::string name;
+	Volume volumeType = Volume::None;
 };
+
 
 extern float g_volumes[(size_t)Volume::Count];
 

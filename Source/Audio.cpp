@@ -1,6 +1,7 @@
 #include "Audio.h"
 #include "WinUtilities.h"
 #include "Misc.h"
+#include "JSONInterop.h"
 
 #include "SDL.h"
 
@@ -64,6 +65,7 @@ SDL_AudioSpec s_driverSpec;
 std::unordered_map<std::string, FileData> s_audioFiles;
 std::vector<AudioInstance*> s_audioPlaying;
 std::vector<AudioID> s_audioMarkedForDeletion;
+std::vector<std::string> s_audioFileNames;
 std::mutex s_audioMutex;
 
 
@@ -98,7 +100,7 @@ float SamplesToSeconds(uint32 samples, uint32 channels = s_driverSpec.channels)
 
 AudioInstance* GetAudioInstance(AudioID ID)
 {
-	//TODO: 
+	//TODO:
 	//assert(Main_Thread);
 	for (uint32 i = 0; i < s_audioPlaying.size(); i++)
 	{
@@ -163,7 +165,6 @@ AudioID PlayAudio(const AudioParams& audio)
 		instance->endSamples = filePlaySamples;
 	}
 
-	ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", instance->name.c_str());
 
 	//Fading
 	instance->fade = 1.0f;
@@ -246,40 +247,45 @@ CONSOLE_FUNCTIONA(c_PlayAudio)
     case 1:
     {
 
-        std::string name = args[0];
-        char& c = name[0];
-        if (c >= 'a' && c <= 'z')
-        {
-            c = c - ('a' - 'A');
-        }
-		StopAudio(s_consoleAudio);
-	    s_consoleAudio = PlayAudio(name);
+		for (int32 i = 0; i < s_audioFileNames.size(); i++)
+		{
+			if (StringCompare(s_audioFileNames[i], args[0]))
+			{
+				StopAudio(s_consoleAudio);
+				s_consoleAudio = PlayAudio(s_audioFileNames[i]);
+				ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", s_audioFileNames[i]);
+				break;
+			}
+		}
         break;
     }
     case 5:
     {
 
-        std::string name = args[0];
-        char& c = name[0];
-        if (c >= 'a' && c <= 'z')
+        for (int32 i = 0; i < s_audioFileNames.size(); i++)
         {
-            c = c - ('a' - 'A');
+            if(StringCompare(s_audioFileNames[i], args[0]))
+            {
+
+                AudioParams params = {
+                .nameOfSound = s_audioFileNames[i],
+                .fadeInDuration = static_cast<float>(stoi(args[1])),
+                .fadeOutDuration = static_cast<float>(stoi(args[2])),
+                .loopCount = stoi(args[3]),
+                .secondsToPlay = static_cast<float>(stoi(args[4])),
+                };
+
+                StopAudio(s_consoleAudio);
+                s_consoleAudio = PlayAudio(params);
+				ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", s_audioFileNames[i]);
+                break;
+            }
         }
-		AudioParams params = {
-			.nameOfSound = name,
-			.fadeInDuration = static_cast<float>(stoi(args[1])),
-			.fadeOutDuration = static_cast<float>(stoi(args[2])),
-			.loopCount = stoi(args[3]),
-			.secondsToPlay = static_cast<float>(stoi(args[4])),
-		};
-		StopAudio(s_consoleAudio);
-        s_consoleAudio = PlayAudio(params);
         break;
 	}
     default:
     {
         ConsoleLog(LogLevel::LogLevel_Warning, "Wrong number of args for 'Play': %i", args.size());
-        //assert(false);
     }
     }
 }
@@ -375,40 +381,27 @@ FileData LoadWavFile(const char* fileLocation)
 void UpdateStreamBuffer(float* streamBuffer, const Sample* readBuffer, const AudioInstance& instance)
 {
 	assert(instance.fade >= 0.0f && instance.fade <= 1.0f);
+	assert(instance.pan >= -1.0f && instance.pan  <= 1.0f);
 
 #if AUDIO_MAX_CHANNELS == 2
 
 	float lvls[AUDIO_MAX_CHANNELS] = {};
-	for (int32 i = 0; i < s_driverSpec.channels; i++)
-		lvls[i] = 1.0f;
+	float v = fabs(instance.pan);
 
-	if (!(instance.pan == 1.0f || instance.pan == -1.0f))
+	if (instance.pan > 0.0f)	//Right SIde
 	{
-		if (instance.pan > 0.0f)			//right side 
-		{
-
-			lvls[0] = instance.pan;			//left
-			lvls[1] = instance.pan / 2.0f;	//right
-		}
-		else if (instance.pan < 0.0f)		//left side
-		{
-
-			float val = fabs(instance.pan);
-			lvls[0] = val / 2.0f;
-			lvls[1] = val;
-		}
-		else
-		{
-
-			for (int32 i = 0; i < s_driverSpec.channels; i++)
-				lvls[i] = 0.0f;
-		}
-
+		lvls[0] = v;
+		lvls[1] = v * v;
+	}
+	else						//Left Side
+	{
+		lvls[0] = v * v;
+		lvls[1] = v;
 	}
 
 	for (int32 i = 0; i < s_driverSpec.channels; i++)
 	{
-		streamBuffer[i] += (((float)readBuffer[i]) * g_volumes[size_t(Volume::Master)] * 
+		streamBuffer[i] += (((float)readBuffer[i]) * g_volumes[size_t(Volume::Master)] *
 							g_volumes[(size_t)instance.audioType] * instance.fade * instance.volume * lvls[i]);
 	}
 
@@ -526,7 +519,7 @@ void EraseAudioIDs()
 	std::lock_guard<std::mutex> deletionGuard(s_audioMutex);
 	for (auto& ID : s_audioMarkedForDeletion)
 	{
-		std::erase_if(s_audioPlaying, [ID](AudioInstance* a) 
+		std::erase_if(s_audioPlaying, [ID](AudioInstance* a)
 		{
 			if (a->ID == ID)
 			{
@@ -566,11 +559,6 @@ void SetAudioVolume(const AudioID& ID, float volume)
 		ai->volume = volume;
 }
 
-struct AudioFileMetaData {
-	std::string name;
-	Volume volume = Volume::None;
-};
-
 void InitializeAudio()
 {
 	SDL_AudioSpec want, have;
@@ -605,22 +593,22 @@ void InitializeAudio()
 
 	//SDL_AudioQuit(); //used only for "shutting down audio" that was initilized with SDL_AudioInit()
 
-	AudioFileMetaData audioFiles[] = {
-		{ "Button_Confirm", Volume::Effect},
-		{ "Button_Hover", Volume::Effect},
-		{ "Grass", Volume::Effect},
-		{ "Halo", Volume::Music},
-		{ "Jump", Volume::Effect},
-		{ "Punched", Volume::Effect} };
+	std::vector<AudioFileMetaData> afmd;
+	LoadAudioFiles(&afmd);
 
 	std::string name;
-	for (int32 i = 0; i < sizeof(audioFiles) / sizeof(audioFiles[0]); i++)
+	for (AudioFileMetaData a : afmd)
 	{
-		name = "Assets\\Audio\\" + audioFiles[i].name + ".wav";
-		s_audioFiles[audioFiles[i].name] = LoadWavFile(name.c_str());
+		name = "Assets\\Audio\\" + a.name + ".wav";
+		s_audioFiles[a.name] = LoadWavFile(name.c_str());
 
-		s_audioFiles[audioFiles[i].name].audioType = audioFiles[i].volume;
+		s_audioFiles[a.name].audioType = a.volumeType;
+
+		if (s_audioFiles[a.name].buffer == nullptr)
+			ConsoleLog(LogLevel_Warning, "Failed to load audio: %s", a.name);
+        s_audioFileNames.push_back(a.name);
 	}
+
 	for (int32 i = 1; i < (size_t)Volume::Count; i++)
 		g_volumes[i] = 1.0f;
 	g_volumes[(size_t)Volume::Master] = 0.5f;
@@ -629,22 +617,20 @@ void InitializeAudio()
     ConsoleAddCommand("audio_stop", c_StopAudio);
     ConsoleAddCommand("audio_pause", c_PauseAudio);
 
-	//void name (const std::vector<std::string>& args)
-
-	ConsoleAddCommand("audio_master", [](const std::vector<std::string>& args) 
-	{ 
+	ConsoleAddCommand("audio_master", [](const std::vector<std::string>& args)
+	{
 		if (args.size() == 1)
 			g_volumes[(size_t)Volume::Master] = Clamp(static_cast<float>(atof(args[0].c_str())), 0.0f, 1.0f);
 		ConsoleLog(LogLevel::LogLevel_Info, "Master Audio Level is set to %.02f", g_volumes[(size_t)Volume::Master]);
 	});
 
 	//TODO: Add case insensitive string compare here
-	ConsoleAddCommand("audio_debug", [](const std::vector<std::string>& args) 
-	{ 
+	ConsoleAddCommand("audio_debug", [](const std::vector<std::string>& args)
+	{
 		if (args.size() == 1)
-			if (args[0].compare("true") == 0 || args[0].compare("true") == 0)
+			if (StringCompare(args[0], "true"))
 				g_debugList[DebugOptions::ShowAudio] = true;
-			else if (args[0].compare("false") == 0 || args[0].compare("False") == 0)
+			else if (StringCompare(args[0], "false"))
 				g_debugList[DebugOptions::ShowAudio] = false;
 
 		ConsoleLog(LogLevel::LogLevel_Info, "Debug Option: Show Audio is now %i", g_debugList[DebugOptions::ShowAudio]);

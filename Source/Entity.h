@@ -267,6 +267,9 @@ struct Player : public Actor
     bool grappleEnabled = false;
     bool grappleReady = true;
     ActorID grapple = 0;
+
+    float timeToMakeSound = 0;
+
     void OnInit();
     void Update(float deltaTime) override;
     void Render() override;

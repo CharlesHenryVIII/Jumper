@@ -32,8 +32,11 @@
         - [x] panning/stereo
             - [x] How to handle 2D/3D audio and panning
     - [x] Console audio functionality
-- [ ] Case insensitve string compare
-- [ ] Action area or events based on region 
+	- [x] Enemy Walk audio panning
+		- [x] Increase/decrease based on spead
+	- [x] Player jump audio panning
+- [x] Case insensitve string compare
+- [ ] Continue rendering window while it is being dragged/moved
 - [ ] TRIGGER VOLUME
 - [x] load operating system files in a folder
 - [ ] Debug writing to disk for trouble shooting issues in release mode / other computers

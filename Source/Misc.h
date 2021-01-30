@@ -38,6 +38,8 @@ extern bool g_running;
 extern std::unordered_map<DebugOptions, bool> g_debugList;
 
 float GetTimer();
+//String Compare that is not case sensative
+bool StringCompare(const std::string& a, const std::string& b);
 
 #define _JMP_CONCAT(a, b) a ## b
 #define JMP_CONCAT(a, b) _JMP_CONCAT(a, b)

@@ -148,6 +148,19 @@ void Player::Update(float deltaTime)
 			PlayAnimation(this, ActorState::Idle);
 	}
 	UpdateAnimationIndex(this, deltaTime);
+
+	timeToMakeSound += deltaTime;
+	float t = 2.0f / (fabs(velocity.x));//0.5f;
+	if (timeToMakeSound >= t && g_gameState == GameState::Game && grounded)
+	{
+		AudioParams params = {
+	.nameOfSound = "Grass",
+		};
+		AudioPlayer* ap = level->CreateActor<AudioPlayer>(params);
+		ap ->parent = id;
+
+		timeToMakeSound = 0.0f;//timeToMakeSound - t;
+	}
 }
 
 void Player::Render()
@@ -201,8 +214,9 @@ void Enemy::Update(float deltaTime)
 
 	UpdateAnimationIndex(this, deltaTime);
 
+	//TODO: Improve accuracy of audio playback
 	timeToMakeSound += deltaTime;
-	float t = 0.5f;
+	float t = 1.0f / (fabs(velocity.x));//0.5f;
 	if (timeToMakeSound >= t && g_gameState == GameState::Game)
 	{
 		AudioParams params = {
@@ -211,7 +225,7 @@ void Enemy::Update(float deltaTime)
 		AudioPlayer* ap = level->CreateActor<AudioPlayer>(params);
 		ap ->parent = id;
 
-		timeToMakeSound = timeToMakeSound - t;
+		timeToMakeSound = 0.0f;//timeToMakeSound - t;
 	}
 }
 

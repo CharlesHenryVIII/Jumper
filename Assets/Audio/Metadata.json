@@ -1,0 +1,35 @@
+{
+
+    "AudioData" : 
+    [
+        {
+            "Name" : "Button_Confirm",
+            "VolumeType" : "Effect"
+        },
+
+        {
+            "Name" : "Button_Hover",
+            "VolumeType" : "Effect"
+        },
+
+        {
+            "Name" : "Grass",
+            "VolumeType" : "Effect"
+        },
+
+        {
+            "Name" : "Halo",
+            "VolumeType" : "Music"
+        },
+
+        {
+            "Name" : "Jump",
+            "VolumeType" : "Effect"
+        },
+
+        {
+            "Name" : "Punched",
+            "VolumeType" : "Effect"
+        }
+    ]
+}

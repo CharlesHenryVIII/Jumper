@@ -26,28 +26,20 @@ float GetTimer()
 	return float(((c - ct) * 1000) / (double)f);
 }
 
-//String Compare that is not case sensative
-bool StringCompare(const std::string& a, const std::string& b)
+bool StringsMatchi(const std::string& a, const std::string& b)
 {
 	if (a.size() != b.size())
 		return false;
+	if (_stricmp(a.c_str(), b.c_str()) == 0)
+		return true;
+	return false;
+}
 
-	for (int32 i = 0; i < a.size(); i++)
-	{
-		if (a[i] != b[i])
-		{
-			int32 aVal = a[i];
-			int32 bVal = b[i];
-
-			if (a[i] >= 'a' && a[i] <= 'z')
-				aVal = a[i] - ('a' - 'A');
-			else if (b[i] >= 'a' && b[i] <= 'z')
-				bVal = b[i] - ('a' - 'A');
-
-			if (aVal != bVal)
-				return false;
-		}
-	}
-
-	return true;
+bool StringsMatch(const std::string& a, const std::string& b)
+{
+	if (a.size() != b.size())
+		return false;
+	if (strcmp(a.c_str(), b.c_str()) == 0)
+		return true;
+	return false;
 }

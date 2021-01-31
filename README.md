@@ -35,6 +35,7 @@
 	- [x] Enemy Walk audio panning
 		- [x] Increase/decrease based on spead
 	- [x] Player jump audio panning
+	- [ ] Chris "Verify assumptions"
 - [x] Case insensitve string compare
 - [ ] Continue rendering window while it is being dragged/moved
 - [ ] TRIGGER VOLUME

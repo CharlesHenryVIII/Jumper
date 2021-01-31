@@ -249,7 +249,7 @@ CONSOLE_FUNCTIONA(c_PlayAudio)
 
 		for (int32 i = 0; i < s_audioFileNames.size(); i++)
 		{
-			if (StringCompare(s_audioFileNames[i], args[0]))
+			if (StringsMatchi(s_audioFileNames[i], args[0]))
 			{
 				StopAudio(s_consoleAudio);
 				s_consoleAudio = PlayAudio(s_audioFileNames[i]);
@@ -264,7 +264,7 @@ CONSOLE_FUNCTIONA(c_PlayAudio)
 
         for (int32 i = 0; i < s_audioFileNames.size(); i++)
         {
-            if(StringCompare(s_audioFileNames[i], args[0]))
+            if(StringsMatchi(s_audioFileNames[i], args[0]))
             {
 
                 AudioParams params = {
@@ -628,13 +628,13 @@ void InitializeAudio()
 	ConsoleAddCommand("audio_debug", [](const std::vector<std::string>& args)
 	{
 		if (args.size() == 1)
-			if (StringCompare(args[0], "true"))
+		{
+			if (StringsMatchi(args[0], "true"))
 				g_debugList[DebugOptions::ShowAudio] = true;
-			else if (StringCompare(args[0], "false"))
+			else if (StringsMatchi(args[0], "false"))
 				g_debugList[DebugOptions::ShowAudio] = false;
+		}
 
 		ConsoleLog(LogLevel::LogLevel_Info, "Debug Option: Show Audio is now %i", g_debugList[DebugOptions::ShowAudio]);
 	});
 }
-
-

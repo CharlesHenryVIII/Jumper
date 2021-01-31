@@ -16,7 +16,7 @@ ActorID Actor::lastID = 0;
 
 Projectile laser = {};
 //Level* currentLevel = nullptr;
-std::unordered_map<std::string, AnimationList> actorAnimations;
+std::unordered_map<std::string, AnimationList> s_actorAnimations;
 
 
 /*********************
@@ -80,7 +80,7 @@ void Actor::UpdateLocation(float gravity, float deltaTime)
 		ActorType actorType = GetActorType();
 		if (velocity.x == 0 && velocity.y == 0 &&
 			(actorType == ActorType::Player || actorType == ActorType::Enemy))
-			PlayAnimation(this, ActorState::Idle);
+			PlayAnimation(ActorState::Idle);
 
 		if (actorType != ActorType::Player)
 		{
@@ -89,11 +89,6 @@ void Actor::UpdateLocation(float gravity, float deltaTime)
 			else if (velocity.x > 0)
 				lastInputWasLeft = false;
 		}
-	}
-	
-	for (auto& [ key, value ] : actor->particleGenerators)
-	{
-		GetParticleGenerator(value)->UpdateGeneratorLocation(actor->position, actor->velocity);
 	}
 }
 
@@ -125,6 +120,147 @@ Vector Actor::GetWorldPosition()
 	return { vec.x, vec.y };
 }
 
+void Actor::PlayAnimation(ActorState state)
+{
+	ActorType actorType = GetActorType();
+	if (animationList->GetAnimation(state) == nullptr)
+	{
+		ActorState holdingState = ActorState::None;
+		for (int32 i = 1; i < (int32)ActorState::Count; i++)
+		{
+			if (animationList->GetAnimation((ActorState)i) != nullptr)
+			{
+				holdingState = (ActorState)i;
+				break;
+			}
+		}
+		if (holdingState == ActorState::None)
+		{
+			//no valid animation to use
+			assert(false);
+			ConsoleLog("No valid animation for %s \n", std::to_string((int)GetActorType()).c_str());
+			return;
+		}
+		state = holdingState;
+	}
+	if (actorState != state || state == ActorState::Jump)
+	{
+		actorState = state;
+		index = 0;
+		animationCountdown =	(1.0f / animationList->GetAnimation(state)->fps);
+		UpdateAnimationIndex(this, 0);
+	}
+}
+
+void Actor::AttachAnimation(ActorType overrideType)
+{
+	std::string entityName;
+	ActorType actorReferenceType;
+
+	if (overrideType != ActorType::None)
+		actorReferenceType = overrideType;
+	else
+		actorReferenceType = GetActorType();
+
+	switch (actorReferenceType)
+	{
+	case ActorType::Player:
+	{
+		entityName = "Knight"; //"Dino";
+		break;
+	}
+	case ActorType::Enemy:
+	{
+		entityName = "Striker";//"HeadMinion";
+		break;
+	}
+	case ActorType::Projectile:
+	{
+		entityName = "Bullet";
+		break;
+	}
+	case ActorType::Portal:
+	{
+		entityName = "Portal";
+		break;
+	}
+	case ActorType::Spring:
+	{
+		entityName = "Spring";
+		break;
+	}
+	case ActorType::MovingPlatform:
+	{
+		entityName = "MovingPlatform";
+		break;
+	}
+	case ActorType::Grapple:
+	{
+		entityName = "Grapple";
+		break;
+	}
+	default:
+		assert(false);
+		ConsoleLog("AttachAnimation could not find animation list for this actor\n");
+		break;
+	}
+	animationList = &s_actorAnimations[entityName];
+}
+
+Rectangle Actor::CollisionXOffsetToRectangle()
+{
+	Rectangle result = {};
+	result.botLeft	= { position.x, position.y + GameHeight() * animationList->colOffset.x};
+	result.topRight		= { position.x + PixelToGame((int)animationList->scaledWidth), position.y + GameHeight() * (1 - animationList->colOffset.x) };
+	return result;
+}
+
+Rectangle Actor::CollisionYOffsetToRectangle()
+{
+	Rectangle result = {};
+	result.botLeft = { position.x + (PixelToGame((int)animationList->scaledWidth) * animationList->colOffset.y), position.y };
+	result.topRight   = { position.x + (PixelToGame((int)animationList->scaledWidth) * (1 - animationList->colOffset.y)), position.y + GameHeight() };
+	return result;
+}
+
+uint32 Actor::CollisionWithRect(Rectangle rect)
+{
+	uint32 result = CollisionNone;
+	Rectangle xRect = CollisionXOffsetToRectangle();
+	Rectangle yRect = CollisionYOffsetToRectangle();
+
+	if (GetActorType() == ActorType::Player && g_debugList[DebugOptions::PlayerCollision])
+	{
+		AddRectToRender(xRect, transGreen, RenderPrio::Debug, CoordinateSpace::World);
+		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);
+	}
+
+
+	if (rect.topRight.y > xRect.botLeft.y && rect.botLeft.y < xRect.topRight.y)
+	{
+		//checking the right side of player against the left side of a block
+		if (rect.botLeft.x > xRect.botLeft.x && rect.botLeft.x < xRect.topRight.x)
+			result |= CollisionRight;
+
+		//checking the left side of player against the right side of the block
+		if (rect.topRight.x > xRect.botLeft.x && rect.topRight.x < xRect.topRight.x)
+			result |= CollisionLeft;
+	}
+
+	if (rect.topRight.x > yRect.botLeft.x && rect.botLeft.x < yRect.topRight.x)
+	{
+		//checking the top of player against the bottom of the block
+		if (rect.botLeft.y < yRect.topRight.y && rect.topRight.y > yRect.topRight.y)
+			result |= CollisionTop;
+
+		//checking the bottom of player against the top of the block
+		if (rect.topRight.y > yRect.botLeft.y && rect.topRight.y < yRect.topRight.y)
+			result |= CollisionBot;
+	}
+	return result;
+}
+
+
 /*********************
  *
  * Player
@@ -136,7 +272,7 @@ void Player::OnInit()
 {
 	damage = 100;
 	inUse = true;
-	AttachAnimation(this);
+	AttachAnimation();
 
 	Vector coneDir;
 	float offsetDeg = 60.0f;
@@ -145,7 +281,7 @@ void Player::OnInit()
 	else
 		coneDir = RotateVector({ -velocity.x, velocity.y },  offsetDeg);
 
-	ParticleParams pp = {
+    pp = {
         .spawnLocation = position,
 
         .colorRangeLo = { 0.50f, 0.50f, 0.50f, 0.50f },
@@ -163,7 +299,10 @@ void Player::OnInit()
 
         //.terminalVelocity = {};
     };
-    particleGenerators["Dust"] = CreateParticleGenerator(pp);
+
+	ParticleGen* p = level->CreateActor<ParticleGen>(pp);
+	p->parent = id;
+	dustGenerator = p->id;
 }
 
 void Player::Update(float deltaTime)
@@ -172,29 +311,44 @@ void Player::Update(float deltaTime)
 	CollisionWithBlocks(this, false);
 
 	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
-	if (grounded == true)
+
+	ParticleGen* g = level->FindActor<ParticleGen>(dustGenerator);
+	if (g == nullptr)
+	{
+		g = level->CreateActor<ParticleGen>(pp);
+		g->parent = id;
+		dustGenerator = g->id;
+	}
+	assert(g);
+
+	if (grounded)
 	{
 		if (velocity.x != 0)
 		{
-			PlayAnimation(this, ActorState::Run);
-
-			Generator* g = GetParticleGenerator(particleGenerators["Dust"]);
-			g->location = position;
+			PlayAnimation(ActorState::Run);
 
 			if (velocity.x > 0.0f)
+			{
 				g->coneDir = RotateVector({ -velocity.x, velocity.y }, -60.0f);
+				g->position.x = 0;
+			}
 			else
-				g->coneDir = RotateVector({ -velocity.x, velocity.y },  60.0f);
+			{
+				g->coneDir = RotateVector({ -velocity.x, velocity.y }, 60.0f);
+				g->position.x = GameWidth();
+			}
 
-			Play(particleGenerators["Dust"]);
-			//g->directionLo = Normalize(cosf(DegToRad(-15.0f)) / velocity);
+			g->playing = true;
 		}
 		else
 		{
-			PlayAnimation(this, ActorState::Idle);
-			Pause(particleGenerators["Dust"]);
+			PlayAnimation(ActorState::Idle);
+			g->playing = false;
 		}
 	}
+	else
+		g->playing = false;
+		
 	UpdateAnimationIndex(this, deltaTime);
 
 	timeToMakeSound += deltaTime;
@@ -237,13 +391,43 @@ void Enemy::OnInit()
 	velocity.x = 4;
 	damage = 25;
 	enemyType = EnemyType::head;
-	AttachAnimation(this);
-    PlayAnimation(this, ActorState::Walk);
+	AttachAnimation();
+    PlayAnimation(ActorState::Walk);
 
-	AudioParams p = {
-		.nameOfSound = "Grass",
-		.loopCount = AUDIO_MAXLOOPS,
-	};
+	Vector coneDir;
+	float offsetDeg = 60.0f;
+	if (velocity.x > 0.0f)
+		coneDir = RotateVector({ -velocity.x, velocity.y }, -offsetDeg);
+	else
+		coneDir = RotateVector({ -velocity.x, velocity.y },  offsetDeg);
+
+    pp = {
+        .spawnLocation = position,
+
+        .colorRangeLo = { 0.50f, 0.50f, 0.50f, 0.50f },
+        .colorRangeHi = { 0.75f, 0.75f, 0.75f, 0.70f },
+
+		.coneDir = coneDir,
+		.coneDeg = 10.0f,
+
+        //.particleSize = 2,
+		.particleSpeed = 5.0f,
+        .lifeTime = 0.25f,
+        .particlesPerSecond = 10.0f,
+        //.fadeInTime = 0;
+        //.fadeOutTime = 0;
+
+        //.terminalVelocity = {};
+    };
+
+	ParticleGen* p = level->CreateActor<ParticleGen>(pp);
+	p->parent = id;
+	dustGenerator = p->id;
+
+	//AudioParams a = {
+	//	.nameOfSound = "Grass",
+	//	.loopCount = AUDIO_MAXLOOPS,
+	//};
 }
 
 void Enemy::Update(float deltaTime)
@@ -255,10 +439,47 @@ void Enemy::Update(float deltaTime)
 	if (grounded == true)
 	{
 		if (velocity.x != 0)
-			PlayAnimation(this, ActorState::Run);
+			PlayAnimation(ActorState::Run);
 		else
-			PlayAnimation(this, ActorState::Idle);
+			PlayAnimation(ActorState::Idle);
 	}
+
+	ParticleGen* g = level->FindActor<ParticleGen>(dustGenerator);
+	if (g == nullptr)
+	{
+		g = level->CreateActor<ParticleGen>(pp);
+		g->parent = id;
+		dustGenerator = g->id;
+	}
+	assert(g);
+
+	if (grounded)
+	{
+		if (velocity.x != 0)
+		{
+			PlayAnimation(ActorState::Run);
+
+			if (velocity.x > 0.0f)
+			{
+				g->coneDir = RotateVector({ -velocity.x, velocity.y }, -60.0f);
+				g->position.x = 0;
+			}
+			else
+			{
+				g->coneDir = RotateVector({ -velocity.x, velocity.y }, 60.0f);
+				g->position.x = GameWidth();
+			}
+
+			g->playing = true;
+		}
+		else
+		{
+			PlayAnimation(ActorState::Idle);
+			g->playing = false;
+		}
+	}
+	else
+		g->playing = false;
 
 	UpdateAnimationIndex(this, deltaTime);
 
@@ -301,8 +522,8 @@ void Projectile::OnInit(const ProjectileInfo& info)
 
 	paintType = info.blockToBeType;
 	allowRenderFlip = false;
-	AttachAnimation(this);
-	PlayAnimation(this, ActorState::Idle);
+	AttachAnimation();
+	PlayAnimation(ActorState::Idle);
 	terminalVelocity = { 1000, 1000 };
 	Vector adjustedPlayerPosition = { info.player->position.x/* + 0.5f*/,
 									  info.player->position.y + 1 };
@@ -358,8 +579,8 @@ void Dummy::OnInit(const DummyInfo& info)
 	assert(info.mimicType != ActorType::None);
 	health = 0;
 	inUse = true;
-	AttachAnimation(this, info.mimicType);
-	PlayAnimation(this, ActorState::Dead);
+	AttachAnimation(info.mimicType);
+	PlayAnimation(ActorState::Dead);
 }
 
 void Dummy::Update(float deltaTime)
@@ -391,8 +612,8 @@ void Portal::OnInit(const PortalInfo& info)
     portalPointerID = info.levelPortalID;
     portalID = info.PortalID;
 	damage = 0;
-	AttachAnimation(this);
-	PlayAnimation(this, ActorState::Idle);
+	AttachAnimation();
+	PlayAnimation(ActorState::Idle);
 }
 
 void Portal::Update(float deltaTime)
@@ -415,8 +636,8 @@ void Spring::OnInit()
 {
 
 	damage = 0;
-	AttachAnimation(this);
-	PlayAnimation(this, ActorState::Idle);
+	AttachAnimation();
+	PlayAnimation(ActorState::Idle);
 }
 void Spring::Update(float deltaTime)
 {
@@ -442,8 +663,8 @@ void MovingPlatform::OnInit()
 	acceleration = { 0, 0 };
 	damage = 0;
 	allowRenderFlip = false;
-	AttachAnimation(this);
-	PlayAnimation(this, ActorState::Idle);
+	AttachAnimation();
+	PlayAnimation(ActorState::Idle);
 	level->movingPlatforms.push_back(id);
 }
 void MovingPlatform::Update(float deltaTime)
@@ -496,8 +717,8 @@ void Grapple::OnInit(const GrappleInfo& info)
     //Grapple needs to travel to the location where the player clicked
 	//TODO:  make sure there isnt a valid grapple already attached to the player
 
-	AttachAnimation(this);
-	PlayAnimation(this, ActorState::Idle);
+	AttachAnimation();
+	PlayAnimation(ActorState::Idle);
 	attachedActor = info.actorID;
 	Player* player = level->FindActor<Player>(attachedActor);
 	assert(player);
@@ -619,7 +840,12 @@ float FadeInGameUnits(float min, float max, float distance)
 void AudioPlayer::OnInit(AudioParams info)
 {
 	audioParams = info;
+<<<<<<< HEAD
 	audioID = PlayAudio(audioParams);
+=======
+	//AttachAnimation(this);
+    //PlayAnimation(ActorState::Idle);
+>>>>>>> 3f6a660 (Modified Actor and ParticleGen)
 }
 
 void AudioPlayer::Update(float deltaTime)
@@ -654,6 +880,66 @@ void AudioPlayer::Render()
 	}
 }
 
+
+/*********************
+ *
+ * ParticleGen
+ *
+ ********/
+
+void ParticleGen::OnInit(const ParticleParams info)
+{
+	colorRangeLo = info.colorRangeLo;
+	colorRangeHi = info.colorRangeHi;
+
+	coneDir = info.coneDir;
+	coneDeg = info.coneDeg;
+	particleSpeed = info.particleSpeed;
+
+	lifeTime = info.lifeTime;
+	particlesPerSecond = info.particlesPerSecond;
+	particleSize = info.particleSize;
+	terminalVelocity = info.terminalVelocity;
+	timeLeftToSpawn = 0.0f;
+
+	//fadeInTime = info.fadeInTime;
+	//fadeOutTime = info.fadeOutTime;
+}
+
+void ParticleGen::Update(float deltaTime)
+{
+
+	//Create Particles
+	timeLeftToSpawn -= deltaTime;
+	while (playing && timeLeftToSpawn <= 0)
+	{
+
+		Vector worldPosition = GetWorldPosition();
+		float coneDeg2 = DegToRad(Random<float>(-coneDeg, coneDeg));
+		Vector vel = RotateVector(Normalize(coneDir), coneDeg2);
+
+		Particle p = {
+			.location = worldPosition,
+			.velocity = vel * particleSpeed,
+			.acceleration = vel,
+
+			.color = CreateRandomColorShade(colorRangeLo.r, colorRangeHi.r),// colorRangeLo, colorRangeHi),
+			.timeLeft = lifeTime, //seconds
+			//.fadeInTime = fadeInTime,
+			//.fadeOutTime = fadeOutTime, //seconds
+
+			.size = particleSize,
+		};
+		AddParticle(p);
+
+		timeLeftToSpawn += (1.0f / particlesPerSecond);
+	}
+}
+
+void ParticleGen::Render()
+{
+
+}
 
 /*********************
  *
@@ -938,63 +1224,10 @@ void ClickUpdate(Block* block, bool updateTop, Level* level)
 }
 
 
-Rectangle CollisionXOffsetToRectangle(Actor* actor)
-{
-	Rectangle result = {};
-	result.botLeft	= { actor->position.x, actor->position.y + actor->GameHeight() * actor->animationList->colOffset.x};
-	result.topRight		= { actor->position.x + PixelToGame((int)actor->animationList->scaledWidth), actor->position.y + actor->GameHeight() * (1 - actor->animationList->colOffset.x) };
-	return result;
-}
-
-Rectangle CollisionYOffsetToRectangle(Actor* actor)
-{
-	Rectangle result = {};
-	result.botLeft = { actor->position.x + (PixelToGame((int)actor->animationList->scaledWidth) * actor->animationList->colOffset.y), actor->position.y };
-	result.topRight   = { actor->position.x + (PixelToGame((int)actor->animationList->scaledWidth) * (1 - actor->animationList->colOffset.y)), actor->position.y + actor->GameHeight() };
-	return result;
-}
-
-uint32 CollisionWithRect(Actor* actor, Rectangle rect)
-{
-	uint32 result = CollisionNone;
-	Rectangle xRect = CollisionXOffsetToRectangle(actor);
-	Rectangle yRect = CollisionYOffsetToRectangle(actor);
-
-	if (actor->GetActorType() == ActorType::Player && g_debugList[DebugOptions::PlayerCollision])
-	{
-		AddRectToRender(xRect, transGreen, RenderPrio::Debug, CoordinateSpace::World);
-		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);
-	}
-
-
-	if (rect.topRight.y > xRect.botLeft.y && rect.botLeft.y < xRect.topRight.y)
-	{
-		//checking the right side of player against the left side of a block
-		if (rect.botLeft.x > xRect.botLeft.x && rect.botLeft.x < xRect.topRight.x)
-			result |= CollisionRight;
-
-		//checking the left side of player against the right side of the block
-		if (rect.topRight.x > xRect.botLeft.x && rect.topRight.x < xRect.topRight.x)
-			result |= CollisionLeft;
-	}
-
-	if (rect.topRight.x > yRect.botLeft.x && rect.botLeft.x < yRect.topRight.x)
-	{
-		//checking the top of player against the bottom of the block
-		if (rect.botLeft.y < yRect.topRight.y && rect.topRight.y > yRect.topRight.y)
-			result |= CollisionTop;
-
-		//checking the bottom of player against the top of the block
-		if (rect.topRight.y > yRect.botLeft.y && rect.topRight.y < yRect.topRight.y)
-			result |= CollisionBot;
-	}
-	return result;
-}
-
 uint32 CollisionWithBlocksSubFunction(bool& grounded, Rectangle rect, Actor* actor, bool isEnemy)
 {
 
-	uint32 collisionFlags = CollisionWithRect(actor, rect);
+	uint32 collisionFlags = actor->CollisionWithRect(rect);
 	if (collisionFlags)
 	{
 		ActorType actorType = actor->GetActorType();
@@ -1152,7 +1385,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	if (actor->grounded != grounded)
 	{
 		if (!grounded && (actor->GetActorType() == ActorType::Player || actor->GetActorType() == ActorType::Enemy))
-			PlayAnimation(actor, ActorState::Jump);
+			actor->PlayAnimation(ActorState::Jump);
 	}
 	actor->grounded = grounded;
 }
@@ -1163,8 +1396,8 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 
 	float xPercentOffset = 0.2f;
 	float yPercentOffset = 0.3f;
-	Rectangle xRect = CollisionXOffsetToRectangle(&enemy);
-	Rectangle yRect = CollisionYOffsetToRectangle(&enemy);
+	Rectangle xRect = enemy.CollisionXOffsetToRectangle();
+	Rectangle yRect = enemy.CollisionYOffsetToRectangle();
 
 	if (g_debugList[DebugOptions::PlayerCollision])
 	{
@@ -1172,8 +1405,8 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 		AddRectToRender(yRect, transOrange, RenderPrio::Debug, CoordinateSpace::World);
 	}
 
-	uint32 xCollisionFlags = CollisionWithRect(&player, xRect) & (CollisionLeft | CollisionRight);
-	uint32 yCollisionFlags = CollisionWithRect(&player, yRect) & (CollisionBot | CollisionTop);
+	uint32 xCollisionFlags = player.CollisionWithRect(xRect) & (CollisionLeft | CollisionRight);
+	uint32 yCollisionFlags = player.CollisionWithRect(yRect) & (CollisionBot | CollisionTop);
 	float knockBackAmount = 20;
 	result = xCollisionFlags | yCollisionFlags;
 	if (enemy.GetActorType() == ActorType::Enemy)
@@ -1233,8 +1466,7 @@ void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 {
 	laser.paintType = paintType;
 	laser.inUse = true;
-	AttachAnimation(&laser);
-	PlayAnimation(&laser, ActorState::Idle);
+	laser.AttachAnimation();
 	Vector adjustedPlayerPosition = { player->position.x + 0.5f, player->position.y + 1 };
 
 	float playerBulletRadius = 0.5f; //half a block
@@ -1243,7 +1475,7 @@ void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float delta
 
 	Vector ToDest = Normalize(laser.destination - adjustedPlayerPosition);
 	laser.position = adjustedPlayerPosition + (ToDest * playerBulletRadius);
-	PlayAnimation(&laser, ActorState::Idle);
+	laser.PlayAnimation(ActorState::Idle);
 }
 
 void UpdateAnimationIndex(Actor* actor, float deltaTime)
@@ -1278,37 +1510,6 @@ void UpdateAnimationIndex(Actor* actor, float deltaTime)
 }
 
 
-void PlayAnimation(Actor* actor, ActorState state)
-{
-	ActorType actorType = actor->GetActorType();
-	if (actor->animationList->GetAnimation(state) == nullptr)
-	{
-		ActorState holdingState = ActorState::None;
-		for (int32 i = 1; i < (int32)ActorState::Count; i++)
-		{
-			if (actor->animationList->GetAnimation((ActorState)i) != nullptr)
-			{
-				holdingState = (ActorState)i;
-				break;
-			}
-		}
-		if (holdingState == ActorState::None)
-		{
-			//no valid animation to use
-			assert(false);
-			ConsoleLog("No valid animation for %s \n", std::to_string((int)actor->GetActorType()).c_str());
-			return;
-		}
-		state = holdingState;
-	}
-	if (actor->actorState != state || state == ActorState::Jump)
-	{
-		actor->actorState = state;
-		actor->index = 0;
-		actor->animationCountdown =	(1.0f / actor->animationList->GetAnimation(state)->fps);
-		UpdateAnimationIndex(actor, 0);
-	}
-}
 
 void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 {
@@ -1336,7 +1537,7 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 			Dummy* dummy = level.CreateActor<Dummy>(info);
 			dummy->position			= actor->position;
 			dummy->lastInputWasLeft	= actor->lastInputWasLeft;
-			PlayAnimation(dummy, ActorState::Dead);
+			dummy->PlayAnimation(ActorState::Dead);
 			actor->inUse = false;
 		}
 	}
@@ -1396,14 +1597,14 @@ void LoadAnimationStates(/*std::vector<AnimationData>* animationData*/)
 		data = {};
 		data = GetAnimationData(string, stateStrings);
 
-		if (actorAnimations.find(data.name) != actorAnimations.end())
+		if (s_actorAnimations.find(data.name) != s_actorAnimations.end())
 		{
 			ConsoleLog(LogLevel::LogLevel_Warning, "Already found animation: %s", data.name);
 			continue;
 		}
 
 
-		AnimationList* animationList = &actorAnimations[data.name];
+		AnimationList* animationList = &s_actorAnimations[data.name];
 		animationList->animations.reserve((int32)ActorState::Count);
 
 		for (int32 i = 1; i < (int32)ActorState::Count; i++)
@@ -1465,63 +1666,8 @@ void LoadAnimationStates(/*std::vector<AnimationData>* animationData*/)
 		if (data.scaledWidth == inf)
 			animationList->scaledWidth = (float)sprite->width;
 		else
-			actorAnimations[data.name].scaledWidth = data.scaledWidth;
+			s_actorAnimations[data.name].scaledWidth = data.scaledWidth;
 
 	}
-}
-
-void AttachAnimation(Actor* actor, ActorType overrideType)
-{
-	std::string entityName;
-	ActorType actorReferenceType;
-
-	if (overrideType != ActorType::None)
-		actorReferenceType = overrideType;
-	else
-		actorReferenceType = actor->GetActorType();
-
-	switch (actorReferenceType)
-	{
-	case ActorType::Player:
-	{
-		entityName = "Knight"; //"Dino";
-		break;
-	}
-	case ActorType::Enemy:
-	{
-		entityName = "Striker";//"HeadMinion";
-		break;
-	}
-	case ActorType::Projectile:
-	{
-		entityName = "Bullet";
-		break;
-	}
-	case ActorType::Portal:
-	{
-		entityName = "Portal";
-		break;
-	}
-	case ActorType::Spring:
-	{
-		entityName = "Spring";
-		break;
-	}
-	case ActorType::MovingPlatform:
-	{
-		entityName = "MovingPlatform";
-		break;
-	}
-	case ActorType::Grapple:
-	{
-		entityName = "Grapple";
-		break;
-	}
-	default:
-		assert(false);
-		ConsoleLog("AttachAnimation could not find animation list for this actor\n");
-		break;
-	}
-	actor->animationList = &actorAnimations[entityName];
 }
 

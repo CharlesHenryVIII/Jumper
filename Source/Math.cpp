@@ -21,6 +21,20 @@ Vector CreateRandomVector(const Vector& min, const Vector& max)
              Random<float>(min.y, max.y) };
 }
 
+Color CreateRandomColor(Color min, Color max)
+{
+    return { Random(min.r, max.r),
+            Random(min.g, max.g),
+            Random(min.b, max.b),
+            Random(min.a, max.a) };
+}
+
+Color CreateRandomColorShade(float min, float max)
+{
+	float r = Random(min, max);
+	return { r, r, r, r };
+}
+
 float LinearToAngularVelocity(Vector centerOfCircle, Vector position, Vector velocity)
 {
 

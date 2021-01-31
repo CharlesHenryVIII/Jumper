@@ -97,7 +97,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             {
                 player->velocity.y = 20.0f;
                 player->jumpCount -= 1;
-                PlayAnimation(player, ActorState::Jump);
+                player->PlayAnimation(ActorState::Jump);
                 PlayAudio("Jump");
             }
         }
@@ -180,8 +180,6 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                         player->acceleration.x += airAccelerationAmount;
                 }
             }
-            if (player->grounded)
-				Play(player->particleGenerators["Dust"]);
         }
 
 

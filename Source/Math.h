@@ -215,8 +215,6 @@ T Random(const T& min, const T& max)
     return min + (max - min) * (rand() / T(RAND_MAX));
 }
 
-Vector CreateRandomVector(const Vector& min, const Vector& max);
-
 inline float VectorDistance(Vector A, Vector B)
 {
     return sqrtf(powf(B.x - A.x, 2) + powf(B.y - A.y, 2));
@@ -272,6 +270,9 @@ inline float Distance(Vector a, Vector b)
 }
 
 void Swap(void* a, void* b, const int size);
+Vector CreateRandomVector(const Vector& min, const Vector& max);
+Color CreateRandomColor(Color min, Color max);
+Color CreateRandomColorShade(float min, float max);
 float LinearToAngularVelocity(Vector centerOfCircle, Vector position, Vector velocity);
 gbVec3 Vec2TogbVec3(Vector v);
 Vector gbMat4ToVec2(gbMat4 m);

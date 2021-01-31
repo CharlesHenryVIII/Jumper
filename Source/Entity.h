@@ -33,6 +33,7 @@ enum class ActorType
     MovingPlatform,
     Grapple,
     AudioPlayer,
+    ParticleGen,
     Item,
     Count
 };
@@ -188,7 +189,7 @@ public:
 
     ActorID parent = 0;
 
-    std::unordered_map<std::string, ParticleGenID> particleGenerators;
+    //std::unordered_map<std::string, ParticleGenID> particleGenerators;
 
     Sprite* currentSprite = nullptr;
     const AnimationList* animationList = {};
@@ -225,6 +226,7 @@ public:
     }
     gbMat4 GetWorldMatrix();
     Vector GetWorldPosition();
+
 	//Vector GetWorldVelocity()
 	//{
 	//    Vector result = velocity;
@@ -233,7 +235,13 @@ public:
 	//        result = level->FindActor<Actor>(parent)->GetWorldVelocity() * result;
 	//    return result;
 	//}
+
     void UpdateLocation(float gravity, float deltaTime);
+    void PlayAnimation(ActorState state);
+    void AttachAnimation(ActorType overrideType = ActorType::None);
+    Rectangle CollisionXOffsetToRectangle();
+    Rectangle CollisionYOffsetToRectangle();
+    uint32 CollisionWithRect(Rectangle rect);
 };
 
 
@@ -255,6 +263,9 @@ struct Enemy : public Actor
 
     EnemyType enemyType;
     float timeToMakeSound = 0;
+    ParticleGenID dustGenerator;
+    ParticleParams pp;
+
 
     void OnInit();
     void Update(float deltaTime) override;
@@ -271,6 +282,9 @@ struct Player : public Actor
     bool grappleEnabled = false;
     bool grappleReady = true;
     ActorID grapple = 0;
+    ParticleGenID dustGenerator;
+
+    ParticleParams pp;
 
     float timeToMakeSound = 0;
 
@@ -381,6 +395,33 @@ struct AudioPlayer : public Actor
     void UpdateHealth(Level& level, float deltaHealth) override {};
 };
 
+struct ParticleGen : public Actor
+{
+    ACTOR_TYPE(ParticleGen);
+
+	Color colorRangeLo;
+	Color colorRangeHi;
+
+	Vector coneDir;
+	float coneDeg;
+	float particleSpeed;
+
+	float lifeTime;
+	float particlesPerSecond;
+	float particleSize;
+	Vector terminalVelocity;
+	float timeLeftToSpawn;
+    bool playing;
+
+	//float fadeInTime;
+	//float fadeOutTime;
+
+    void OnInit(const ParticleParams info);
+    void Update(float deltaTime) override;
+    void Render() override;
+    void UpdateHealth(Level& level, float deltaHealth) override {};
+};
+
 struct Item : public Actor
 {
     ACTOR_TYPE(Item);
@@ -427,7 +468,7 @@ public:
 
 
 extern Projectile laser;
-extern std::unordered_map<std::string, AnimationList> actorAnimations;
+extern std::unordered_map<std::string, AnimationList> s_actorAnimations;
 
 struct Level
 {
@@ -518,11 +559,9 @@ Color GetTileMapColor(const Block& block);
 void UpdateAllNeighbors(Block* block, Level* level);
 void SurroundBlockUpdate(Block* block, bool updateTop, Level* level);
 void ClickUpdate(Block* block, bool updateTop, Level* level);
-uint32 CollisionWithRect(Actor* actor, Rectangle rect);
 void CollisionWithBlocks(Actor* actor, bool isEnemy);
 uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level);
 void UpdateAnimationIndex(Actor* actor, float deltaTime);
-void PlayAnimation(Actor* actor, ActorState state);
 void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth);
 Portal* GetPortalsPointer(Portal* basePortal);
 void UpdateLaser(Actor* player, Vector mouseLoc, TileType paintType, float deltaTime);
@@ -532,5 +571,4 @@ void RenderActors(std::vector<Actor*>* actors);
 void RenderActorHealthBars(Actor& actor);
 //void LoadAllAnimationStates();
 void LoadAnimationStates();
-void AttachAnimation(Actor* actor, ActorType overrideType = ActorType::None);
 

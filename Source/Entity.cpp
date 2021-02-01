@@ -12,10 +12,9 @@
 #include <cassert>
 
 
-ActorID Actor::lastID = 0;
+ActorID Actor::lastID = ActorID::Invalid;
 
 Projectile laser = {};
-//Level* currentLevel = nullptr;
 std::unordered_map<std::string, AnimationList> s_actorAnimations;
 
 
@@ -105,7 +104,7 @@ gbMat4 Actor::GetWorldMatrix()
 
 	gbMat4 result;
 	result = f_translation * f_rotation;
-	if (parent)
+	if (parent != ActorID::Invalid)
 	{
 		if (Actor* a = level->FindActorGeneric(parent))
 			result = a->GetWorldMatrix() * result;
@@ -287,8 +286,7 @@ void Player::OnInit()
         .colorRangeLo = { 0.50f, 0.50f, 0.50f, 0.50f },
         .colorRangeHi = { 0.75f, 0.75f, 0.75f, 0.70f },
 
-		.coneDir = coneDir,
-		.coneDeg = 10.0f,
+		.coneDeg = {},
 
         //.particleSize = 2,
 		.particleSpeed = 5.0f,
@@ -299,70 +297,68 @@ void Player::OnInit()
 
         //.terminalVelocity = {};
     };
-
-	ParticleGen* p = level->CreateActor<ParticleGen>(pp);
-	p->parent = id;
-	dustGenerator = p->id;
 }
 
-void Player::Update(float deltaTime)
+void CharacterCommonUpdate(Actor* actor, float deltaTime)
 {
-	UpdateLocation(-60.0f, deltaTime);
-	CollisionWithBlocks(this, false);
+	actor->UpdateLocation(-60.0f, deltaTime);
 
-	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
+	CollisionWithBlocks(actor, actor->GetActorType() == ActorType::Enemy);
 
-	ParticleGen* g = level->FindActor<ParticleGen>(dustGenerator);
-	if (g == nullptr)
+	actor->invinciblityTime = Max(actor->invinciblityTime - deltaTime, 0.0f);
+
+	ParticleGen* g = actor->GetDustSystem();
+
+	if (actor->grounded)
 	{
-		g = level->CreateActor<ParticleGen>(pp);
-		g->parent = id;
-		dustGenerator = g->id;
-	}
-	assert(g);
-
-	if (grounded)
-	{
-		if (velocity.x != 0)
+		if (actor->velocity.x != 0)
 		{
-			PlayAnimation(ActorState::Run);
+			actor->PlayAnimation(ActorState::Run);
 
-			if (velocity.x > 0.0f)
+			float base = 40.0f;
+			if (actor->velocity.x > 0.0f)
 			{
-				g->coneDir = RotateVector({ -velocity.x, velocity.y }, -60.0f);
+				g->system->pp.coneDeg.AngleSymetric(180.0f - base, 20.0f);
 				g->position.x = 0;
 			}
 			else
 			{
-				g->coneDir = RotateVector({ -velocity.x, velocity.y }, 60.0f);
-				g->position.x = GameWidth();
+				g->system->pp.coneDeg.AngleSymetric(base, 20.0f);
+				g->position.x = actor->GameWidth();
 			}
 
-			g->playing = true;
+			g->system->playing = true;
 		}
 		else
 		{
-			PlayAnimation(ActorState::Idle);
-			g->playing = false;
+			actor->PlayAnimation(ActorState::Idle);
+			g->system->playing = false;
 		}
 	}
 	else
-		g->playing = false;
-		
-	UpdateAnimationIndex(this, deltaTime);
+		g->system->playing = false;
 
-	timeToMakeSound += deltaTime;
-	float t = 2.0f / (fabs(velocity.x));//0.5f;
-	if (timeToMakeSound >= t && g_gameState == GameState::Game && grounded)
+	UpdateAnimationIndex(actor, deltaTime);
+
+	float* timeToMakeSound = actor->GetAudioTimer();
+
+	*timeToMakeSound += deltaTime;
+	float t = 2.0f / (fabs(actor->velocity.x));//0.5f;
+	if (*timeToMakeSound >= t && g_gameState == GameState::Game && actor->grounded)
 	{
 		AudioParams params = {
 	.nameOfSound = "Grass",
 		};
-		AudioPlayer* ap = level->CreateActor<AudioPlayer>(params);
-		ap ->parent = id;
+		AudioPlayer* ap = actor->level->CreateActor<AudioPlayer>(params);
+		ap->parent = actor->id;
 
-		timeToMakeSound = 0.0f;//timeToMakeSound - t;
+		*timeToMakeSound = 0.0f;//timeToMakeSound - t;
 	}
+}
+
+void Player::Update(float deltaTime)
+{
+	CharacterCommonUpdate(this, deltaTime);
 }
 
 void Player::Render()
@@ -376,7 +372,24 @@ void Player::UpdateHealth(Level& level, float deltaHealth)
 	UpdateActorHealth(level, this, deltaHealth);
 }
 
+ParticleGen* Player::GetDustSystem()
+{
+	ParticleGen* g = level->FindActor<ParticleGen>(dustGenerator);
 
+	if (g == nullptr)
+	{
+		g = level->CreateActor<ParticleGen>(pp);
+		g->parent = id;
+		dustGenerator = g->id;
+	}
+	assert(g);
+	return g;
+}
+
+float* Player::GetAudioTimer()
+{
+	return &timeToMakeSound;
+}
 
 /*********************
  *
@@ -407,8 +420,7 @@ void Enemy::OnInit()
         .colorRangeLo = { 0.50f, 0.50f, 0.50f, 0.50f },
         .colorRangeHi = { 0.75f, 0.75f, 0.75f, 0.70f },
 
-		.coneDir = coneDir,
-		.coneDeg = 10.0f,
+		.coneDeg = {},
 
         //.particleSize = 2,
 		.particleSpeed = 5.0f,
@@ -419,83 +431,11 @@ void Enemy::OnInit()
 
         //.terminalVelocity = {};
     };
-
-	ParticleGen* p = level->CreateActor<ParticleGen>(pp);
-	p->parent = id;
-	dustGenerator = p->id;
-
-	//AudioParams a = {
-	//	.nameOfSound = "Grass",
-	//	.loopCount = AUDIO_MAXLOOPS,
-	//};
 }
 
 void Enemy::Update(float deltaTime)
 {
-	UpdateLocation(-60.0f, deltaTime);
-
-	CollisionWithBlocks(this, true);
-	invinciblityTime = Max(invinciblityTime - deltaTime, 0.0f);
-	if (grounded == true)
-	{
-		if (velocity.x != 0)
-			PlayAnimation(ActorState::Run);
-		else
-			PlayAnimation(ActorState::Idle);
-	}
-
-	ParticleGen* g = level->FindActor<ParticleGen>(dustGenerator);
-	if (g == nullptr)
-	{
-		g = level->CreateActor<ParticleGen>(pp);
-		g->parent = id;
-		dustGenerator = g->id;
-	}
-	assert(g);
-
-	if (grounded)
-	{
-		if (velocity.x != 0)
-		{
-			PlayAnimation(ActorState::Run);
-
-			if (velocity.x > 0.0f)
-			{
-				g->coneDir = RotateVector({ -velocity.x, velocity.y }, -60.0f);
-				g->position.x = 0;
-			}
-			else
-			{
-				g->coneDir = RotateVector({ -velocity.x, velocity.y }, 60.0f);
-				g->position.x = GameWidth();
-			}
-
-			g->playing = true;
-		}
-		else
-		{
-			PlayAnimation(ActorState::Idle);
-			g->playing = false;
-		}
-	}
-	else
-		g->playing = false;
-
-	UpdateAnimationIndex(this, deltaTime);
-
-	//TODO: Improve accuracy of audio playback
-	timeToMakeSound += deltaTime;
-	float t = 1.0f / (fabs(velocity.x));//0.5f;
-	if (timeToMakeSound >= t && g_gameState == GameState::Game)
-	{
-		AudioParams params = {
-	.nameOfSound = "Grass",
-		};
-		AudioPlayer* ap = level->CreateActor<AudioPlayer>(params);
-		ap ->parent = id;
-
-		timeToMakeSound = 0.0f;//timeToMakeSound - t;
-	}
+	CharacterCommonUpdate(this, deltaTime);
 }
 
 void Enemy::Render()
@@ -507,6 +447,25 @@ void Enemy::Render()
 void Enemy::UpdateHealth(Level& level, float deltaHealth)
 {
 	UpdateActorHealth(level, this, deltaHealth);
+}
+
+ParticleGen* Enemy::GetDustSystem()
+{
+	ParticleGen* g = level->FindActor<ParticleGen>(dustGenerator);
+
+	if (g == nullptr)
+	{
+		g = level->CreateActor<ParticleGen>(pp);
+		g->parent = id;
+		dustGenerator = g->id;
+	}
+	assert(g);
+	return g;
+}
+
+float* Enemy::GetAudioTimer()
+{
+	return &timeToMakeSound;
 }
 
 /*********************
@@ -712,7 +671,7 @@ void MovingPlatform::Render()
 
 void Grapple::OnInit(const GrappleInfo& info)
 {
-	assert(info.actorID);
+	assert(info.actorID != ActorID::Invalid);
 
     //Grapple needs to travel to the location where the player clicked
 	//TODO:  make sure there isnt a valid grapple already attached to the player
@@ -794,7 +753,7 @@ void Grapple::Update(float deltaTime)
 			velocity = Normalize(shotOrigin - position) * grappleSpeed + player->velocity;
 			if (Pythags(shotOrigin - position) < 1.0f)
 			{
-				player->grapple = 0;
+				player->grapple = ActorID::Invalid;
 				player->grappleReady = true;
 				inUse = false;
 			}
@@ -840,12 +799,9 @@ float FadeInGameUnits(float min, float max, float distance)
 void AudioPlayer::OnInit(AudioParams info)
 {
 	audioParams = info;
-<<<<<<< HEAD
 	audioID = PlayAudio(audioParams);
-=======
 	//AttachAnimation(this);
     //PlayAnimation(ActorState::Idle);
->>>>>>> 3f6a660 (Modified Actor and ParticleGen)
 }
 
 void AudioPlayer::Update(float deltaTime)
@@ -861,7 +817,6 @@ void AudioPlayer::Update(float deltaTime)
 
 	v.y = FadeInGameUnits(5, 20, fabs(diff.y));
 	SetAudioVolume(audioID, v.y);
-
 	inUse = AudioIDValid(audioID);
 }
 
@@ -889,56 +844,19 @@ void AudioPlayer::Render()
 
 void ParticleGen::OnInit(const ParticleParams info)
 {
-	colorRangeLo = info.colorRangeLo;
-	colorRangeHi = info.colorRangeHi;
-
-	coneDir = info.coneDir;
-	coneDeg = info.coneDeg;
-	particleSpeed = info.particleSpeed;
-
-	lifeTime = info.lifeTime;
-	particlesPerSecond = info.particlesPerSecond;
-	particleSize = info.particleSize;
-	terminalVelocity = info.terminalVelocity;
-	timeLeftToSpawn = 0.0f;
-
-	//fadeInTime = info.fadeInTime;
-	//fadeOutTime = info.fadeOutTime;
+	system = std::make_unique<ParticleSystem>(info);
+	system->playing = true;
 }
 
 void ParticleGen::Update(float deltaTime)
 {
-
-	//Create Particles
-	timeLeftToSpawn -= deltaTime;
-	while (playing && timeLeftToSpawn <= 0)
-	{
-
-		Vector worldPosition = GetWorldPosition();
-		float coneDeg2 = DegToRad(Random<float>(-coneDeg, coneDeg));
-		Vector vel = RotateVector(Normalize(coneDir), coneDeg2);
-
-		Particle p = {
-			.location = worldPosition,
-			.velocity = vel * particleSpeed,
-			.acceleration = vel,
-
-			.color = CreateRandomColorShade(colorRangeLo.r, colorRangeHi.r),// colorRangeLo, colorRangeHi),
-			.timeLeft = lifeTime, //seconds
-			//.fadeInTime = fadeInTime,
-			//.fadeOutTime = fadeOutTime, //seconds
-
-			.size = particleSize,
-		};
-		AddParticle(p);
-
-		timeLeftToSpawn += (1.0f / particlesPerSecond);
-	}
+	system->location = GetWorldPosition();
+	system->Update(deltaTime);
 }
 
 void ParticleGen::Render()
 {
-
+	system->Render();
 }
 
 /*********************
@@ -1300,8 +1218,6 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 		}
 	}
 
-#if 0
-
 	//Checking Moving Platforms
 	MovingPlatform* collidedPlatform = nullptr;
 	uint32 collisionFlags = 0;
@@ -1328,42 +1244,6 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 		}
 	}
 
-    #else
-    //Checking Moving Platforms
-	ActorID collisionID = 0;
-	MovingPlatform* collidedPlatform = nullptr;
-	uint32 collisionFlags = 0;
-	for (int32 i = 0; i < actor->level->movingPlatforms.size(); i++)
-	{
-		if (Actor* actorTwo = actor->level->FindActor<MovingPlatform>(actor->level->movingPlatforms[i]))
-		{
-			MovingPlatform* MP = (MovingPlatform*)actorTwo;
-
-			Rectangle MPRect = { MP->position, { MP->position.x + MP->GameWidth(), MP->position.y + MP->GameHeight() } };
-			collisionFlags = CollisionWithBlocksSubFunction(grounded, MPRect, actor, isEnemy);
-			if (collisionFlags)
-			{
-
-				bool attachable = true;
-				if (Player* player = dynamic_cast<Player*>(actor))
-				{
-					if (Grapple* grapple = player->level->FindActor<Grapple>(player->grapple))
-					{
-						grapple->angularVelocity = 0;
-						attachable = false;
-					}
-
-				}
-				if (attachable)
-				{
-					collisionID = actor->level->movingPlatforms[i];
-					collidedPlatform = MP;
-				}
-			}
-		}
-	}
-    #endif
-
 	//new parent is different from old parent
 	//need to remove child on old parent and put onto new parent
 	if (collidedPlatform)
@@ -1378,7 +1258,7 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 			actor->velocity.x += MP->velocity.x;
 		else
 			actor->velocity += MP->velocity;
-		actor->parent = 0;
+		actor->parent = ActorID::Invalid;
 	}
 
 	//Grounded Logic

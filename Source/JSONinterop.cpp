@@ -236,7 +236,7 @@ void LoadLevel(Level* level, const std::string& name)
 		*level = s_levels[name];
 		level->movingPlatforms.clear();
 		level->actors.clear();
-		level->playerID = 0;
+		level->playerID = ActorID::Invalid;
 		for (Actor* actor : s_levels[name].actors)
 		{
 			Actor* actorCopy = actor->Copy();

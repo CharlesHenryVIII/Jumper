@@ -1,7 +1,7 @@
 #pragma once
 #include "Math.h"
 
-typedef uint32 ParticleGenID;
+#include <vector>
 
 struct ParticleParams {
     Vector spawnLocation = {};
@@ -9,9 +9,11 @@ struct ParticleParams {
     Color colorRangeLo = { 0.0f, 0.0f, 0.0f, 0.0f };
     Color colorRangeHi = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-    Vector coneDir = {};
-    float coneDeg = {};
+    //Vector coneDir = {};
+    //float coneDir = 0;
+    Range coneDeg = {};
 
+    float gravity = -20.0f;
     float particleSpeed = 2.0f;
     float particleSize = 0.1f;
     float lifeTime = 0;
@@ -35,45 +37,20 @@ struct Particle {
     float fadeOutTime = 1; //seconds
 
     float size;
-    ParticleGenID GenID = 0;
-
     bool inUse = true;
 };
 
-//struct Generator {
-//    Vector location = {};
-//
-//    Color colorRangeLo = {};
-//    Color colorRangeHi = {};
-//
-//    Vector coneDir = {};
-//    float coneDeg = 0.0f;
-//    float particleSpeed;
-//
-//    float lifeTime = 0;
-//    float particlesPerSecond = 0;
-//    float particleSize;
-//    float fadeInTime = 0;
-//
-//    float fadeOutTime = 0;
-//    Vector terminalVelocity = {};
-//    float timeLeftToSpawn = 0;
-//
-//    ParticleGenID ID = 0;
-//    bool inUse = false;
-//
-//    void UpdateGeneratorLocation(const Vector& loc, const Vector& vel)
-//    {
-//        location = loc;
-//    };
-//};
+struct ParticleSystem {
 
-void ParticleInit();
-void AddParticle(Particle p);
-//ParticleGenID CreateParticleGenerator(ParticleParams p);
-//Generator* GetParticleGenerator(ParticleGenID ID);
-void UpdateParticles(float dt, float gravity);
-//void Play(const ParticleGenID ID);
-//void Pause(const ParticleGenID ID);
-//void Stop(const ParticleGenID ID);
-//void Mute(const ParticleGenID ID);
+	std::vector<Particle> particles;
+
+	ParticleParams pp;
+
+    Vector location = {};
+    float timeLeftToSpawn = 0;
+	bool playing = true;
+
+    ParticleSystem(const ParticleParams& info) : pp(info) {}
+    void Update(float deltaTime);
+    void Render();
+};

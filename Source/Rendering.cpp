@@ -547,7 +547,6 @@ void RenderDrawCalls(float dt)
     //world and UI matrix
     float windowWidth = (float)g_windowInfo.width;
     float windowHeight = (float)g_windowInfo.height;
-    Vector cameraPixel;
 
     gbMat4 worldMatrix;
 	gb_mat4_ortho2d(&worldMatrix, g_camera.position.x - g_camera.size.x / 2, g_camera.position.x + g_camera.size.x / 2, g_camera.position.y - g_camera.size.y / 2, g_camera.position.y + g_camera.size.y / 2);

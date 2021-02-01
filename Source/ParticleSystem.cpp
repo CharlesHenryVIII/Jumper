@@ -4,130 +4,38 @@
 #include <vector>
 #include <unordered_map>
 
-
-
-//std::unordered_map<ParticleGenID, Generator> s_generators;
-std::vector<Particle> s_particles;
-
-
-//ParticleGenID s_RefParticleGenID = 0;
-//ParticleGenID CreateParticleGenerator(ParticleParams p)
-//{
-//    Generator g = {
-//        .location = p.spawnLocation,
-//
-//        .colorRangeLo = p.colorRangeLo,
-//        .colorRangeHi = p.colorRangeHi,
-//
-//        .coneDir = p.coneDir,
-//        .coneDeg = p.coneDeg,
-//        .particleSpeed = p.particleSpeed,
-//
-//        .lifeTime = p.lifeTime,
-//        .particlesPerSecond = p.particlesPerSecond,
-//        .particleSize = p.particleSize,
-//        .fadeInTime = p.fadeInTime,
-//
-//        .fadeOutTime = p.fadeOutTime,
-//        .terminalVelocity = p.terminalVelocity,
-//        .timeLeftToSpawn = 0,
-//
-//        .ID = ++s_RefParticleGenID,
-//    };
-//    s_generators[g.ID] = g;
-//
-//    return g.ID;
-//}
-
-//void Play(const ParticleGenID ID)
-//{
-//    GetParticleGenerator(ID)->inUse = true;
-//}
-
-//void Pause(const ParticleGenID ID)
-//{
-//	GetParticleGenerator(ID)->inUse = false;
-//}
-
-//void Stop(const ParticleGenID ID)
-//{
-//
-//}
-//
-//void Mute(const ParticleGenID ID)
-//{
-//
-//}
-
-//Generator* GetParticleGenerator(ParticleGenID ID)
-//{
-//    for (uint32 i = 0; i < s_generators.size(); i++)
-//    {
-//        if (s_generators[i].ID == ID)
-//            return &s_generators[i];
-//    }
-//    return nullptr;
-//}
-
-void ParticleInit()
+void ParticleSystem::Update(float dt)
 {
-    s_particles.reserve(20000);
-}
-
-void AddParticle(Particle p)
-{
-	s_particles.push_back(p);
-}
-
-void UpdateParticles(float dt, float gravity)
-{
-
-    //Update Generators
-	//for (uint32 i = 0; i < s_generators.size(); i++)
-	//{
-	//	Generator& g = s_generators[i];
-
- //       //Create Particles
- //       g.timeLeftToSpawn -= dt;
-	//	while (g.inUse && g.timeLeftToSpawn <= 0)
-	//	{
-
- //           Vector result = {};
- //           float coneDeg = DegToRad(Random<float>(-g.coneDeg, g.coneDeg));
-
- //           //gbMat4 rotateMat;
- //           //gb_mat4_rotate(&rotateMat, Vec2TogbVec3(Normalize(g.coneDir) * g.particleSpeed), coneDeg);
- //           //
- //           //Vector vel = gbMat4ToVec2(rotateMat);
-
- //           Vector vel = RotateVector(Normalize(g.coneDir), coneDeg);
-
- //           Particle p = {
- //               .location = g.location,
- //               .velocity = vel * g.particleSpeed,
- //               .acceleration = vel,
-
-	//			.color = CreateRandomColor(g.colorRangeLo, g.colorRangeHi),
-	//			.timeLeft = g.lifeTime, //seconds
-	//			.fadeInTime = g.fadeInTime,
-	//			.fadeOutTime = g.fadeOutTime, //seconds
-
-	//			.size = g.particleSize,
-	//			.GenID = g.ID,
-	//		};
-	//		s_particles.push_back(p);
-
-	//		g.timeLeftToSpawn += (1.0f / g.particlesPerSecond);
-	//	}
-
-	//}
-
-	//Update Particles
-	for (uint32 i = 0; i < s_particles.size(); i++)
+	timeLeftToSpawn -= dt;
+	while (playing && timeLeftToSpawn <= 0)
 	{
-		Particle& p = s_particles[i];
+
+		Vector worldPosition = location;
+		float coneDir = DegToRad(pp.coneDeg.RandomInRange());
+		Vector vel = { cosf(coneDir), sinf(coneDir) };
+
+		Particle p = {
+			.location = worldPosition,
+			.velocity = vel * pp.particleSpeed,
+			.acceleration = vel,
+
+			.color = CreateRandomColorShade(pp.colorRangeLo.r, pp.colorRangeHi.r),// colorRangeLo, colorRangeHi),
+			.timeLeft = pp.lifeTime, //seconds
+			//.fadeInTime = fadeInTime,
+			//.fadeOutTime = fadeOutTime, //seconds
+
+			.size = pp.particleSize,
+		};
+		particles.push_back(p);
+
+		timeLeftToSpawn += (1.0f / pp.particlesPerSecond);
+	}
+
+	for (uint32 i = 0; i < particles.size(); i++)
+	{
+		Particle& p = particles[i];
 		p.velocity.x += p.acceleration.x * dt;
-		p.velocity.y += gravity * dt;
+		p.velocity.y += pp.gravity * dt;
 
 		if (p.terminalVelocity.x > 0.5)
 		{
@@ -148,15 +56,15 @@ void UpdateParticles(float dt, float gravity)
         p.timeLeft -= dt;
 	}
 
-    //Remove Particles
-    std::erase_if(s_particles, [](Particle p) { return p.inUse == false; } );
+    std::erase_if(particles, [](Particle& p) { return p.inUse == false; } );
 
-	//std::erase_if(s_audioPlaying, [ID](AudioInstance a) { return a.ID == ID; });
+}
 
-	//Render Particles
-	for (uint32 i = 0; i < s_particles.size(); i++)
+void ParticleSystem::Render()
+{
+	for (uint32 i = 0; i < particles.size(); i++)
 	{
-        const Particle& p = s_particles[i];
+        const Particle& p = particles[i];
         float s = p.size / 2;
         Rectangle r = {
             .botLeft = { p.location.x - s, p.location.y - s},

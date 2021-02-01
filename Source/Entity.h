@@ -3,14 +3,18 @@
 #include "Audio.h"
 #include "ParticleSystem.h"
 
+#include <cassert>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <cassert>
 
 struct Sprite;
 struct Level;
-typedef uint32 ActorID;
+enum class ActorID : uint32{
+    Invalid
+};
+///typedef uint32 ActorID;
 
 
 enum class EnemyType
@@ -163,7 +167,7 @@ private:
 
 public:
 
-    Actor() : id(++lastID)
+    Actor() : id(ActorID(++((uint32&)(lastID))))
     {
     }
 
@@ -187,7 +191,7 @@ public:
     bool switchToLinearUpdate = false;
     ActorState actorState = ActorState::None;
 
-    ActorID parent = 0;
+    ActorID parent = ActorID::Invalid;
 
     //std::unordered_map<std::string, ParticleGenID> particleGenerators;
 
@@ -202,6 +206,8 @@ public:
     virtual void Render() = 0;
     virtual void UpdateHealth(Level& level, float deltaHealth) = 0;
     virtual ActorType GetActorType() = 0;
+    virtual struct ParticleGen* GetDustSystem() { return nullptr; };
+    virtual float* GetAudioTimer() { return nullptr; };
     float PixelToGameRatio()
     {
         assert(animationList->colRect.Width());
@@ -257,21 +263,6 @@ public:
     }
 
 
-struct Enemy : public Actor
-{
-    ACTOR_TYPE(Enemy);
-
-    EnemyType enemyType;
-    float timeToMakeSound = 0;
-    ParticleGenID dustGenerator;
-    ParticleParams pp;
-
-
-    void OnInit();
-    void Update(float deltaTime) override;
-    void Render() override;
-    void UpdateHealth(Level& level, float deltaHealth) override;
-};
 
 struct Player : public Actor
 {
@@ -281,9 +272,9 @@ struct Player : public Actor
     float grappleRange = 15.0f;
     bool grappleEnabled = false;
     bool grappleReady = true;
-    ActorID grapple = 0;
-    ParticleGenID dustGenerator;
+    ActorID grapple = ActorID::Invalid;
 
+    ActorID dustGenerator = ActorID::Invalid;
     ParticleParams pp;
 
     float timeToMakeSound = 0;
@@ -292,8 +283,27 @@ struct Player : public Actor
     void Update(float deltaTime) override;
     void Render() override;
     void UpdateHealth(Level& level, float deltaHealth) override;
+    struct ParticleGen* GetDustSystem() override;
+    float* GetAudioTimer() override;
 };
 
+struct Enemy : public Actor
+{
+    ACTOR_TYPE(Enemy);
+
+    EnemyType enemyType;
+    float timeToMakeSound = 0;
+    ActorID dustGenerator;
+    ParticleParams pp;
+
+
+    void OnInit();
+    void Update(float deltaTime) override;
+    void Render() override;
+    void UpdateHealth(Level& level, float deltaHealth) override;
+    struct ParticleGen* GetDustSystem() override;
+    float* GetAudioTimer() override;
+};
 
 struct Projectile : public Actor
 {
@@ -371,7 +381,7 @@ struct Grapple : public Actor
     //Allow the player to get closer but not fartherfrom the attached location,
     //then slowely real the actor into the location,
     //stop and delete if the player releases the mouse 1 button.
-    ActorID attachedActor = 0;
+    ActorID attachedActor = ActorID::Invalid;
     GrappleState grappleState = GrappleState::None;
 	float grappleSpeed = 40.0f;
     float grappleDistance;
@@ -399,22 +409,13 @@ struct ParticleGen : public Actor
 {
     ACTOR_TYPE(ParticleGen);
 
-	Color colorRangeLo;
-	Color colorRangeHi;
+	std::unique_ptr<ParticleSystem> system;
 
-	Vector coneDir;
-	float coneDeg;
-	float particleSpeed;
-
-	float lifeTime;
-	float particlesPerSecond;
-	float particleSize;
-	Vector terminalVelocity;
-	float timeLeftToSpawn;
-    bool playing;
-
-	//float fadeInTime;
-	//float fadeOutTime;
+	ParticleGen& operator =(const ParticleGen& other)
+	{
+		system = std::make_unique<ParticleSystem>(other.system->pp);
+        return *this;
+	}
 
     void OnInit(const ParticleParams info);
     void Update(float deltaTime) override;

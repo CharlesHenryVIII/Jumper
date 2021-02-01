@@ -38,6 +38,8 @@
 - [x] Make DrawText() a variadic function
 - [x] pop frametimes based on age (after 1 second?)
 - [x] Case insensitve string compare
+- [ ] Make CreateLevel() load marker information about entities
+- [ ] Entity Component system, Audio and particles become components
 - [ ] Continue rendering window while it is being dragged/moved
 - [ ] TRIGGER VOLUME
 - [x] load operating system files in a folder

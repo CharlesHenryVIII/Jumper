@@ -58,10 +58,37 @@ const uint32 CollisionBot = 2;
 const uint32 CollisionRight = 4;
 const uint32 CollisionLeft = 8;
 
+typedef gbVec2 Vector;
 
-struct Vector {
-    float x = 0;
-    float y = 0;
+//struct Vector {
+//    float x = 0;
+//    float y = 0;
+//};
+
+template<typename T>
+T Random(const T& min, const T& max)
+{
+    return min + (max - min) * (rand() / T(RAND_MAX));
+}
+
+struct Range {
+    float min, max;
+
+    float RandomInRange()
+    {
+        return Random<float>(min, max);
+    }
+    //void AngleAsymetric(float angle, float offset)
+    //{
+    //    float a = angle + offset;
+    //    min = Min<float>(angle, a);
+    //    max = Max<float>(angle, a);
+    //}
+    void AngleSymetric(float angle, float range)
+    {
+        min = angle - range / 2;
+        max = angle + range / 2;
+    }
 };
 
 
@@ -115,25 +142,12 @@ inline Vector operator-(const Vector& v)
     return { -v.x, -v.y };
 }
 
-inline Vector operator-(const Vector& lhs, const Vector& rhs)
-{
-    return { lhs.x - rhs.x, lhs.y - rhs.y };
-}
 inline Vector operator-(const Vector& lhs, const float rhs)
 {
     return { lhs.x - rhs, lhs.y - rhs };
 }
 
-inline Vector operator+(const Vector& lhs, const Vector& rhs)
-{
-    return { lhs.x + rhs.x, lhs.y + rhs.y };
-}
 
-
-inline Vector operator*(const Vector& a, const float b)
-{
-    return { a.x * b,  a.y * b };
-}
 inline VectorInt operator*(const VectorInt& a, const float b)
 {
     return { int(a.x * b),  int(a.y * b) };
@@ -146,25 +160,6 @@ inline Vector operator/(const Vector& a, const float b)
 inline Vector operator/(const float lhs, const Vector& rhs)
 {
     return { lhs / rhs.x,  lhs / rhs.y };
-}
-
-inline const Vector& operator+=(Vector& lhs, const Vector& rhs)
-{
-    lhs.x += rhs.x;
-    lhs.y += rhs.y;
-    return lhs;
-}
-
-inline bool operator==(const Vector& lhs, const Vector& rhs)
-{
-    bool x = lhs.x == rhs.x;
-    bool y = lhs.y == rhs.y;
-    return x && y;
-}
-
-inline bool operator!=(const Vector& lhs, const Vector& rhs)
-{
-    return !(lhs == rhs);
 }
 
 inline bool operator==(const Rectangle& lhs, const Rectangle& rhs)
@@ -207,12 +202,6 @@ inline float RadToDeg(float angle)
 inline float DegToRad(float angle)
 {
     return (angle / 360 ) * (tau);
-}
-
-template<typename T>
-T Random(const T& min, const T& max)
-{
-    return min + (max - min) * (rand() / T(RAND_MAX));
 }
 
 inline float VectorDistance(Vector A, Vector B)

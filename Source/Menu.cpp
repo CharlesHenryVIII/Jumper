@@ -33,7 +33,7 @@ void SwitchToMenu()
 
 void DoPlayMenu(float deltaTime, std::unordered_map<int32, Key>& keyStates, VectorInt mouseLocation)
 {
-	DrawText(g_fonts["Title"], White, "J U M P E R", 4.0f, { g_windowInfo.width / 2, g_windowInfo.height / 4 }, UIX::mid, UIY::mid);
+	DrawText(g_fonts["Title"], White, 4.0f, { g_windowInfo.width / 2, g_windowInfo.height / 4 }, UIX::mid, UIY::mid, RenderPrio::UI, "J U M P E R");
 
 	if (DrawButton(g_fonts["Main"], "Start Game", { g_windowInfo.width / 2, g_windowInfo.height / 2 },
 		UIX::mid, UIY::mid, Green, White, mouseLocation, keyStates[SDL_BUTTON_LEFT].downThisFrame) ||

@@ -380,19 +380,22 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     {
 
         if (player->grappleReady)
-            DrawText(g_fonts["Main"], Green, "Grapple Ready", 1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot);
+            DrawText(g_fonts["Main"], Green, 1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot, RenderPrio::UI, "Grapple Ready");
         else
-            DrawText(g_fonts["Main"], Red, "Grapple Ready", 1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot);
+            DrawText(g_fonts["Main"], Red,   1.0f, { g_windowInfo.width / 2, g_windowInfo.height }, UIX::mid, UIY::bot, RenderPrio::UI, "Grapple Ready");
     }
 
-    DrawText(g_fonts["Main"], Green, std::to_string(1 / deltaTime) + "fps", 1.0f, { 0, 0 }, UIX::left, UIY::top);
     if (player != nullptr)
     {
-        DrawText(g_fonts["Main"], Green, "{ " + std::to_string(player->position.x) + ", " + std::to_string(player->position.y) + " }", 0.75f, { 0, g_windowInfo.height - 60 }, UIX::left, UIY::bot);
-        DrawText(g_fonts["Main"], Green, "{ " + std::to_string(player->velocity.x) + ", " + std::to_string(player->velocity.y) + " }", 0.75f, { 0, g_windowInfo.height - 40 }, UIX::left, UIY::bot);
-        DrawText(g_fonts["Main"], Green, "{ " + std::to_string(player->acceleration.x) + ", " + std::to_string(player->acceleration.y) + " }", 0.75f, { 0, g_windowInfo.height - 20}, UIX::left, UIY::bot);
+        //std::string string = ToString("%f", player->position.x);
+        DrawText(g_fonts["Main"], Green, 0.75f, { 0, g_windowInfo.height - 60 }, UIX::left, UIY::bot, RenderPrio::UI, "{ %07.2f, %07.2f }", player->position.x,     player->position.y);
+        DrawText(g_fonts["Main"], Green, 0.75f, { 0, g_windowInfo.height - 40 }, UIX::left, UIY::bot, RenderPrio::UI, "{ %07.2f, %07.2f }", player->velocity.x,     player->velocity.y);
+        DrawText(g_fonts["Main"], Green, 0.75f, { 0, g_windowInfo.height - 20 }, UIX::left, UIY::bot, RenderPrio::UI, "{ %07.2f, %07.2f }", player->acceleration.x, player->acceleration.y);
         if (player->grapple)
-			DrawText(g_fonts["Main"], Green, "Angular Velocity: " + std::to_string(player->level->FindActor<Grapple>(player->grapple)->angularVelocity), 0.75f, { 0, g_windowInfo.height }, UIX::left, UIY::bot);
+        {
+			DrawText(g_fonts["Main"], Green, 0.75f, { 0, g_windowInfo.height }, UIX::left, UIY::bot, RenderPrio::UI, 
+                "Angular Velocity: %07.2f", player->level->FindActor<Grapple>(player->grapple)->angularVelocity);
+        }
     }
 
     if (DrawButton(g_fonts["Main"], "ESC", { g_windowInfo.width, g_windowInfo.height }, 

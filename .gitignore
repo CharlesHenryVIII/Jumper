@@ -42,3 +42,6 @@ x64/
 *.exe
 *.out
 *.app
+
+# Log Files
+*.dmp

@@ -43,3 +43,11 @@ bool StringsMatch(const std::string& a, const std::string& b)
 		return true;
 	return false;
 }
+
+std::string FloatToString(double v, int32 precision)
+{
+	size_t length = static_cast<size_t>(_scprintf("%.*f", precision, v));
+	std::string string(length, '\0');
+	sprintf_s(&string[0], length + 1, "%.*f", precision, v);
+	return string;
+}

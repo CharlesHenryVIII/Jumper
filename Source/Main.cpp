@@ -38,6 +38,8 @@ int main(int argc, char* argv[])
     g_running = true;
 	g_gameState = GameState::Game;
 
+    std::vector<float> frameTimes;
+
     CreateOpenGLWindow();
     InitializeOpenGL();
 	g_camera.size.x = 16;
@@ -57,10 +59,7 @@ int main(int argc, char* argv[])
 	g_sprites["spriteMap"] = CreateSprite("Assets/SpriteMap.png");
 	g_sprites["background"] = CreateSprite("Assets/Backgrounds/Background.png");
 	g_sprites["MainMenuBackground"] = CreateSprite("Assets/Backgrounds/MainMenuBackground.png");
-
-#if _DEBUG
 	g_sprites["Speaker"] = CreateSprite("Assets/Debug/Speaker_Small.png");
-#endif
 
     InitializeAudio();
     AddAllLevels();
@@ -83,10 +82,11 @@ int main(int argc, char* argv[])
         float deltaTime = float(totalTime - previousTime);// / 10;
         previousTime = totalTime;
 
-        if (deltaTime > 1 / 30.0f)
-        {
-            deltaTime = 1 / 30.0f;
-        }
+        deltaTime = Min(deltaTime, 1 / 30.0f);
+        //if (deltaTime > 1 / 30.0f)
+        //{
+        //    deltaTime = 1 / 30.0f;
+        //}
 
         /*********************
          *
@@ -253,6 +253,16 @@ int main(int argc, char* argv[])
 				break;
 			}
 		}
+        
+        double renderTotalTime = SDL_GetPerformanceCounter() / freq;
+        std::erase_if(frameTimes, [renderTotalTime](const float& a) 
+        {
+            return (static_cast<float>(renderTotalTime) - a> 1.0f); 
+        });
+        frameTimes.push_back(static_cast<float>(renderTotalTime));
+
+		DrawText(g_fonts["Main"], Green, 1.0f, { 0, 0 }, UIX::left, UIY::top, RenderPrio::UI, "%i fps", frameTimes.size(), 0);
+
 		RenderDrawCalls(deltaTime);
 		SDL_GL_SwapWindow(windowInfo.SDLWindow);
     }

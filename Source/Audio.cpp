@@ -25,10 +25,8 @@ struct FileData {
 };
 
 float g_volumes[(size_t)Volume::Count];
-const AudioID noID = 0;
 
 AudioID s_audioID = 0;
-
 struct AudioInstance {
 	AudioID ID = ++s_audioID;
 	std::string name;
@@ -132,91 +130,98 @@ AudioID PlayAudio(const AudioParams& audio)
 {
 	if (s_audioFiles.find(audio.nameOfSound) == s_audioFiles.end())
 	{
-		ConsoleLog("Audio file '%s' doesn't exist", audio.nameOfSound.c_str());
+		ConsoleLog(LogLevel::LogLevel_Error, "Audio file '%s' doesn't exist", audio.nameOfSound.c_str());
 		return 0;
 	}
-
-	AudioInstance* instance = new AudioInstance();
-	instance->name = audio.nameOfSound;
-	instance->audioType = s_audioFiles[audio.nameOfSound].audioType;
-	instance->volume = 1.0f;
-
-	uint32 filePlaySamples = (BytesToSamples(s_audioFiles[audio.nameOfSound].length));
-	uint32 loopDuration = audio.loopCount * filePlaySamples;
-	if (audio.loopCount == AUDIO_MAXLOOPS)
-		loopDuration = AUDIO_MAXLOOPS;
-	uint32 endSamples = SecondsToSamples(audio.secondsToPlay);
-
-	//Ending Time
-	if (audio.secondsToPlay && loopDuration) //AUDIO_DURATION && AUDIO_REPEAT
+	else if (s_audioFiles[audio.nameOfSound].buffer == nullptr)
 	{
-		instance->endSamples = Min<uint32>(endSamples, loopDuration);
-	}
-	else if (audio.secondsToPlay) //AUDIO_DURATION
-	{
-		instance->endSamples = endSamples;
-	}
-	else if (loopDuration) //AUDIO_REPEAT
-	{
-		instance->endSamples = loopDuration;
-	}
-	else //NEITHER
-	{
-		instance->endSamples = filePlaySamples;
-	}
-
-
-	//Fading
-	instance->fade = 1.0f;
-	assert(audio.fadeInDuration >= 0);
-	assert(audio.fadeOutDuration >= 0);
-	uint32 fadeInDuration = SecondsToSamples(audio.fadeInDuration);
-	uint32 fadeOutDuration = SecondsToSamples(audio.fadeOutDuration);
-	if (audio.fadeInDuration && audio.fadeOutDuration)
-	{
-
-		if (fadeInDuration + fadeOutDuration > instance->endSamples)
-		{
-			float fadeTotal = (float)fadeInDuration + fadeOutDuration;
-			float diff = fadeTotal - (float)instance->endSamples;
-			float frac = diff / fadeTotal;
-
-			instance->fadeInSamples = (uint32)(fadeInDuration - (fadeInDuration * frac) + 0.5f);
-			instance->fadeOutSamples = (uint32)(fadeOutDuration - (fadeOutDuration * frac) + 0.5f);
-
-			AUDIO_WARNING("Invalid fade values for: %s", instance->name.c_str());
-		}
-		else
-		{
-			instance->fadeInSamples = fadeInDuration;
-			instance->fadeOutSamples = fadeOutDuration;
-		}
-	}
-	else if (audio.fadeInDuration)
-	{
-
-		if (fadeInDuration > instance->endSamples)
-			instance->fadeInSamples = fadeInDuration;
-		else
-			instance->fadeInSamples = fadeInDuration;
-	}
-	else if (audio.fadeOutDuration)
-	{
-
-		instance->fade = 1.0f;
-		if (fadeOutDuration > instance->endSamples)
-			instance->fadeOutSamples = fadeOutDuration;
-		else
-			instance->fadeOutSamples = fadeOutDuration;
+		ConsoleLog(LogLevel::LogLevel_Error, "Audio file '%s' buffer not valid", audio.nameOfSound.c_str());
+		return 0;
 	}
 	else
 	{
-		instance->fadeInSamples = instance->fadeOutSamples = 0;
-	}
+		AudioInstance* instance = new AudioInstance();
+		instance->name = audio.nameOfSound;
+		instance->audioType = s_audioFiles[audio.nameOfSound].audioType;
+		instance->volume = 1.0f;
 
-	std::lock_guard<std::mutex> guard(s_audioMutex);
-	s_audioPlaying.push_back(instance);
-	return instance->ID;
+		uint32 filePlaySamples = (BytesToSamples(s_audioFiles[audio.nameOfSound].length));
+		uint32 loopDuration = audio.loopCount * filePlaySamples;
+		if (audio.loopCount == AUDIO_MAXLOOPS)
+			loopDuration = AUDIO_MAXLOOPS;
+		uint32 endSamples = SecondsToSamples(audio.secondsToPlay);
+
+		//Ending Time
+		if (audio.secondsToPlay && loopDuration) //AUDIO_DURATION && AUDIO_REPEAT
+		{
+			instance->endSamples = Min<uint32>(endSamples, loopDuration);
+		}
+		else if (audio.secondsToPlay) //AUDIO_DURATION
+		{
+			instance->endSamples = endSamples;
+		}
+		else if (loopDuration) //AUDIO_REPEAT
+		{
+			instance->endSamples = loopDuration;
+		}
+		else //NEITHER
+		{
+			instance->endSamples = filePlaySamples;
+		}
+
+
+		//Fading
+		instance->fade = 1.0f;
+		assert(audio.fadeInDuration >= 0);
+		assert(audio.fadeOutDuration >= 0);
+		uint32 fadeInDuration = SecondsToSamples(audio.fadeInDuration);
+		uint32 fadeOutDuration = SecondsToSamples(audio.fadeOutDuration);
+		if (audio.fadeInDuration && audio.fadeOutDuration)
+		{
+
+			if (fadeInDuration + fadeOutDuration > instance->endSamples)
+			{
+				float fadeTotal = (float)fadeInDuration + fadeOutDuration;
+				float diff = fadeTotal - (float)instance->endSamples;
+				float frac = diff / fadeTotal;
+
+				instance->fadeInSamples = (uint32)(fadeInDuration - (fadeInDuration * frac) + 0.5f);
+				instance->fadeOutSamples = (uint32)(fadeOutDuration - (fadeOutDuration * frac) + 0.5f);
+
+				AUDIO_WARNING("Invalid fade values for: %s", instance->name.c_str());
+			}
+			else
+			{
+				instance->fadeInSamples = fadeInDuration;
+				instance->fadeOutSamples = fadeOutDuration;
+			}
+		}
+		else if (audio.fadeInDuration)
+		{
+
+			if (fadeInDuration > instance->endSamples)
+				instance->fadeInSamples = fadeInDuration;
+			else
+				instance->fadeInSamples = fadeInDuration;
+		}
+		else if (audio.fadeOutDuration)
+		{
+
+			instance->fade = 1.0f;
+			if (fadeOutDuration > instance->endSamples)
+				instance->fadeOutSamples = fadeOutDuration;
+			else
+				instance->fadeOutSamples = fadeOutDuration;
+		}
+		else
+		{
+			instance->fadeInSamples = instance->fadeOutSamples = 0;
+		}
+
+		std::lock_guard<std::mutex> guard(s_audioMutex);
+		s_audioPlaying.push_back(instance);
+		return instance->ID;
+	}
 }
 
 AudioID PlayAudio(const std::string& nameOfSound)
@@ -253,7 +258,7 @@ CONSOLE_FUNCTIONA(c_PlayAudio)
 			{
 				StopAudio(s_consoleAudio);
 				s_consoleAudio = PlayAudio(s_audioFileNames[i]);
-				ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", s_audioFileNames[i]);
+				ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", s_audioFileNames[i].c_str());
 				break;
 			}
 		}
@@ -277,7 +282,7 @@ CONSOLE_FUNCTIONA(c_PlayAudio)
 
                 StopAudio(s_consoleAudio);
                 s_consoleAudio = PlayAudio(params);
-				ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", s_audioFileNames[i]);
+				ConsoleLog(LogLevel::LogLevel_Info, "Playing audio: %s", s_audioFileNames[i].c_str());
                 break;
             }
         }
@@ -338,44 +343,48 @@ FileData LoadWavFile(const char* fileLocation)
     const SDL_AudioSpec& driverSpec = s_driverSpec;
 
 	if (SDL_LoadWAV(fileLocation, &spec, &buffer, &length) == NULL)
+	{
 		ConsoleLog("%s\n", SDL_GetError());
-
-	SDL_AudioCVT cvt = {};
-	int32 result = SDL_BuildAudioCVT(&cvt, spec.format, spec.channels, spec.freq, driverSpec.format, driverSpec.channels, driverSpec.freq);
-	if (result < 0)
-	{
-		ConsoleLog("Failed at SDL_BuildAudioCVT for %s: %s\n", fileLocation, SDL_GetError());
-	}
-	else if (result == 0)
-	{
-		//No Conversion Required
 	}
 	else
 	{
-		SDL_assert(cvt.needed);
+		SDL_AudioCVT cvt = {};
+		int32 result = SDL_BuildAudioCVT(&cvt, spec.format, spec.channels, spec.freq, driverSpec.format, driverSpec.channels, driverSpec.freq);
+		if (result < 0)
+		{
+			ConsoleLog("Failed at SDL_BuildAudioCVT for %s: %s\n", fileLocation, SDL_GetError());
+		}
+		else if (result == 0)
+		{
+			//No Conversion Required
+		}
+		else
+		{
+			SDL_assert(cvt.needed);
 
-		cvt.len = (int32)length;
-		cvt.buf = (uint8*)SDL_malloc(cvt.len * cvt.len_mult);
-		memcpy(cvt.buf, buffer, cvt.len);
-		if (SDL_ConvertAudio(&cvt))
-			ConsoleLog("Could not change format on %s: %s\n", fileLocation, SDL_GetError());
+			cvt.len = (int32)length;
+			cvt.buf = (uint8*)SDL_malloc(cvt.len * cvt.len_mult);
+			memcpy(cvt.buf, buffer, cvt.len);
+			if (SDL_ConvertAudio(&cvt))
+				ConsoleLog("Could not change format on %s: %s\n", fileLocation, SDL_GetError());
 
-		SDL_free(buffer);
-		buffer = cvt.buf;
+			SDL_free(buffer);
+			buffer = cvt.buf;
 
-		//cvt.len_ratio is always garbage unless we build it ourselves
-		length = cvt.len_cvt;
+			//cvt.len_ratio is always garbage unless we build it ourselves
+			length = cvt.len_cvt;
 
-		spec.channels = driverSpec.channels;
-		spec.format = driverSpec.format;
-		spec.freq = driverSpec.freq;
+			spec.channels = driverSpec.channels;
+			spec.format = driverSpec.format;
+			spec.freq = driverSpec.freq;
+		}
+
+		assert(spec.channels == driverSpec.channels);
+		assert(spec.format == driverSpec.format);
+		assert(spec.freq == driverSpec.freq);
+		//assert(spec.samples == driverSpec.samples);
 	}
-
-    assert(spec.channels == driverSpec.channels);
-    assert(spec.format == driverSpec.format);
-    assert(spec.freq == driverSpec.freq);
-    assert(spec.samples == driverSpec.samples);
-	return { buffer, length};
+	return { buffer, length };
 }
 
 void UpdateStreamBuffer(float* streamBuffer, const Sample* readBuffer, const AudioInstance& instance)
@@ -387,6 +396,7 @@ void UpdateStreamBuffer(float* streamBuffer, const Sample* readBuffer, const Aud
 
 	float lvls[AUDIO_MAX_CHANNELS] = {};
 	float v = fabs(instance.pan);
+	assert(v <= 1.0f && v >= 0.0f);
 
 	if (instance.pan > 0.0f)	//Right SIde
 	{
@@ -539,10 +549,10 @@ bool AudioIDValid(AudioID ID)
 	return true;
 }
 
-void SetAudioPan(AudioID id, float v)
+void SetAudioPan(AudioID ID, float v)
 {
 	v = Clamp(v, -1.0f, 1.0f);
-	if (AudioInstance* ai = GetAudioInstance(id))
+	if (AudioInstance* ai = GetAudioInstance(ID))
 		ai->pan = v;
 }
 
@@ -565,15 +575,20 @@ void InitializeAudio()
 	SDL_AudioDeviceID audioDevice;
 
 	SDL_memset(&want, 0, sizeof(want));
-	want.freq = 44100;
+	want.freq = 48000;
 	want.format = AUDIO_S16;
 	want.channels = AUDIO_MAX_CHANNELS;
-	want.samples = 4096;
+	want.samples = 1024;//4096;
 	want.userdata = &s_driverSpec;
 	want.callback = CSH_AudioCallback;
 	//should I allow any device driver or should I prefer one like directsound?
 	audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
 	s_driverSpec = have;
+
+    assert(want.channels == have.channels);
+    assert(want.format	 == have.format  );
+    assert(want.freq	 == have.freq	 );
+    assert(want.samples  == have.samples );
 
 	if (audioDevice == 0)
 	{
@@ -605,7 +620,7 @@ void InitializeAudio()
 		s_audioFiles[a.name].audioType = a.volumeType;
 
 		if (s_audioFiles[a.name].buffer == nullptr)
-			ConsoleLog(LogLevel_Warning, "Failed to load audio: %s", a.name);
+			ConsoleLog(LogLevel_Error, "Failed to load audio: %s", a.name.c_str());
         s_audioFileNames.push_back(a.name);
 	}
 

@@ -759,7 +759,7 @@ void DrawString(Vector location, Color color, const char* text, ...)
         buffer.resize(count);
         vsnprintf(&buffer[0], buffer.size() + 1, text, write_args);
         assert(*(buffer.data() + buffer.size()) == 0);
-        DrawText(ConsoleFont(), color, buffer, s_console.font_scale, { int32(location.x), int32(location.y) }, UIX::left, UIY::bot, RenderPrio::Console);
+        DrawText(ConsoleFont(), color, s_console.font_scale, { int32(location.x), int32(location.y) }, UIX::left, UIY::bot, RenderPrio::Console, buffer.c_str());
     }
 }
 

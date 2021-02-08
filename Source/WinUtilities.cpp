@@ -2,6 +2,7 @@
 #include "Math.h"
 
 #include <Windows.h>
+#include <DbgHelp.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <cassert>
@@ -15,6 +16,35 @@ void DebugPrint(const char* fmt, ...)
     OutputDebugStringA(buffer);
     va_end(list);
 }
+
+LONG ApplicationCrashCall(_EXCEPTION_POINTERS *ExceptionInfo)
+{
+	HANDLE handle = GetCurrentProcess();
+	HANDLE file = CreateFileA("CrashLog.dmp", GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_WRITE, NULL, CREATE_ALWAYS,
+		FILE_ATTRIBUTE_NORMAL, NULL);
+	MINIDUMP_EXCEPTION_INFORMATION mei = {
+			.ThreadId = GetCurrentThreadId(),
+			.ExceptionPointers = ExceptionInfo,
+			.ClientPointers = FALSE,
+	};
+
+	MiniDumpWriteDump(handle, GetProcessId(handle), file,
+		(_MINIDUMP_TYPE)(MiniDumpNormal | MiniDumpWithDataSegs | MiniDumpWithFullMemory),
+		&mei, NULL, NULL);
+
+	CloseHandle(file);
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+
+struct PreMainInitializer {
+	PreMainInitializer()
+	{
+		SetUnhandledExceptionFilter(ApplicationCrashCall);
+
+	}
+}PreMainInitializer;
+
 
 std::vector<std::string> GetNames(std::string dir, bool appendFilePath, bool wantDir)
 {

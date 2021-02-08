@@ -149,8 +149,9 @@ FontSprite* CreateFont(const std::string& name, int32 charSize, int32 actualChar
 void BackgroundRender(Sprite* sprite, Camera* camera);
 void SpriteMapRender(Sprite* sprite, int32 i, int32 itemSize, int32 xCharSize, Vector loc);
 void SpriteMapRender(Sprite* sprite, const Block& block);
-void DrawText(FontSprite* fontSprite, Color c, const std::string& text, 
-              float size, VectorInt loc, UIX XLayout, UIY YLayout, RenderPrio prio = RenderPrio::UI);
+void DrawText(FontSprite* fontSprite, Color c, float size,
+		      VectorInt loc, UIX XLayout, UIY YLayout,
+			  RenderPrio prio, const char* fmt, ...);
 //camera space
 bool pointRectangleCollision(VectorInt point, Rectangle rect);
 bool SDLPointRectangleCollision(VectorInt point, Rectangle rect);

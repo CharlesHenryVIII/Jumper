@@ -35,13 +35,13 @@
 	- [x] Enemy Walk audio panning
 		- [x] Increase/decrease based on spead
 	- [x] Player jump audio panning
-	- [ ] Chris "Verify assumptions"
+- [x] Make DrawText() a variadic function
+- [x] pop frametimes based on age (after 1 second?)
 - [x] Case insensitve string compare
 - [ ] Continue rendering window while it is being dragged/moved
 - [ ] TRIGGER VOLUME
 - [x] load operating system files in a folder
-- [ ] Debug writing to disk for trouble shooting issues in release mode / other computers
-	- [ ] it works on my machine
+- [x] Debug writing to disk for trouble shooting issues in release mode / other computers
 
 -[ ] errors based on tags and levels
 

@@ -1,4 +1,6 @@
 #pragma once
+#include "Math.h"
+
 #include <unordered_map>
 #include <chrono>
 
@@ -7,6 +9,7 @@ typedef std::chrono::time_point<Clock, std::chrono::nanoseconds> TimePoint;
 //typedef std::chrono::duration<long long, std::nano> duration;
 typedef std::chrono::seconds Seconds;
 #define FAIL assert(false)
+#define ARRAY_COUNT(arr_) (sizeof(arr_) / sizeof(arr_[0]))
 
 enum class DebugOptions
 {
@@ -41,6 +44,7 @@ float GetTimer();
 //String Compare that is not case sensative
 bool StringsMatchi(const std::string& a, const std::string& b);
 bool StringsMatch(const std::string& a, const std::string& b);
+std::string FloatToString(double v, int32 precision = 6);
 
 #define _JMP_CONCAT(a, b) a ## b
 #define JMP_CONCAT(a, b) _JMP_CONCAT(a, b)

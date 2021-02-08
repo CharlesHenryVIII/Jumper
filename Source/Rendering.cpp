@@ -72,7 +72,6 @@ ShaderUniformInfo s_ShaderUniformInfo[] = {
     { "u_rotationMatrix", 16 }, // ShaderUniform_RotationMatrix,
     { "u_time",           1  }, // ShaderUniform_Time,
 };
-#define ARRAY_COUNT(arr_) (sizeof(arr_) / sizeof(arr_[0]))
 static_assert(ARRAY_COUNT(s_ShaderUniformInfo) == ShaderUniform_Count);
 
 class Shader
@@ -300,6 +299,8 @@ void CreateOpenGLWindow()
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	SDL_GLContext GLContext = SDL_GL_CreateContext(g_windowInfo.SDLWindow);
 	SDL_GL_MakeCurrent(g_windowInfo.SDLWindow, GLContext);
+    //VSYNC HERE:
+    SDL_GL_SetSwapInterval(1);
 
 	GLenum err = glewInit();
 	if (GLEW_OK != err)
@@ -718,7 +719,9 @@ void SpriteMapRender(Sprite* sprite, const Block& block)
 
 
 
-void DrawText(FontSprite* fontSprite, Color c, const std::string& text, float size, VectorInt loc, UIX XLayout, UIY YLayout, RenderPrio prio)
+void DrawText(FontSprite* fontSprite, Color c, float size, 
+              VectorInt loc, UIX XLayout, UIY YLayout, 
+              RenderPrio prio, const char* fmt, ...)
 {
     //ABC
     int32 CPR = fontSprite->charPerRow;
@@ -730,6 +733,15 @@ void DrawText(FontSprite* fontSprite, Color c, const std::string& text, float si
     int32 h = fontSprite->charSize;
     float width = (w * size);
     float height = (h * size);
+
+
+    va_list args;
+    va_start(args, fmt);
+
+	char buffer[4096];
+	int32 i = vsnprintf(buffer, ARRAY_COUNT(buffer), fmt, args);
+	va_end(args);
+	std::string text = std::string(buffer);
 
     for (int32 i = 0; i < text.size(); i++)
     {
@@ -810,7 +822,7 @@ bool DrawButton(FontSprite* textSprite, const std::string& text, VectorInt loc,
             result = true;
         }
     }
-    DrawText(textSprite, TC, text, 1.0f, { int32(rect.botLeft.x + rect.Width() / 2.0f), int32(rect.botLeft.y + rect.Height() / 2.0f) }, UIX::mid, UIY::mid);
+    DrawText(textSprite, TC, 1.0f, { int32(rect.botLeft.x + rect.Width() / 2.0f), int32(rect.botLeft.y + rect.Height() / 2.0f) }, UIX::mid, UIY::mid, RenderPrio::UI, text.c_str());
 	return result;
 }
 

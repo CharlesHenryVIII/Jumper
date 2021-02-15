@@ -119,6 +119,16 @@ Vector Actor::GetWorldPosition()
 	return { vec.x, vec.y };
 }
 
+//Vector Actor::GetWorldVelocity()
+//{
+//
+//}
+//
+//Vector Actor::GetWorldAcceleration()
+//{
+//
+//}
+
 void Actor::PlayAnimation(ActorState state)
 {
 	ActorType actorType = GetActorType();
@@ -302,11 +312,8 @@ void Player::OnInit()
 void CharacterCommonUpdate(Actor* actor, float deltaTime)
 {
 	actor->UpdateLocation(-60.0f, deltaTime);
-
 	CollisionWithBlocks(actor, actor->GetActorType() == ActorType::Enemy);
-
 	actor->invinciblityTime = Max(actor->invinciblityTime - deltaTime, 0.0f);
-
 	ParticleGen* g = actor->GetDustSystem();
 
 	if (actor->grounded)
@@ -339,12 +346,11 @@ void CharacterCommonUpdate(Actor* actor, float deltaTime)
 		g->system->playing = false;
 
 	UpdateAnimationIndex(actor, deltaTime);
-
 	float* timeToMakeSound = actor->GetAudioTimer();
 
 	*timeToMakeSound += deltaTime;
 	float t = 2.0f / (fabs(actor->velocity.x));//0.5f;
-	if (*timeToMakeSound >= t && g_gameState == GameState::Game && actor->grounded)
+	if (*timeToMakeSound >= t && g_applicationState == ApplicationState::Game && actor->grounded)
 	{
 		AudioParams params = {
 	.nameOfSound = "Grass",
@@ -354,6 +360,19 @@ void CharacterCommonUpdate(Actor* actor, float deltaTime)
 
 		*timeToMakeSound = 0.0f;//timeToMakeSound - t;
 	}
+}
+
+void CharacterCommonDeath(Actor* actor)
+{
+	DummyInfo info;
+	info.mimicType = actor->GetActorType();
+	Dummy* dummy = actor->level->CreateActor<Dummy>(info);
+	dummy->position = actor->position;
+	dummy->lastInputWasLeft = actor->lastInputWasLeft;
+	dummy->PlayAnimation(ActorState::Dead);
+	ParticleGen* g = actor->GetDustSystem();
+	g->inUse = false;
+	actor->inUse = false;
 }
 
 void Player::Update(float deltaTime)
@@ -389,6 +408,13 @@ ParticleGen* Player::GetDustSystem()
 float* Player::GetAudioTimer()
 {
 	return &timeToMakeSound;
+}
+
+void Player::OnDeath()
+{
+	CharacterCommonDeath(this);
+	//Player* p = level->CreateActor<Player>();
+	//p->position = { 0, 0 };
 }
 
 /*********************
@@ -451,11 +477,12 @@ void Enemy::UpdateHealth(Level& level, float deltaHealth)
 
 ParticleGen* Enemy::GetDustSystem()
 {
-	ParticleGen* g = level->FindActor<ParticleGen>(dustGenerator);
+	ParticleGen* g = this->level->FindActor<ParticleGen>(dustGenerator);
 
 	if (g == nullptr)
 	{
 		g = level->CreateActor<ParticleGen>(pp);
+		g->level = this->level;
 		g->parent = id;
 		dustGenerator = g->id;
 	}
@@ -466,6 +493,11 @@ ParticleGen* Enemy::GetDustSystem()
 float* Enemy::GetAudioTimer()
 {
 	return &timeToMakeSound;
+}
+
+void Enemy::OnDeath()
+{
+	CharacterCommonDeath(this);
 }
 
 /*********************
@@ -982,8 +1014,7 @@ void TileMap::CleanBlocks()
 //std::unordered_map<std::string, Level> levels;
 Player* FindPlayerGlobal()
 {
-	Gamestate* gs = GetGamestate();
-	for (auto& level : gs->levels)
+	for (auto& level : g_gamestate.levels)
 	{
 		Player* ptr = level.second.FindPlayer();
 		if (ptr)
@@ -1249,7 +1280,10 @@ void CollisionWithBlocks(Actor* actor, bool isEnemy)
 	if (collidedPlatform)
 	{
 		collidedPlatform->childList.push_back(actor->id);
-		actor->parent = collidedPlatform->id;
+		//actor->parent = collidedPlatform->id;
+		//actor->acceleration = actor->acceleration - collidedPlatform->acceleration;
+		//actor->velocity     = actor->velocity     - collidedPlatform->velocity;
+		//actor->position     = actor->position     - collidedPlatform->position;
 	}
 	else if (MovingPlatform* MP = actor->level->FindActor<MovingPlatform>(actor->parent))
 	{
@@ -1322,7 +1356,7 @@ uint32 CollisionWithActor(Player& player, Actor& enemy, Level& level)
 Portal* GetPortalsPointer(Portal* basePortal)
 {
 
-	Level* level = GetGamestate()->GetLevel(basePortal->levelPointer);
+	Level* level = g_gamestate.GetLevel(basePortal->levelPointer);
 	for (int32 i = 0; i < level->actors.size(); i++)
 	{
 		Actor* actor = level->actors[i];
@@ -1412,13 +1446,7 @@ void UpdateActorHealth(Level& level, Actor* actor, float deltaHealth)
 		if (actor->health == 0)
 		{
 			//TODO: put a level pointer onto each actor
-			DummyInfo info;
-			info.mimicType = actor->GetActorType();
-			Dummy* dummy = level.CreateActor<Dummy>(info);
-			dummy->position			= actor->position;
-			dummy->lastInputWasLeft	= actor->lastInputWasLeft;
-			dummy->PlayAnimation(ActorState::Dead);
-			actor->inUse = false;
+			actor->OnDeath();
 		}
 	}
 }

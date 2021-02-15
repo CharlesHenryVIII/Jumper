@@ -10,7 +10,7 @@
 
 Portal* s_levelChangePortal;
 bool s_paused;
-Gamestate s_gamestate;
+Gamestate g_gamestate;
 
 
 Level* Gamestate::GetLevel(const std::string& name)
@@ -20,24 +20,23 @@ Level* Gamestate::GetLevel(const std::string& name)
 		return &levels[name];
 	}
 
-	LoadLevel(&s_gamestate.levels[name], name);
-    return &s_gamestate.levels[name];
-}
-
-Gamestate* GetGamestate()
-{
-    return &s_gamestate;
+	LoadLevel(&g_gamestate.levels[name], name);
+    return &g_gamestate.levels[name];
 }
 
 void SwitchToGame()
 {
     ConsoleLog("Switched To Game");
-    s_gamestate = {};
+    g_gamestate = {};
     s_levelChangePortal = nullptr;
-    s_gamestate.GetLevel("Default");
-    g_gameState = GameState::Game;
+    g_applicationState = ApplicationState::Game;
     s_paused = false;
+
+    g_gamestate.currentLevel = g_gamestate.GetLevel("Default");
+    Spawner* sp = g_gamestate.currentLevel->FindActor<Spawner>();
+    g_gamestate.currentLevel->CreateActor<Player>()->position = sp->position;
 }
+
 
 
 
@@ -55,12 +54,12 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
     }
 
     //TODO: fix creating a new player makes a new player ID number;
-    if (FindPlayerGlobal() == nullptr)
-    {
-        ConsoleLog("player not found");
-    }
+    //if (FindPlayerGlobal() == nullptr)
+    //{
+    //    ConsoleLog("player not found");
+    //}
 
-    Player* player = FindPlayerGlobal();
+
 
 
 	/*********************
@@ -82,13 +81,27 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
 		mouseLocBlocks = (mouseLocationInBlocks - windowCenterInBlocks) + g_camera.position;
     }
 
+	if (keyStates[SDLK_1].downThisFrame)
+		g_debugList[DebugOptions::PlayerCollision] = !g_debugList[DebugOptions::PlayerCollision];
+	if (keyStates[SDLK_2].downThisFrame)
+		g_debugList[DebugOptions::BlockCollision] = !g_debugList[DebugOptions::BlockCollision];
+	if (keyStates[SDLK_3].downThisFrame)
+		g_debugList[DebugOptions::ClickLocation] = !g_debugList[DebugOptions::ClickLocation];
+	if (keyStates[SDLK_4].downThisFrame)
+		g_debugList[DebugOptions::PaintMethod] = !g_debugList[DebugOptions::PaintMethod];
+	if (keyStates[SDLK_5].downThisFrame)
+		g_debugList[DebugOptions::EditBlocks] = !g_debugList[DebugOptions::EditBlocks];
+
+
+
     /*********************
      *
      * Keyboard Control
      *
      ********/
 
-    if (player != nullptr)
+    Player* player = g_gamestate.currentLevel->FindPlayer();
+    if (player)
     {
         player->acceleration.x = 0;
         if (keyStates[SDLK_w].downThisFrame || keyStates[SDLK_SPACE].downThisFrame || keyStates[SDLK_UP].downThisFrame)
@@ -198,92 +211,75 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
             Grapple* grapple = player->level->FindActor<Grapple>(player->grapple);
             if (keyStates[SDL_BUTTON_LEFT].upThisFrame && grapple)
             {
-                
-                //TODO: Handle grapple not being deleted when going through a portal
-                if (grapple->grappleState == GrappleState::Attached)
-                    player->switchToLinearUpdate = true;
-                grapple->grappleState = GrappleState::Retracting;
-                player->angularUpdate = false;
-            }
-        }
-        if (keyStates[SDLK_q].downThisFrame)
-            player->grappleEnabled = !player->grappleEnabled;
-#if 0
-        if (keyStates[SDLK_0].downThisFrame)
-            SaveLevel(&cacheLevel, *player);
-        if (keyStates[SDLK_9].downThisFrame)
-            LoadLevel(&cacheLevel, *player);
-#endif
-    }
 
-	if (keyStates[SDLK_1].downThisFrame)
-		g_debugList[DebugOptions::PlayerCollision] = !g_debugList[DebugOptions::PlayerCollision];
-	if (keyStates[SDLK_2].downThisFrame)
-		g_debugList[DebugOptions::BlockCollision] = !g_debugList[DebugOptions::BlockCollision];
-	if (keyStates[SDLK_3].downThisFrame)
-		g_debugList[DebugOptions::ClickLocation] = !g_debugList[DebugOptions::ClickLocation];
-	if (keyStates[SDLK_4].downThisFrame)
-		g_debugList[DebugOptions::PaintMethod] = !g_debugList[DebugOptions::PaintMethod];
-	if (keyStates[SDLK_5].downThisFrame)
-		g_debugList[DebugOptions::EditBlocks] = !g_debugList[DebugOptions::EditBlocks];
-
-    if (s_levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
-    {
-        //remove player from new level, load player from old level, delete player from old level.
-        Level* oldLevel = s_levelChangePortal->level;
-        Level* newLevel = s_gamestate.GetLevel(s_levelChangePortal->levelPointer);
-        if (oldLevel && newLevel)
-		{
-
-            newLevel->AddActor(player);
-			std::erase_if(oldLevel->actors, [player](Actor* actor)
-			{
-				return actor == player;
-			});
-			player->position = GetPortalsPointer(s_levelChangePortal)->position;
+				//TODO: Handle grapple not being deleted when going through a portal
+				if (grapple->grappleState == GrappleState::Attached)
+					player->switchToLinearUpdate = true;
+				grapple->grappleState = GrappleState::Retracting;
+				player->angularUpdate = false;
+			}
 		}
-    }
-    s_levelChangePortal = nullptr;
+		if (keyStates[SDLK_q].downThisFrame)
+			player->grappleEnabled = !player->grappleEnabled;
+#if 0
+		if (keyStates[SDLK_0].downThisFrame)
+			SaveLevel(&cacheLevel, *player);
+		if (keyStates[SDLK_9].downThisFrame)
+			LoadLevel(&cacheLevel, *player);
+#endif
+		if (s_levelChangePortal != nullptr && keyStates[SDLK_w].downThisFrame)
+		{
+			//remove player from new level, load player from old level, delete player from old level.
+			Level* oldLevel = s_levelChangePortal->level;
+			Level* newLevel = g_gamestate.GetLevel(s_levelChangePortal->levelPointer);
+			if (oldLevel && newLevel)
+			{
 
 
-    /*********************
-     *
-     * Mouse Control
-     *
-     ********/
+				newLevel->AddActor(player);
+				std::erase_if(oldLevel->actors, [player](Actor* actor)
+				{
+					return actor == player;
+				});
+				player->position = GetPortalsPointer(s_levelChangePortal)->position;
+			}
+		}
+		s_levelChangePortal = nullptr;
 
-    laser.inUse = false;
-    if (g_debugList[DebugOptions::EditBlocks] && (keyStates[SDL_BUTTON_LEFT].down || keyStates[SDL_BUTTON_RIGHT].down) && player != nullptr)
-    {
-        Rectangle clickRect = {};
-        clickRect.botLeft = { mouseLocBlocks.x - 0.5f, mouseLocBlocks.y - 0.5f };
-        clickRect.topRight = { mouseLocBlocks.x + 0.5f, mouseLocBlocks.y + 0.5f };
-        Block* blockPointer = &player->level->blocks.GetBlock(mouseLocBlocks);
-        blockPointer->location = mouseLocBlocks;
-        blockPointer->location.x = floorf(blockPointer->location.x);
-        blockPointer->location.y = floorf(blockPointer->location.y);
+		laser.inUse = false;
+		if (g_debugList[DebugOptions::EditBlocks] && (keyStates[SDL_BUTTON_LEFT].down || keyStates[SDL_BUTTON_RIGHT].down) && player != nullptr)
+		{
+			Rectangle clickRect = {};
+			clickRect.botLeft = { mouseLocBlocks.x - 0.5f, mouseLocBlocks.y - 0.5f };
+			clickRect.topRight = { mouseLocBlocks.x + 0.5f, mouseLocBlocks.y + 0.5f };
+			Block* blockPointer = &player->level->blocks.GetBlock(mouseLocBlocks);
+			blockPointer->location = mouseLocBlocks;
+			blockPointer->location.x = floorf(blockPointer->location.x);
+			blockPointer->location.y = floorf(blockPointer->location.y);
 
-        TileType paintType;
-        if (keyStates[SDL_BUTTON_LEFT].down)
-            paintType = TileType::filled;
-        else if (keyStates[SDL_BUTTON_RIGHT].down)
-            paintType = TileType::invalid;
+			TileType paintType;
+			if (keyStates[SDL_BUTTON_LEFT].down)
+				paintType = TileType::filled;
+			else if (keyStates[SDL_BUTTON_RIGHT].down)
+				paintType = TileType::invalid;
 
-        if (g_debugList[DebugOptions::PaintMethod])
-        {
-            UpdateLaser(player, mouseLocBlocks, paintType, deltaTime);
-            blockPointer->tileType = paintType;
-            UpdateAllNeighbors(blockPointer, player->level);
-        }
-        else if (keyStates[SDL_BUTTON_LEFT].downThisFrame || keyStates[SDL_BUTTON_RIGHT].downThisFrame)
-        {
-            ProjectileInfo info;
-			info.player = player;
-			info.mouseLoc = mouseLocBlocks;
-			info.blockToBeType = paintType;
-            player->level->CreateActor<Projectile>(info);
-        }
-    }
+			if (g_debugList[DebugOptions::PaintMethod])
+			{
+				UpdateLaser(player, mouseLocBlocks, paintType, deltaTime);
+				blockPointer->tileType = paintType;
+				UpdateAllNeighbors(blockPointer, player->level);
+			}
+			else if (keyStates[SDL_BUTTON_LEFT].downThisFrame || keyStates[SDL_BUTTON_RIGHT].downThisFrame)
+			{
+				ProjectileInfo info;
+				info.player = player;
+				info.mouseLoc = mouseLocBlocks;
+				info.blockToBeType = paintType;
+				player->level->CreateActor<Projectile>(info);
+			}
+		}
+
+	}
 
     /*********************
      *
@@ -292,12 +288,53 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
      ********/
 
 
-       for (int32 i = 0; i < player->level->actors.size(); i++)
-        player->level->actors[i]->Update(deltaTime);
 
-    if (player != nullptr)
+#if 0
+	for (Actor* actor : g_gamestate.currentLevel->actors)
+		actor->Update(deltaTime);
+#elif 1
+    
+	Level* level = g_gamestate.currentLevel;
+    for (Actor* actor : level->actors)
+	    actor->Update(deltaTime);
+
+	while (level->actorsToAdd.size())
+	{
+		std::vector<Actor*> newActors = level->actorsToAdd;
+
+        for (Actor* actor : newActors)
+        {
+            level->actors.push_back(actor);
+            if (actor->GetActorType() == ActorType::Dummy)
+                int32 i = 0;
+        }
+
+		level->actorsToAdd.clear();
+        for (Actor* actor : newActors)
+			actor->Update(deltaTime);
+	}
+
+
+
+	//for (int32 j = 0; j < level->actorsToAdd.size(); j++)
+	//	level->actors.push_back(level->actorsToAdd[j]);
+//      if (level->actorsToAdd.size())
+//      {
+//          level->actorsToAdd.clear();
+//          update = true;
+//      }
+
+
+
+#else
+	for (int32 i = 0; i < g_gamestate.currentLevel->actors.size(); i++)
+		g_gamestate.currentLevel->actors[i]->Update(deltaTime);
+#endif
+
+
+    if (g_gamestate.currentLevel && player)
     {
-        for (Actor* actor : player->level->actors)
+        for (Actor* actor : g_gamestate.currentLevel->actors)
         {
             switch (actor->GetActorType())
             {
@@ -339,14 +376,14 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         }
     }
     
-    for (ActorID ID : player->level->movingPlatforms)
+    for (ActorID ID : g_gamestate.currentLevel->movingPlatforms)
     {
-        if (MovingPlatform* MP = player->level->FindActor<MovingPlatform>(ID))
+        if (MovingPlatform* MP = g_gamestate.currentLevel->FindActor<MovingPlatform>(ID))
         {
 			for (ActorID item : MP->childList)
 			{
 
-                Actor* child = player->level->FindActorGeneric(item);
+                Actor* child = g_gamestate.currentLevel->FindActorGeneric(item);
 				assert(child);
 				if (child)
 					child->position += MP->deltaPosition;
@@ -369,12 +406,12 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         g_camera.position.x = player->position.x + (player->GameWidth() / 2.0f);
         g_camera.position.y = player->position.y + (player->GameHeight() / 2.0f);
         g_camera.level = player->level;
+		RenderLaser();
     }
     
-    RenderBlocks(&g_camera.level->blocks);
-    RenderActors(&g_camera.level->actors);
-    RenderLaser();
-    RenderMovingPlatforms(g_camera.level);
+    RenderBlocks(&g_gamestate.currentLevel->blocks);
+    RenderActors(&g_gamestate.currentLevel->actors);
+    RenderMovingPlatforms(g_gamestate.currentLevel);
 
     if (player != nullptr && player->grappleEnabled)
     {
@@ -391,7 +428,7 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
         DrawText(g_fonts["Main"], Green, 0.75f, { 0, g_windowInfo.height - 60 }, UIX::left, UIY::bot, RenderPrio::UI, "{ %07.2f, %07.2f }", player->position.x,     player->position.y);
         DrawText(g_fonts["Main"], Green, 0.75f, { 0, g_windowInfo.height - 40 }, UIX::left, UIY::bot, RenderPrio::UI, "{ %07.2f, %07.2f }", player->velocity.x,     player->velocity.y);
         DrawText(g_fonts["Main"], Green, 0.75f, { 0, g_windowInfo.height - 20 }, UIX::left, UIY::bot, RenderPrio::UI, "{ %07.2f, %07.2f }", player->acceleration.x, player->acceleration.y);
-        if (player->grapple)
+        if (player->grapple != ActorID::Invalid)
         {
 			DrawText(g_fonts["Main"], Green, 0.75f, { 0, g_windowInfo.height }, UIX::left, UIY::bot, RenderPrio::UI, 
                 "Angular Velocity: %07.2f", player->level->FindActor<Grapple>(player->grapple)->angularVelocity);
@@ -403,11 +440,9 @@ void DoPlayGame(float deltaTime, std::unordered_map<int32, Key>& keyStates, Vect
                     || keyStates[SDLK_ESCAPE].downThisFrame)
         s_paused = !s_paused;
 
-	//Present Screen
-	Level* playerLevel = player->level;
-	if (playerLevel)
+	if (Level* level = g_gamestate.currentLevel)
 	{
-		std::erase_if(playerLevel->actors, [](Actor* p) {
+		std::erase_if(level->actors, [](Actor* p) {
 			if (!p->inUse)
 			{
 				delete p;

@@ -14,8 +14,8 @@ void SwitchToGame();
 struct Gamestate {
     
 	std::unordered_map<std::string, Level> levels;
+	Level* currentLevel = nullptr;
     Level* GetLevel(const std::string& name);
 };
 
-Gamestate* GetGamestate();
-
+extern Gamestate g_gamestate;

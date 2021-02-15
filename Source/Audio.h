@@ -40,6 +40,8 @@ AudioID PlayAudio(const std::string& nameOfSound);
 void PauseAudio(AudioID ID);
 void UnPauseAudio(AudioID ID);
 
+void CloseAudioThread();
+
 void StopAudio(AudioID& ID);
 
 void EraseAudioIDs();

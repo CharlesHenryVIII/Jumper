@@ -28,6 +28,11 @@
         },
 
         {
+            "Name" : "Menu_Synthwave",
+            "VolumeType" : "Music"
+        },
+		
+        {
             "Name" : "Punched",
             "VolumeType" : "Effect"
         }

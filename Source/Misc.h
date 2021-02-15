@@ -30,13 +30,13 @@ struct Key
 	bool upThisFrame;
 };
 
-enum class GameState
+enum class ApplicationState
 {
     none,
     MainMenu,
     Game,
 };
-extern GameState g_gameState;
+extern ApplicationState g_applicationState;
 extern bool g_running;
 extern std::unordered_map<DebugOptions, bool> g_debugList;
 

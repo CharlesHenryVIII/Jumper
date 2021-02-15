@@ -60,6 +60,7 @@ struct AudioInstance {
 
 
 SDL_AudioSpec s_driverSpec;
+SDL_AudioDeviceID s_audioDevice;
 std::unordered_map<std::string, FileData> s_audioFiles;
 std::vector<AudioInstance*> s_audioPlaying;
 std::vector<AudioID> s_audioMarkedForDeletion;
@@ -443,6 +444,10 @@ float FadeOut(const AudioInstance& i)
 	return Clamp<float>((((float)i.endSamples - i.playedSamples) / i.fadeOutSamples), 0.0f, 1.0f);
 }
 
+void CloseAudioThread()
+{
+	SDL_CloseAudioDevice(s_audioDevice);
+}
 
 std::vector<float> s_streamBuffer;
 void CSH_AudioCallback(void* userdata, Uint8* stream, int len)
@@ -572,7 +577,6 @@ void SetAudioVolume(const AudioID& ID, float volume)
 void InitializeAudio()
 {
 	SDL_AudioSpec want, have;
-	SDL_AudioDeviceID audioDevice;
 
 	SDL_memset(&want, 0, sizeof(want));
 	want.freq = 48000;
@@ -582,7 +586,7 @@ void InitializeAudio()
 	want.userdata = &s_driverSpec;
 	want.callback = CSH_AudioCallback;
 	//should I allow any device driver or should I prefer one like directsound?
-	audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+	s_audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
 	s_driverSpec = have;
 
     assert(want.channels == have.channels);
@@ -590,7 +594,7 @@ void InitializeAudio()
     assert(want.freq	 == have.freq	 );
     assert(want.samples  == have.samples );
 
-	if (audioDevice == 0)
+	if (s_audioDevice == 0)
 	{
 		ConsoleLog("Failed to open audio: %s", SDL_GetError());
 	}
@@ -600,7 +604,7 @@ void InitializeAudio()
 			ConsoleLog("Audio format is not what was requested");
 
 		assert(have.format == want.format);
-		SDL_PauseAudioDevice(audioDevice, 0); /* start audio playing. */
+		SDL_PauseAudioDevice(s_audioDevice, 0); /* start audio playing. */
 		//SDL_Delay(1000); /* let the audio callback play some sound for 1 seconds. */
 
 		//SDL_CloseAudioDevice(audioDevice);

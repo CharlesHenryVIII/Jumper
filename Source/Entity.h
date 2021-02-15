@@ -38,6 +38,7 @@ enum class ActorType
     Grapple,
     AudioPlayer,
     ParticleGen,
+    Spawner,
     Item,
     Count
 };
@@ -208,6 +209,7 @@ public:
     virtual ActorType GetActorType() = 0;
     virtual struct ParticleGen* GetDustSystem() { return nullptr; };
     virtual float* GetAudioTimer() { return nullptr; };
+    virtual void OnDeath() { };
     float PixelToGameRatio()
     {
         assert(animationList->colRect.Width());
@@ -232,6 +234,8 @@ public:
     }
     gbMat4 GetWorldMatrix();
     Vector GetWorldPosition();
+    //Vector GetWorldVelocity();
+    //Vector GetWorldAcceleration();
 
 	//Vector GetWorldVelocity()
 	//{
@@ -285,6 +289,7 @@ struct Player : public Actor
     void UpdateHealth(Level& level, float deltaHealth) override;
     struct ParticleGen* GetDustSystem() override;
     float* GetAudioTimer() override;
+    void OnDeath() override;
 };
 
 struct Enemy : public Actor
@@ -303,6 +308,7 @@ struct Enemy : public Actor
     void UpdateHealth(Level& level, float deltaHealth) override;
     struct ParticleGen* GetDustSystem() override;
     float* GetAudioTimer() override;
+    void OnDeath() override;
 };
 
 struct Projectile : public Actor
@@ -423,6 +429,16 @@ struct ParticleGen : public Actor
     void UpdateHealth(Level& level, float deltaHealth) override {};
 };
 
+struct Spawner : public Actor
+{
+    ACTOR_TYPE(Spawner);
+
+    void OnInit() {}
+    void Update(float deltaTime) {}
+    void Render() {}
+    void UpdateHealth(Level& level, float deltaHealth) {}
+};
+
 struct Item : public Actor
 {
     ACTOR_TYPE(Item);
@@ -487,8 +503,14 @@ private:
 
 public:
 
+    Level()
+    {
+        int32 i = 0;
+    }
+
     std::string name;
     std::vector<Actor*> actors;
+    std::vector<Actor*> actorsToAdd;
     std::vector<ActorID> movingPlatforms;
     TileMap blocks;
     ActorID playerID;
@@ -499,7 +521,7 @@ public:
     Type* CreateActor(const Info& thing = {})
     {
         Type* t = new Type();
-        actors.push_back(t);
+        actorsToAdd.push_back(t);
         t->level = this;
         if constexpr(std::is_same_v<Info, NullInfo>)
 			t->OnInit();
@@ -515,6 +537,23 @@ public:
         T* a = (T*)FindActorInternal(id);
 		if (a && a->GetActorType() == T::s_type)
 			return static_cast<T*>(a);
+		return nullptr;
+	}
+
+    //TODO: Dont do this
+	template <typename T>
+	T* FindActor()
+	{
+		for (auto& actor : actors)
+		{
+			if (actor->GetActorType() == T::s_type)
+				return static_cast<T*>(actor);
+		}
+		for (auto& actor : actorsToAdd)
+		{
+			if (actor->GetActorType() == T::s_type)
+				return static_cast<T*>(actor);
+		}
 		return nullptr;
 	}
 
@@ -538,7 +577,7 @@ public:
 
     void AddActor(Actor* actor)
     {
-        actors.push_back(actor);
+        actorsToAdd.push_back(actor);
         actor->level = this;
     }
 };
@@ -552,7 +591,7 @@ public:
 
 
 
-Player* FindPlayerGlobal();
+//Player* FindPlayerGlobal();
 TileType CheckColor(SDL_Color color);
 Color GetTileMapColor(const Block& block);
 //void SaveLevel(Level* level, Player& player);

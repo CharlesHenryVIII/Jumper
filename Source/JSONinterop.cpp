@@ -144,9 +144,10 @@ void CreateLevel(Level* level, const std::string& name)
 		{
 			// Do Player Stuff
 
-			Player* player = level->CreateActor<Player>();
-			player->position = loc;
-			int32 a = 0;
+			Spawner* s = level->CreateActor<Spawner>();
+			//Player* player = level->CreateActor<Player>();
+			//player->position = loc;
+			//int32 a = 0;
 		}
 		else if (type == "EnemyType")
 		{
@@ -216,6 +217,9 @@ void CreateLevel(Level* level, const std::string& name)
 			}
 		}
 	}
+	for (Actor* actor : level->actorsToAdd)
+		level->actors.push_back(actor);
+	level->actorsToAdd.clear();
 	level->blocks.UpdateAllBlocks();
 }
 
@@ -236,6 +240,7 @@ void LoadLevel(Level* level, const std::string& name)
 		*level = s_levels[name];
 		level->movingPlatforms.clear();
 		level->actors.clear();
+		level->actorsToAdd.clear();
 		level->playerID = ActorID::Invalid;
 		for (Actor* actor : s_levels[name].actors)
 		{

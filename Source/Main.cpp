@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
     std::unordered_map<int32, Key> keyStates;
     VectorInt mouseLocation;
     g_running = true;
-	g_gameState = GameState::Game;
+	g_applicationState = ApplicationState::Game;
 
     std::vector<float> frameTimes;
 
@@ -240,14 +240,14 @@ int main(int argc, char* argv[])
          *
          ********/
 
-		switch (g_gameState)
+		switch (g_applicationState)
 		{
-			case GameState::MainMenu:
+			case ApplicationState::MainMenu:
 			{
 				DoPlayMenu(deltaTime, keyStates, mouseLocation);
 				break;
 			}
-			case GameState::Game:
+			case ApplicationState::Game:
 			{
 				DoPlayGame(deltaTime, keyStates, mouseLocation);
 				break;
@@ -266,6 +266,7 @@ int main(int argc, char* argv[])
 		RenderDrawCalls(deltaTime);
 		SDL_GL_SwapWindow(windowInfo.SDLWindow);
     }
+    CloseAudioThread();
 
     return 0;
 }
